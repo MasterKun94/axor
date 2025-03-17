@@ -50,9 +50,10 @@ public sealed interface LongObjectMap<V> extends Map<Long, V>
     V remove(long key);
 
     /**
-     * Gets an iterable to traverse over the primitive entries contained in this map. As an optimization,
-     * the {@link PrimitiveEntry}s returned by the {@link Iterator} may change as the {@link Iterator}
-     * progresses. The caller should not rely on {@link PrimitiveEntry} key/value stability.
+     * Gets an iterable to traverse over the primitive entries contained in this map. As an
+     * optimization, the {@link PrimitiveEntry}s returned by the {@link Iterator} may change as the
+     * {@link Iterator} progresses. The caller should not rely on {@link PrimitiveEntry} key/value
+     * stability.
      */
     Iterable<PrimitiveEntry<V>> entries();
 

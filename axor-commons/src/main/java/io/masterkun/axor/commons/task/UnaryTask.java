@@ -8,12 +8,15 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * A wrapper class for an {@link AsyncTask} that provides additional functionality to handle task execution and failure.
+ * A wrapper class for an {@link AsyncTask} that provides additional functionality to handle task
+ * execution and failure.
  * <p>
- * This class ensures that the wrapped task is executed only once, and it can optionally ignore failures by completing
- * the future with a default value. If the task fails and failures are not ignored, the future is completed exceptionally.
+ * This class ensures that the wrapped task is executed only once, and it can optionally ignore
+ * failures by completing the future with a default value. If the task fails and failures are not
+ * ignored, the future is completed exceptionally.
  * <p>
- * The class also logs warnings when tasks fail, providing detailed information if debug logging is enabled.
+ * The class also logs warnings when tasks fail, providing detailed information if debug logging is
+ * enabled.
  */
 class UnaryTask implements AsyncTask {
     private static final Logger LOG = LoggerFactory.getLogger(UnaryTask.class);

@@ -38,7 +38,8 @@ public final class MathUtil {
 
     /**
      * Fast method of finding the next power of 2 greater than or equal to the supplied value.
-     * <p>This method will do runtime bounds checking and call {@link #findNextPositivePowerOfTwo(int)} if within a
+     * <p>This method will do runtime bounds checking and call
+     * {@link #findNextPositivePowerOfTwo(int)} if within a
      * valid range.
      *
      * @param value from which to search for next power of 2
@@ -50,17 +51,19 @@ public final class MathUtil {
      * </ul>
      */
     public static int safeFindNextPositivePowerOfTwo(final int value) {
-        return value <= 0 ? 1 : value >= 0x40000000 ? 0x40000000 : findNextPositivePowerOfTwo(value);
+        return value <= 0 ? 1 : value >= 0x40000000 ? 0x40000000 :
+                findNextPositivePowerOfTwo(value);
     }
 
     /**
-     * Determine if the requested {@code index} and {@code length} will fit within {@code capacity}.
+     * Determine if the requested {@code index} and {@code length} will fit within
+     * {@code capacity}.
      *
      * @param index    The starting index.
      * @param length   The length which will be utilized (starting from {@code index}).
      * @param capacity The capacity that {@code index + length} is allowed to be within.
-     * @return {@code false} if the requested {@code index} and {@code length} will fit within {@code capacity}.
-     * {@code true} if this would result in an index out of bounds exception.
+     * @return {@code false} if the requested {@code index} and {@code length} will fit within
+     * {@code capacity}. {@code true} if this would result in an index out of bounds exception.
      */
     public static boolean isOutOfBounds(int index, int length, int capacity) {
         return (index | length | capacity | (index + length) | (capacity - (index + length))) < 0;
@@ -71,9 +74,8 @@ public final class MathUtil {
      *
      * @param x the first {@code int} to compare
      * @param y the second {@code int} to compare
-     * @return the value {@code 0} if {@code x == y};
-     * {@code -1} if {@code x < y}; and
-     * {@code 1} if {@code x > y}
+     * @return the value {@code 0} if {@code x == y}; {@code -1} if {@code x < y}; and {@code 1} if
+     * {@code x > y}
      */
     public static int compare(final int x, final int y) {
         // do not subtract for comparison, it could overflow

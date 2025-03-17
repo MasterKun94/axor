@@ -12,8 +12,8 @@ import java.util.concurrent.CompletableFuture;
  * A class that manages and executes a set of asynchronous tasks with dependencies.
  * <p>
  * This class implements both the {@link DependencyTaskRegistry} and {@link AsyncTask} interfaces,
- * allowing it to register tasks and execute them in an order that respects their dependencies.
- * The tasks are represented by instances of {@link DependencyTask}, which can define upstream
+ * allowing it to register tasks and execute them in an order that respects their dependencies. The
+ * tasks are represented by instances of {@link DependencyTask}, which can define upstream
  * dependencies. The execution of tasks is managed using {@link CompletableFuture} to handle
  * asynchronous operations.
  *
@@ -47,7 +47,8 @@ public class DependencyTaskRegistryRunner implements DependencyTaskRegistry, Asy
             for (String downstream : task.dependencyDownstream()) {
                 List<String> dependencyList = dependencies.get(downstream);
                 if (dependencyList == null) {
-                    throw new RuntimeException("Dependency downstream " + downstream + " not found");
+                    throw new RuntimeException("Dependency downstream " + downstream + " not " +
+                            "found");
                 }
                 dependencyList.add(taskName);
             }

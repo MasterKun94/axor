@@ -5,14 +5,13 @@ import java.util.List;
 /**
  * Abstract base class for tasks that can have dependencies on other tasks.
  * <p>
- * This class implements the {@link AsyncTask} interface, providing a foundation for
- * creating tasks that can be executed asynchronously. Each task is identified by a unique
- * name and can define downstream dependencies, which are tasks that should be executed
- * after this task.
+ * This class implements the {@link AsyncTask} interface, providing a foundation for creating tasks
+ * that can be executed asynchronously. Each task is identified by a unique name and can define
+ * downstream dependencies, which are tasks that should be executed after this task.
  * <p>
- * Subclasses must implement the {@link #name()} method to provide a unique name for the task.
- * The {@link #dependencyDownstream()} method can be overridden to specify the names of
- * downstream tasks, but it defaults to an empty list if not overridden.
+ * Subclasses must implement the {@link #name()} method to provide a unique name for the task. The
+ * {@link #dependencyDownstream()} method can be overridden to specify the names of downstream
+ * tasks, but it defaults to an empty list if not overridden.
  *
  * @see AsyncTask
  */

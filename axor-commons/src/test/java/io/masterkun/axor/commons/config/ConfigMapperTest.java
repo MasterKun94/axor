@@ -57,8 +57,10 @@ public class ConfigMapperTest {
         assertArrayEquals(new Double[]{14.0, 15.0}, test.a14.toArray());
         assertArrayEquals(new Float[]{15.0f, 16.0f}, test.a15.toArray());
         assertArrayEquals(new Boolean[]{true, false}, test.a16.toArray());
-        assertArrayEquals(new ConfigMemorySize[]{ConfigMemorySize.ofBytes(17 * 1024 * 1024), ConfigMemorySize.ofBytes(0)}, test.a17.toArray());
-        assertArrayEquals(new Duration[]{Duration.ofMinutes(18), Duration.ofSeconds(19)}, test.a18.toArray());
+        assertArrayEquals(new ConfigMemorySize[]{ConfigMemorySize.ofBytes(17 * 1024 * 1024),
+                ConfigMemorySize.ofBytes(0)}, test.a17.toArray());
+        assertArrayEquals(new Duration[]{Duration.ofMinutes(18), Duration.ofSeconds(19)},
+                test.a18.toArray());
         assertArrayEquals(new TestEnum[]{TestEnum.B, TestEnum.C}, test.a19.toArray());
         assertNull(test.testNull);
         assertEquals("value", test.testElse);
@@ -69,6 +71,9 @@ public class ConfigMapperTest {
 
     public enum TestEnum {
         A, B, C;
+    }
+
+    private record TestRecord1(String value, int value2) {
     }
 
     public record TestRecord(

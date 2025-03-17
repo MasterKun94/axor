@@ -3,11 +3,12 @@ package io.masterkun.axor.commons;
 public class RuntimeUtil {
     /**
      * Appends a simple string representation of the given throwable to the provided StringBuilder.
-     * The representation includes the simple name of the throwable's class, its localized message (if any),
-     * and its cause (if any), recursively formatted in the same way.
+     * The representation includes the simple name of the throwable's class, its localized message
+     * (if any), and its cause (if any), recursively formatted in the same way.
      *
      * @param throwable the Throwable to be converted to a simple string
-     * @param builder   the StringBuilder to which the simple string representation will be appended
+     * @param builder   the StringBuilder to which the simple string representation will be
+     *                  appended
      */
     private static void toSimpleString(Throwable throwable, StringBuilder builder) {
         builder.append(throwable.getClass().getSimpleName());

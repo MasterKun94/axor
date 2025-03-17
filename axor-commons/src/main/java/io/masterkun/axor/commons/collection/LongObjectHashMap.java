@@ -27,10 +27,10 @@ import java.util.Set;
 import static io.masterkun.axor.commons.MathUtil.safeFindNextPositivePowerOfTwo;
 
 /**
- * A hash map implementation of {@link LongObjectMap} that uses open addressing for keys.
- * To minimize the memory footprint, this class uses open addressing rather than chaining.
- * Collisions are resolved using linear probing. Deletions implement compaction, so cost of
- * remove can approach O(N) for full maps, which makes a small loadFactor recommended.
+ * A hash map implementation of {@link LongObjectMap} that uses open addressing for keys. To
+ * minimize the memory footprint, this class uses open addressing rather than chaining. Collisions
+ * are resolved using linear probing. Deletions implement compaction, so cost of remove can approach
+ * O(N) for full maps, which makes a small loadFactor recommended.
  *
  * @param <V> The value type stored in the map.
  */
@@ -48,8 +48,8 @@ public non-sealed class LongObjectHashMap<V> implements LongObjectMap<V> {
     public static final float DEFAULT_LOAD_FACTOR = 0.5f;
 
     /**
-     * Placeholder for null values, so we can use the actual null to mean available.
-     * (Better than using a placeholder for available: less references for GC processing.)
+     * Placeholder for null values, so we can use the actual null to mean available. (Better than
+     * using a placeholder for available: less references for GC processing.)
      */
     private static final Object NULL_VALUE = new Object();
     /**
@@ -373,7 +373,8 @@ public non-sealed class LongObjectHashMap<V> implements LongObjectMap<V> {
      * Returns the hashed index for the given key.
      */
     private int hashIndex(long key) {
-        // The array lengths are always a power of two, so we can use a bitmask to stay inside the array bounds.
+        // The array lengths are always a power of two, so we can use a bitmask to stay inside
+        // the array bounds.
         return hashCode(key) & mask;
     }
 
@@ -381,7 +382,8 @@ public non-sealed class LongObjectHashMap<V> implements LongObjectMap<V> {
      * Get the next sequential index after {@code index} and wraps if necessary.
      */
     private int probeNext(int index) {
-        // The array lengths are always a power of two, so we can use a bitmask to stay inside the array bounds.
+        // The array lengths are always a power of two, so we can use a bitmask to stay inside
+        // the array bounds.
         return (index + 1) & mask;
     }
 
@@ -511,8 +513,8 @@ public non-sealed class LongObjectHashMap<V> implements LongObjectMap<V> {
     }
 
     /**
-     * Helper method called by {@link #toString()} in order to convert a single map key into a string.
-     * This is protected to allow subclasses to override the appearance of a given key.
+     * Helper method called by {@link #toString()} in order to convert a single map key into a
+     * string. This is protected to allow subclasses to override the appearance of a given key.
      */
     protected String keyToString(long key) {
         return Long.toString(key);
@@ -594,9 +596,11 @@ public non-sealed class LongObjectHashMap<V> implements LongObjectMap<V> {
     }
 
     /**
-     * Iterator over primitive entries. Entry key/values are overwritten by each call to {@link #next()}.
+     * Iterator over primitive entries. Entry key/values are overwritten by each call to
+     * {@link #next()}.
      */
-    private final class PrimitiveIterator implements Iterator<PrimitiveEntry<V>>, PrimitiveEntry<V> {
+    private final class PrimitiveIterator implements Iterator<PrimitiveEntry<V>>,
+            PrimitiveEntry<V> {
         private int prevIndex = -1;
         private int nextIndex = -1;
         private int entryIndex = -1;
@@ -636,9 +640,12 @@ public non-sealed class LongObjectHashMap<V> implements LongObjectMap<V> {
                 throw new IllegalStateException("next must be called before each remove.");
             }
             if (removeAt(prevIndex)) {
-                // removeAt may move elements "back" in the array if they have been displaced because their spot in the
-                // array was occupied when they were inserted. If this occurs then the nextIndex is now invalid and
-                // should instead point to the prevIndex which now holds an element which was "moved back".
+                // removeAt may move elements "back" in the array if they have been displaced
+                // because their spot in the
+                // array was occupied when they were inserted. If this occurs then the nextIndex
+                // is now invalid and
+                // should instead point to the prevIndex which now holds an element which was
+                // "moved back".
                 nextIndex = prevIndex;
             }
             prevIndex = -1;
