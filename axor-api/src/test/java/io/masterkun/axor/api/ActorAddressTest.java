@@ -19,7 +19,8 @@ public class ActorAddressTest {
 
         Assert.assertEquals(address, ActorAddress.create(address.toString()));
 
-        Assert.assertThrows(IllegalArgumentException.class, () -> ActorAddress.create("test", "localhost", 123, "name.123"));
+        Assert.assertThrows(IllegalArgumentException.class, () -> ActorAddress.create("test",
+                "localhost", 123, "name.123"));
     }
 
 }

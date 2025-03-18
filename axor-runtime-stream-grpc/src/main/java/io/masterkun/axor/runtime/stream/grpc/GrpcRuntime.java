@@ -31,6 +31,7 @@ import io.masterkun.axor.runtime.StreamChannel;
 import io.masterkun.axor.runtime.StreamDefinition;
 import io.masterkun.axor.runtime.StreamInChannel;
 import io.masterkun.axor.runtime.stream.grpc.proto.KActorProto.ResStatus;
+import org.jetbrains.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -89,6 +90,11 @@ public class GrpcRuntime {
         return serverStreamDefKey;
     }
 
+    @VisibleForTesting
+    MethodDescriptor<InputStream, ResStatus> getMethodDescriptor() {
+        return methodDescriptor;
+    }
+
     public String getServiceName() {
         return serviceName;
     }
@@ -104,7 +110,8 @@ public class GrpcRuntime {
                                                           StreamChannel.Observer observer) {
         channel = ClientInterceptors.intercept(channel, new ClientInterceptor() {
             @Override
-            public <ReqT, RespT> ClientCall<ReqT, RespT> interceptCall(MethodDescriptor<ReqT, RespT> method,
+            public <ReqT, RespT> ClientCall<ReqT, RespT> interceptCall(MethodDescriptor<ReqT,
+                                                                               RespT> method,
                                                                        CallOptions callOptions,
                                                                        Channel next) {
                 try (var ignored = createContext()) {
@@ -133,7 +140,7 @@ public class GrpcRuntime {
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private static class ResObserverAdaptor implements StreamObserver<InputStream> {
+    static class ResObserverAdaptor implements StreamObserver<InputStream> {
         private final EventDispatcher executor;
         private final StreamChannel.StreamObserver open;
         private final MethodDescriptor.Marshaller<?> msgMarshaller;
@@ -151,6 +158,11 @@ public class GrpcRuntime {
             done = false;
         }
 
+        @VisibleForTesting
+        void setDone(boolean done) {
+            this.done = done;
+        }
+
         @Override
         public void onNext(InputStream value) {
             assert executor.inExecutor();
@@ -159,6 +171,9 @@ public class GrpcRuntime {
 
         @Override
         public void onError(Throwable t) {
+            if (done) {
+                return;
+            }
             try {
                 assert executor.inExecutor();
                 done = true;
@@ -187,12 +202,13 @@ public class GrpcRuntime {
         }
     }
 
-    private static class ReqObserverAdaptor<T> implements StreamChannel.StreamObserver<T> {
+    static class ReqObserverAdaptor<T> implements StreamChannel.StreamObserver<T> {
         private final StreamObserver<InputStream> req;
         private final MethodDescriptor.Marshaller<T> marshaller;
         private boolean done;
 
-        public ReqObserverAdaptor(StreamObserver<InputStream> req, MethodDescriptor.Marshaller<T> marshaller) {
+        public ReqObserverAdaptor(StreamObserver<InputStream> req,
+                                  MethodDescriptor.Marshaller<T> marshaller) {
             this.req = req;
             this.marshaller = marshaller;
             done = false;
@@ -220,7 +236,7 @@ public class GrpcRuntime {
         }
     }
 
-    private static class ResStatusObserver implements StreamObserver<ResStatus> {
+    static class ResStatusObserver implements StreamObserver<ResStatus> {
         private final StreamDefinition<?> remoteDefinition;
         private final StreamDefinition<?> selfDefinition;
         private final StreamChannel.Observer observer;
@@ -282,7 +298,7 @@ public class GrpcRuntime {
         }
     }
 
-    private class StreamService implements BindableService {
+    class StreamService implements BindableService {
 
         private StreamObserver<InputStream> call(StreamObserver<ResStatus> resObserver) {
             Metadata headers = METADATA_TL.get();
@@ -363,7 +379,8 @@ public class GrpcRuntime {
                     .build();
             return ServerInterceptors.intercept(serverServiceDefinition, new ServerInterceptor() {
                 @Override
-                public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(ServerCall<ReqT, RespT> call,
+                public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(ServerCall<ReqT,
+                                                                                     RespT> call,
                                                                              Metadata headers,
                                                                              ServerCallHandler<ReqT, RespT> next) {
                     METADATA_TL.set(headers);

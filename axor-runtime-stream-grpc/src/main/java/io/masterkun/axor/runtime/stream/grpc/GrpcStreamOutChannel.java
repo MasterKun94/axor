@@ -24,7 +24,8 @@ public class GrpcStreamOutChannel<T> implements StreamOutChannel<T> {
     }
 
     @Override
-    public <OUT> StreamObserver<OUT> open(StreamDefinition<OUT> to, EventDispatcher executor, Observer observer) {
+    public <OUT> StreamObserver<OUT> open(StreamDefinition<OUT> to, EventDispatcher executor,
+                                          Observer observer) {
         HostAndPort key = HostAndPort.fromParts(to.address().host(), to.address().port());
         Channel channel = channelPool.getChannel(key);
         return runtime.clientCall(channel, selfDefinition, to, executor, observer);

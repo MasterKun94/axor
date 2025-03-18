@@ -9,7 +9,8 @@ import java.util.Arrays;
 import java.util.Objects;
 
 public final class MetaInfo {
-    public static final MetaInfo EMPTY = new MetaInfo(IntCollections.unmodifiableMap(IntCollections.emptyMap()));
+    public static final MetaInfo EMPTY =
+            new MetaInfo(IntCollections.unmodifiableMap(IntCollections.emptyMap()));
 
     private final IntObjectMap<BytesHolder> map;
 

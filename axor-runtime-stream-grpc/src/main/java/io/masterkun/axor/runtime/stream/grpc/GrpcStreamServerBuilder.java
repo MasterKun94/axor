@@ -83,7 +83,8 @@ public class GrpcStreamServerBuilder extends ForwardingServerBuilder<GrpcStreamS
     }
 
     @Override
-    public GrpcStreamServerBuilder useTransportSecurity(InputStream certChain, InputStream privateKey) {
+    public GrpcStreamServerBuilder useTransportSecurity(InputStream certChain,
+                                                        InputStream privateKey) {
         securityEnabled = true;
         return super.useTransportSecurity(certChain, privateKey);
     }

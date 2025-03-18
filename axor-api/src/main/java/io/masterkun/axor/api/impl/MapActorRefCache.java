@@ -109,7 +109,8 @@ public class MapActorRefCache implements ActorRefCache, HasMeter {
                         m -> m.values().stream()
                                 .mapToInt(e -> {
                                     RemoteActorRef<?> get = e.get();
-                                    return get == null ? 0 : get.getStreamManager().getActiveStreamsOut();
+                                    return get == null ? 0 :
+                                            get.getStreamManager().getActiveStreamsOut();
                                 })
                                 .sum())
                 .description("Number of active streams out")

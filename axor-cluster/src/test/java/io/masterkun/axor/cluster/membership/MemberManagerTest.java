@@ -43,14 +43,16 @@ public class MemberManagerTest {
     public static void setUpBeforeClass() {
         idGenerator = new MemberIdGenerator(0, 0);
         MemberManageConfig config = new MemberManageConfig(0.8, 10);
-        manager = new MemberManager(selfId = idGenerator.nextId(), ActorRef.noSender(), config, failures::add);
+        manager = new MemberManager(selfId = idGenerator.nextId(), ActorRef.noSender(), config,
+                failures::add);
     }
 
     public Member getOrCreateMember(long uid, MetaKey.Action... actions) {
         return members.compute(uid, (k, v) -> {
             if (v == null) {
                 var path = ActorAddress.create("test", "localhost", 123, "/test/" + k);
-                return new Member(uid, MetaInfo.EMPTY.transform(actions), new MessageBufferActorRef<>(path, MsgType.of(Gossip.class)));
+                return new Member(uid, MetaInfo.EMPTY.transform(actions),
+                        new MessageBufferActorRef<>(path, MsgType.of(Gossip.class)));
             } else {
                 return new Member(uid, v.metaInfo().transform(actions), v.actor());
             }
@@ -88,7 +90,8 @@ public class MemberManagerTest {
 //        manager.addListener(listener, false);
 //        assertEquals(2, memberStateChanges.size());
 //        var events = Arrays.asList(
-//                new MemberStateChange(getOrCreateMember(selfId), MemberState.NONE, MemberState.UP),
+//                new MemberStateChange(getOrCreateMember(selfId), MemberState.NONE, MemberState
+//                .UP),
 //                new MemberStateChange(getOrCreateMember(uid1), MemberState.NONE, MemberState.UP)
 //        );
 //        assertTrue(events.contains(memberStateChanges.poll()));
@@ -108,7 +111,8 @@ public class MemberManagerTest {
 //                new MemberEvent(getOrCreateMember(uid1), MemberAction.UPDATE));
 //        checkEvent(uid1,
 //                new MemberEvent(getOrCreateMember(uid2), MemberAction.UPDATE));
-//        assertEquals(new MemberStateChange(getOrCreateMember(uid2), MemberState.NONE, MemberState.UP), memberStateChanges.poll());
+//        assertEquals(new MemberStateChange(getOrCreateMember(uid2), MemberState.NONE,
+//        MemberState.UP), memberStateChanges.poll());
 //
 //        // self member0 update
 //        manager.gossipEvent(new Gossip(
@@ -182,7 +186,8 @@ public class MemberManagerTest {
 //                new MemberEvent(getOrCreateMember(uid3), MemberAction.JOIN));
 //        checkEvent(uid2,
 //                new MemberEvent(getOrCreateMember(uid3), MemberAction.JOIN));
-//        assertEquals(new MemberStateChange(getOrCreateMember(uid3), MemberState.NONE, MemberState.UP), memberStateChanges.poll());
+//        assertEquals(new MemberStateChange(getOrCreateMember(uid3), MemberState.NONE,
+//        MemberState.UP), memberStateChanges.poll());
 //
 //        // member1 suspect member3
 //        manager.gossipEvent(new Gossip(
@@ -198,7 +203,8 @@ public class MemberManagerTest {
 //        assertEquals(3, manager.getMembers(MemberState.UP).count());
 //        assertEquals(1, manager.getMembers(MemberState.SUSPICIOUS).count());
 //        assertEquals(0, manager.getMembers(MemberState.DOWN).count());
-//        assertEquals(new MemberStateChange(getOrCreateMember(uid3), MemberState.UP, MemberState.SUSPICIOUS), memberStateChanges.poll());
+//        assertEquals(new MemberStateChange(getOrCreateMember(uid3), MemberState.UP, MemberState
+//        .SUSPICIOUS), memberStateChanges.poll());
 //
 //        // member1 strong suspect member3
 //        manager.gossipEvent(new Gossip(
@@ -214,7 +220,8 @@ public class MemberManagerTest {
 //        assertEquals(3, manager.getMembers(MemberState.UP).count());
 //        assertEquals(0, manager.getMembers(MemberState.SUSPICIOUS).count());
 //        assertEquals(1, manager.getMembers(MemberState.DOWN).count());
-//        assertEquals(new MemberStateChange(getOrCreateMember(uid3), MemberState.SUSPICIOUS, MemberState.DOWN), memberStateChanges.poll());
+//        assertEquals(new MemberStateChange(getOrCreateMember(uid3), MemberState.SUSPICIOUS,
+//        MemberState.DOWN), memberStateChanges.poll());
 //
 //        // member1 leave member3
 //        manager.gossipEvent(new Gossip(
@@ -232,7 +239,8 @@ public class MemberManagerTest {
 //        assertEquals(0, manager.getMembers(MemberState.SUSPICIOUS).count());
 //        assertEquals(0, manager.getMembers(MemberState.DOWN).count());
 //        assertEquals(1, manager.getMembers(MemberState.LEFT).count());
-//        assertEquals(new MemberStateChange(getOrCreateMember(uid3), MemberState.DOWN, MemberState.LEFT), memberStateChanges.poll());
+//        assertEquals(new MemberStateChange(getOrCreateMember(uid3), MemberState.DOWN,
+//        MemberState.LEFT), memberStateChanges.poll());
 //
 //        assertTrue(manager.getClock().get(uid3) > 0);
 //
@@ -249,12 +257,14 @@ public class MemberManagerTest {
 //        checkEvent(uid3);
 //        assertEquals(3, manager.getMembers(MemberState.UP).count());
 //        assertEquals(0, manager.getMembers(MemberState.LEFT).count());
-//        assertEquals(new MemberStateChange(getOrCreateMember(uid3), MemberState.LEFT, MemberState.REMOVED), memberStateChanges.poll());
+//        assertEquals(new MemberStateChange(getOrCreateMember(uid3), MemberState.LEFT,
+//        MemberState.REMOVED), memberStateChanges.poll());
 //        assertEquals(0, manager.getClock().get(uid3));
 //    }
 //
 //    private void checkEvent(long uid, MemberEvent... events) {
-//        Queue<Gossip> queue = ((MessageBufferActorRef<Gossip>) members.get(uid).actor()).getMessageQueue();
+//        Queue<Gossip> queue = ((MessageBufferActorRef<Gossip>) members.get(uid).actor())
+//        .getMessageQueue();
 //        if (events.length > 0) {
 //            assertEquals(1, queue.size());
 //        } else {

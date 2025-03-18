@@ -139,7 +139,8 @@ public final class VectorClock implements Comparable<VectorClock> {
                     combineVector[combineOff++] = clock;
                     rightHasNext = (rightOff += 2) < rightLen;
                 } else {
-                    long leftClock = leftVector[leftOff + 1], rightClock = rightVector[rightOff + 1];
+                    long leftClock = leftVector[leftOff + 1], rightClock =
+                            rightVector[rightOff + 1];
                     handler.handle(leftUid, leftClock, rightClock);
                     combineVector[combineOff++] = rightUid;
                     combineVector[combineOff++] = max(leftClock, rightClock);

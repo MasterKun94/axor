@@ -49,7 +49,9 @@ public class GrpcStreamServerTest {
         );
         Closeable unregisterHook = streamServer.register(new StreamInChannel<ActorAddress>() {
             @Override
-            public <OUT> StreamObserver<ActorAddress> open(StreamDefinition<OUT> remote, EventDispatcher executor, Observer observer) {
+            public <OUT> StreamObserver<ActorAddress> open(StreamDefinition<OUT> remote,
+                                                           EventDispatcher executor,
+                                                           Observer observer) {
                 LOG.info("Open from {} to {}", remote.address(), selfDefinition.address());
                 return new StreamObserver<>() {
 
@@ -63,7 +65,8 @@ public class GrpcStreamServerTest {
                     @Override
                     public void onNext(ActorAddress testMessage) {
                         assert executor.inExecutor();
-                        LOG.info("{} Received: {}", selfDefinition.address(), testMessage.getName());
+                        LOG.info("{} Received: {}", selfDefinition.address(),
+                                testMessage.getName());
                     }
                 };
             }
@@ -79,8 +82,9 @@ public class GrpcStreamServerTest {
                 SerdeRegistry.defaultInstance().create(MsgType.of(ActorAddress.class))
         );
         StreamOutChannel<ActorAddress> channel = streamServer.get(definition2, executor);
-        StreamChannel.StreamObserver<ActorAddress> open = channel.open(selfDefinition, executor, status ->
-                LOG.info("{} received end stats: {}", definition2.address(), status));
+        StreamChannel.StreamObserver<ActorAddress> open = channel.open(selfDefinition, executor,
+                status ->
+                        LOG.info("{} received end stats: {}", definition2.address(), status));
 
         open.onNext(ActorAddress.newBuilder().setName("hello").build());
         open.onNext(ActorAddress.newBuilder().setName("world").build());

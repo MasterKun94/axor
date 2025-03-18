@@ -20,8 +20,8 @@ public abstract class Actor<T> {
     }
 
     /**
-     * Returns the context of this actor, which provides access to the actor's environment and allows
-     * interaction with the actor system.
+     * Returns the context of this actor, which provides access to the actor's environment and
+     * allows interaction with the actor system.
      *
      * @return the {@code ActorContext} associated with this actor
      */
@@ -30,7 +30,8 @@ public abstract class Actor<T> {
     }
 
     /**
-     * Returns the {@code ActorRef} for the current actor, which can be used to send messages to itself.
+     * Returns the {@code ActorRef} for the current actor, which can be used to send messages to
+     * itself.
      *
      * @return the {@code ActorRef<T>} representing the current actor
      */
@@ -49,19 +50,20 @@ public abstract class Actor<T> {
     }
 
     /**
-     * Called when the actor is started. This method can be overridden to perform initialization tasks
-     * that need to be executed when the actor is first created and before it begins processing messages.
+     * Called when the actor is started. This method can be overridden to perform initialization
+     * tasks that need to be executed when the actor is first created and before it begins
+     * processing messages.
      *
-     * <p>Typical use cases for this method include setting up initial state, subscribing to event streams,
-     * or establishing connections with other actors or external systems.
+     * <p>Typical use cases for this method include setting up initial state, subscribing to event
+     * streams, or establishing connections with other actors or external systems.
      */
     public void onStart() {
     }
 
     /**
-     * Called when the actor is being restarted. This method can be overridden to perform any necessary
-     * actions that need to be executed when the actor is being restarted, such as resetting state or
-     * reinitializing resources.
+     * Called when the actor is being restarted. This method can be overridden to perform any
+     * necessary actions that need to be executed when the actor is being restarted, such as
+     * resetting state or reinitializing resources.
      *
      * <p>Restarting an actor typically occurs in response to a failure, and this method provides a
      * hook to handle such scenarios. The default implementation does nothing.
@@ -70,8 +72,8 @@ public abstract class Actor<T> {
     }
 
     /**
-     * Called when the actor receives a message. This method must be implemented by concrete actor classes
-     * to define how the actor should process incoming messages.
+     * Called when the actor receives a message. This method must be implemented by concrete actor
+     * classes to define how the actor should process incoming messages.
      *
      * @param t the message received by the actor, of type T
      */
@@ -97,7 +99,8 @@ public abstract class Actor<T> {
      * Determines the failure strategy to be applied when an exception is thrown within the actor.
      *
      * @param throwable the Throwable that was thrown, representing the error or exception
-     * @return the {@code FailureStrategy} to be used, which dictates how the actor should handle the failure
+     * @return the {@code FailureStrategy} to be used, which dictates how the actor should handle
+     * the failure
      */
     public FailureStrategy failureStrategy(Throwable throwable) {
         return FailureStrategy.RESTART;

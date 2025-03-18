@@ -26,7 +26,8 @@ public class MsgTypeTest {
 
     @Test
     public void testParse() {
-        var type = MsgType.of(new TypeReference<Map<Map.Entry<String, Boolean>, List<IntObjectMap<Integer>>>>() {
+        var type = MsgType.of(new TypeReference<Map<Map.Entry<String, Boolean>,
+                List<IntObjectMap<Integer>>>>() {
         });
         System.out.println(type.qualifiedName());
         System.out.println(type.name());

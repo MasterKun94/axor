@@ -26,11 +26,14 @@ public class HashedWheelScheduler implements Scheduler, Closeable {
     }
 
     @Override
-    public <T> CompletableFuture<T> setTimeout(CompletableFuture<T> future, long delay, TimeUnit unit) {
+    public <T> CompletableFuture<T> setTimeout(CompletableFuture<T> future, long delay,
+                                               TimeUnit unit) {
         if (future.isDone()) {
             return future;
         }
-        Timeout timeout = timer.newTimeout(t -> future.completeExceptionally(new TimeoutException()), delay, unit);
+        Timeout timeout =
+                timer.newTimeout(t -> future.completeExceptionally(new TimeoutException()), delay
+                        , unit);
         return future.whenComplete((t, e) -> {
             if (timeout.isExpired()) {
                 return;
@@ -42,7 +45,8 @@ public class HashedWheelScheduler implements Scheduler, Closeable {
     }
 
     @Override
-    public ScheduledFuture<?> schedule(Runnable command, long delay, TimeUnit unit, ExecutorService executor) {
+    public ScheduledFuture<?> schedule(Runnable command, long delay, TimeUnit unit,
+                                       ExecutorService executor) {
         FutureTask<?> task = new FutureTask<>(command, null);
         Timeout timeout = executor == null ?
                 timer.newTimeout(t -> task.run(), delay, unit) :
@@ -51,7 +55,8 @@ public class HashedWheelScheduler implements Scheduler, Closeable {
     }
 
     @Override
-    public <V> ScheduledFuture<V> schedule(Callable<V> callable, long delay, TimeUnit unit, ExecutorService executor) {
+    public <V> ScheduledFuture<V> schedule(Callable<V> callable, long delay, TimeUnit unit,
+                                           ExecutorService executor) {
         FutureTask<V> task = new FutureTask<>(callable);
         Timeout timeout = executor == null ?
                 timer.newTimeout(t -> task.run(), delay, unit) :
@@ -60,15 +65,21 @@ public class HashedWheelScheduler implements Scheduler, Closeable {
     }
 
     @Override
-    public ScheduledFuture<?> scheduleAtFixedRate(Runnable command, long initialDelay, long period, TimeUnit unit, ExecutorService executor) {
-        ScheduleFixRate scheduleFixRate = new ScheduleFixRate(timer, executor, command, initialDelay, period, unit);
+    public ScheduledFuture<?> scheduleAtFixedRate(Runnable command, long initialDelay,
+                                                  long period, TimeUnit unit,
+                                                  ExecutorService executor) {
+        ScheduleFixRate scheduleFixRate = new ScheduleFixRate(timer, executor, command,
+                initialDelay, period, unit);
         timer.newTimeout(scheduleFixRate, initialDelay, unit);
         return scheduleFixRate;
     }
 
     @Override
-    public ScheduledFuture<?> scheduleWithFixedDelay(Runnable command, long initialDelay, long delay, TimeUnit unit, ExecutorService executor) {
-        ScheduleDelay scheduleDelay = new ScheduleDelay(timer, executor, command, initialDelay, delay, unit);
+    public ScheduledFuture<?> scheduleWithFixedDelay(Runnable command, long initialDelay,
+                                                     long delay, TimeUnit unit,
+                                                     ExecutorService executor) {
+        ScheduleDelay scheduleDelay = new ScheduleDelay(timer, executor, command, initialDelay,
+                delay, unit);
         timer.newTimeout(scheduleDelay, initialDelay, unit);
         return scheduleDelay;
     }
@@ -134,13 +145,15 @@ public class HashedWheelScheduler implements Scheduler, Closeable {
         }
 
         @Override
-        public T get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+        public T get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException
+                , TimeoutException {
             return task.get(timeout, unit);
         }
     }
 
     @SuppressWarnings("NullableProblems")
-    private static abstract class AbstractSchedule implements TimerTask, Runnable, ScheduledFuture<Void> {
+    private static abstract class AbstractSchedule implements TimerTask, Runnable,
+            ScheduledFuture<Void> {
         protected final Runnable command;
         protected final long periodMillis;
         private final Timer timer;
@@ -251,7 +264,8 @@ public class HashedWheelScheduler implements Scheduler, Closeable {
         }
 
         @Override
-        public Void get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+        public Void get(long timeout, TimeUnit unit) throws InterruptedException,
+                ExecutionException, TimeoutException {
             //noinspection ResultOfMethodCallIgnored
             latch.await(timeout, unit);
             if (isCancelled()) {
@@ -266,7 +280,8 @@ public class HashedWheelScheduler implements Scheduler, Closeable {
 
     private static class ScheduleDelay extends AbstractSchedule {
 
-        private ScheduleDelay(Timer timer, ExecutorService executor, Runnable command, long delay, long period, TimeUnit unit) {
+        private ScheduleDelay(Timer timer, ExecutorService executor, Runnable command, long delay
+                , long period, TimeUnit unit) {
             super(timer, executor, command, delay, period, unit);
         }
 
@@ -279,7 +294,8 @@ public class HashedWheelScheduler implements Scheduler, Closeable {
 
     private static class ScheduleFixRate extends AbstractSchedule {
 
-        private ScheduleFixRate(Timer timer, ExecutorService executor, Runnable command, long delay, long period, TimeUnit unit) {
+        private ScheduleFixRate(Timer timer, ExecutorService executor, Runnable command,
+                                long delay, long period, TimeUnit unit) {
             super(timer, executor, command, delay, period, unit);
         }
 

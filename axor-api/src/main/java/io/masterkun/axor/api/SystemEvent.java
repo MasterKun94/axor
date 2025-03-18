@@ -4,8 +4,9 @@ import io.masterkun.axor.runtime.MsgType;
 import io.masterkun.axor.runtime.Status;
 
 /**
- * Represents a system event in the actor framework, which can be an event related to an actor or a stream.
- * This interface is sealed and defines two sub-interfaces: {@code ActorEvent} and {@code StreamEvent}.
+ * Represents a system event in the actor framework, which can be an event related to an actor or a
+ * stream. This interface is sealed and defines two sub-interfaces: {@code ActorEvent} and
+ * {@code StreamEvent}.
  */
 public sealed interface SystemEvent {
 

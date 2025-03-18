@@ -10,7 +10,8 @@ import io.masterkun.axor.runtime.impl.BuiltinSerdeFactory;
 public class ClusterMessageSerdeInitializer extends ActorSystemSerdeInitializer<BuiltinSerdeFactory> {
 
     @Override
-    protected void initialize(ActorSystem actorSystem, BuiltinSerdeFactory serdeFactory, SerdeRegistry registry) {
+    protected void initialize(ActorSystem actorSystem, BuiltinSerdeFactory serdeFactory,
+                              SerdeRegistry registry) {
         var metaInfoSerde = new MetaInfoSerde();
         var memberSerde = new MemberSerde(metaInfoSerde,
                 serdeFactory.create(MsgType.of(ActorRef.class)));

@@ -22,12 +22,13 @@ public class DefaultConfigParser implements ConfigParser {
                 if (type.nullable() && !type.parentType().isPrimitive()) {
                     return null;
                 } else {
-                    throw new ConfigParseException("[%s] not found");
+                    throw new ConfigParseException(type, "[%s] not found");
                 }
             }
             if (type.nullable() && !config.hasPath(key)) {
                 if (type.parentType().isPrimitive()) {
-                    throw new ConfigParseException("[%s] request primitive type but config value " +
+                    throw new ConfigParseException(type, "[%s] request primitive type but config " +
+                            "value " +
                             "is null");
                 } else {
                     return null;
@@ -63,12 +64,12 @@ public class DefaultConfigParser implements ConfigParser {
                 return config.getConfig(key);
             } else if (List.class.isAssignableFrom(clazz)) {
                 if (type.paramTypes().length != 1) {
-                    throw new ConfigParseException("[%s] is a list type, but " +
+                    throw new ConfigParseException(type, "[%s] is a list type, but " +
                             type.paramTypes().length + " type parameters");
                 }
                 Class<?> elemType = type.paramTypes()[0];
                 if (elemType.equals(Void.class)) {
-                    throw new ConfigParseException("[%s] elemType should not be null");
+                    throw new ConfigParseException(type, "[%s] elemType should not be null");
                 }
                 if (elemType.equals(String.class)) {
                     return Collections.unmodifiableList(config.getStringList(key));
@@ -100,12 +101,12 @@ public class DefaultConfigParser implements ConfigParser {
                             .toList();
                 }
             }
-            throw new ConfigParseException("illegal type [" + clazz + "] for config [%s]");
+            throw new ConfigParseException(type, "illegal type [" + clazz + "] for config [%s]");
         } catch (ConfigParseException e) {
             e.addKey(key);
             throw e;
         } catch (Exception e) {
-            var ex = new ConfigParseException("[%s] config parse error: " + e, e);
+            var ex = new ConfigParseException(type, "[%s] config parse error: " + e, e);
             ex.addKey(key);
             throw ex;
         }

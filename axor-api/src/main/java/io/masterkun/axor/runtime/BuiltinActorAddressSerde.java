@@ -18,7 +18,8 @@ public class BuiltinActorAddressSerde implements BuiltinSerde<ActorAddress> {
 
     @Override
     public ActorAddress doDeserialize(DataInput in) throws IOException {
-        return ActorAddress.create(in.readUTF(), in.readUTF(), in.readUnsignedShort(), in.readUTF());
+        return ActorAddress.create(in.readUTF(), in.readUTF(), in.readUnsignedShort(),
+                in.readUTF());
     }
 
     @Override

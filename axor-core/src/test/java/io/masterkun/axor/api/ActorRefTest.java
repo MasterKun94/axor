@@ -84,7 +84,8 @@ public class ActorRefTest {
         public static void main(String[] args) {
             var server = startServer(8080);
             ActorSystem system = ActorSystem.create("node1", ConfigFactory.load(), server);
-            ActorRef<Message1> simpleReply = system.start(SimpleReplyActor::new, "SimpleReplyActor");
+            ActorRef<Message1> simpleReply = system.start(SimpleReplyActor::new,
+                    "SimpleReplyActor");
         }
     }
 

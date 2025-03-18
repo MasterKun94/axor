@@ -27,7 +27,17 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 /**
- * An {@link InputStream} backed by a protobuf.
+ * A specialized {@code InputStream} that reads from a Protocol Buffers message. This class
+ * implements the {@link Serde.Drainable} and {@link Serde.KnownLength} interfaces to provide
+ * additional functionality for efficiently draining the content to an output stream and determining
+ * the number of bytes available without blocking.
+ *
+ * <p>The {@code ProtoInputStream} is initialized with a Protocol Buffers message, which is
+ * serialized on-demand when data is read or drained. The class ensures that the message is only
+ * serialized once, and subsequent reads are performed from the serialized byte array.
+ *
+ * @see Serde.Drainable
+ * @see Serde.KnownLength
  */
 final class ProtoInputStream extends InputStream implements Serde.Drainable, Serde.KnownLength {
 

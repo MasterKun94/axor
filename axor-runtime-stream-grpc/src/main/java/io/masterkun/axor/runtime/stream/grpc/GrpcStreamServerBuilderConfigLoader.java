@@ -25,7 +25,8 @@ public sealed abstract class GrpcStreamServerBuilderConfigLoader
         <S extends ServerBuilder<?>, C extends ManagedChannelBuilder<?>> {
 
     private static final boolean NETTY_ENABLED;
-    private static final Logger LOG = LoggerFactory.getLogger(GrpcStreamServerBuilderConfigLoader.class);
+    private static final Logger LOG =
+            LoggerFactory.getLogger(GrpcStreamServerBuilderConfigLoader.class);
 
     static {
         boolean nettyEnabled = true;
@@ -43,7 +44,8 @@ public sealed abstract class GrpcStreamServerBuilderConfigLoader
     protected GrpcStreamServerBuilderConfigLoader(ServerBuilder<?> builder, Config config) {
         this.config = config;
         this.builder = new GrpcStreamServerBuilder(builder)
-                .streamKeepAliveTimeout(Duration.ofMillis(config.getDuration("streamKeepAliveTimeout").toMillis()));
+                .streamKeepAliveTimeout(Duration.ofMillis(config.getDuration(
+                        "streamKeepAliveTimeout").toMillis()));
     }
 
     public static GrpcStreamServerBuilder load(Config config) {
@@ -74,8 +76,10 @@ public sealed abstract class GrpcStreamServerBuilderConfigLoader
         switch (key) {
             case "metricsEnabled" -> {
                 if (entryConfig.getBoolean(key)) {
-                    var serverInterceptor = new ObservationGrpcServerInterceptor(Metric.observationRegistry());
-                    var clientInterceptor = new ObservationGrpcClientInterceptor(Metric.observationRegistry());
+                    var serverInterceptor =
+                            new ObservationGrpcServerInterceptor(Metric.observationRegistry());
+                    var clientInterceptor =
+                            new ObservationGrpcClientInterceptor(Metric.observationRegistry());
                     builder.intercept(serverInterceptor);
                     addModifier(builder1 -> builder1.intercept(clientInterceptor));
                 }
@@ -277,7 +281,8 @@ final class NettyGrpcServerBuilderConfigLoader extends GrpcStreamServerBuilderCo
     }
 
     @Override
-    protected ChannelBuilderModifier<NettyChannelBuilder> doChannelBuild(String key, Config entryConfig) {
+    protected ChannelBuilderModifier<NettyChannelBuilder> doChannelBuild(String key,
+                                                                         Config entryConfig) {
         switch (key) {
             case "initialFlowControlWindow" -> {
                 int window = entryConfig.getInt(key);
@@ -336,7 +341,8 @@ final class OkHttpGrpcServerBuilderConfigLoader extends GrpcStreamServerBuilderC
     }
 
     @Override
-    protected ChannelBuilderModifier<OkHttpChannelBuilder> doChannelBuild(String key, Config entryConfig) {
+    protected ChannelBuilderModifier<OkHttpChannelBuilder> doChannelBuild(String key,
+                                                                          Config entryConfig) {
         if (key.equals("flowControlWindow")) {
             int window = entryConfig.getInt(key);
             return b -> b.flowControlWindow(window);

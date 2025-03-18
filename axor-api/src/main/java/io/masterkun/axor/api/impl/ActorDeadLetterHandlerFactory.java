@@ -29,7 +29,8 @@ public class ActorDeadLetterHandlerFactory implements DeadLetterHandlerFactory {
         ActorRef<?> sender;
         ActorAddress receiver = ActorAddress.create(selfDef.address());
         try {
-            sender = actorSystem.get(ActorAddress.create(remoteDef.address()), remoteDef.serde().getType());
+            sender = actorSystem.get(ActorAddress.create(remoteDef.address()),
+                    remoteDef.serde().getType());
         } catch (ActorException e) {
             throw new ActorRuntimeException(e);
         }

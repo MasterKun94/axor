@@ -15,11 +15,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * A local implementation of the {@link Pubsub} interface, designed to handle message distribution within a single JVM.
- * This class manages a list of subscribed actors and provides methods to publish messages to all subscribers or to a
- * single subscriber. The class ensures thread safety by using an {@link EventDispatcher} to manage concurrent access.
+ * A local implementation of the {@link Pubsub} interface, designed to handle message distribution
+ * within a single JVM. This class manages a list of subscribed actors and provides methods to
+ * publish messages to all subscribers or to a single subscriber. The class ensures thread safety by
+ * using an {@link EventDispatcher} to manage concurrent access.
  *
- * @param <T> the type of the message that can be published and received through this pubsub mechanism
+ * @param <T> the type of the message that can be published and received through this pubsub
+ *            mechanism
  */
 public class LocalPubsub<T> implements Pubsub<T> {
     private static final Logger LOG = LoggerFactory.getLogger(LocalPubsub.class);

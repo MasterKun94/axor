@@ -52,12 +52,14 @@ public class ActorSystemImpl implements ActorSystem, HasMeter {
     private final Address publishAddress;
     private final EventDispatcherGroup eventExecutorGroup;
     private final Map<String, ActorRef<?>> localActorCache = new ConcurrentHashMap<>();
-    private final ActorRefCache remoteActorCache = new MapActorRefCache(this::createRemoteActorRef, false);
+    private final ActorRefCache remoteActorCache =
+            new MapActorRefCache(this::createRemoteActorRef, false);
     private final ActorRef<Object> noSenderActor;
     private final ActorConfig actorConfig;
     private final Pubsub<DeadLetter> deadLetterPubsub;
     private final Pubsub<SystemEvent> systemEventPubsub;
-    private final DependencyTaskRegistryRunner shutdownHooks = new DependencyTaskRegistryRunner(true);
+    private final DependencyTaskRegistryRunner shutdownHooks =
+            new DependencyTaskRegistryRunner(true);
     private volatile boolean closed = false;
 
     public ActorSystemImpl(String name,

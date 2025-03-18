@@ -5,9 +5,9 @@ import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Defines the contract for a server that manages streaming communication channels.
- * Implementations of this interface are responsible for handling the registration of input channels,
- * providing output channels, and managing the lifecycle of the server.
+ * Defines the contract for a server that manages streaming communication channels. Implementations
+ * of this interface are responsible for handling the registration of input channels, providing
+ * output channels, and managing the lifecycle of the server.
  */
 public interface StreamServer {
 

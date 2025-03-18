@@ -64,8 +64,10 @@ public class GrpcStreamServer extends Server implements StreamServer {
         this.serdeRegistry = serdeRegistry;
         this.serviceRegistry = new ServiceRegistry(system);
         this.channelPool = new ChannelPool(channelFactory, keepAliveTimeout);
-        this.runtime = new GrpcRuntime(system, serdeRegistry, serviceRegistry, channelPool, deadLetterHandler);
-        var executorSupplier = new StreamChannelExecutorSupplier(runtime, serviceRegistry, fallbackExecutorSupplier);
+        this.runtime = new GrpcRuntime(system, serdeRegistry, serviceRegistry, channelPool,
+                deadLetterHandler);
+        var executorSupplier = new StreamChannelExecutorSupplier(runtime, serviceRegistry,
+                fallbackExecutorSupplier);
         this.server = serverBuilder
                 .addService(runtime.getServiceDefinition())
                 .callExecutor(executorSupplier)
@@ -79,7 +81,8 @@ public class GrpcStreamServer extends Server implements StreamServer {
     }
 
     @Override
-    public <T> StreamOutChannel<T> get(StreamDefinition<T> selfDefinition, EventDispatcher executor) {
+    public <T> StreamOutChannel<T> get(StreamDefinition<T> selfDefinition,
+                                       EventDispatcher executor) {
         return new GrpcStreamOutChannel<>(runtime, selfDefinition, channelPool);
     }
 

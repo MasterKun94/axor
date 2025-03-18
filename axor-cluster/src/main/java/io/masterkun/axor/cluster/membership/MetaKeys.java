@@ -18,7 +18,8 @@ import java.util.function.Function;
 
 public class MetaKeys {
 
-    public static BooleanMetaKey create(int id, String name, String description, boolean defaultValue) {
+    public static BooleanMetaKey create(int id, String name, String description,
+                                        boolean defaultValue) {
         return new BooleanMetaKey(id, name, description, defaultValue);
     }
 
@@ -42,23 +43,29 @@ public class MetaKeys {
         return new FloatMetaKey(id, name, description, defaultValue);
     }
 
-    public static DoubleMetaKey create(int id, String name, String description, double defaultValue) {
+    public static DoubleMetaKey create(int id, String name, String description,
+                                       double defaultValue) {
         return new DoubleMetaKey(id, name, description, defaultValue);
     }
 
-    public static StringMetaKey create(int id, String name, String description, String defaultValue) {
+    public static StringMetaKey create(int id, String name, String description,
+                                       String defaultValue) {
         return new StringMetaKey(id, name, description, defaultValue);
     }
 
-    public static StringListMetaKey create(int id, String name, String description, List<String> defaultValue) {
+    public static StringListMetaKey create(int id, String name, String description,
+                                           List<String> defaultValue) {
         return new StringListMetaKey(id, name, description, List.copyOf(defaultValue));
     }
 
-    public static <T extends Enum<T>> EnumMetaKey<T> create(int id, String name, String description, T defaultValue) {
+    public static <T extends Enum<T>> EnumMetaKey<T> create(int id, String name,
+                                                            String description, T defaultValue) {
         return new EnumMetaKey<>(id, name, description, defaultValue);
     }
 
-    public static <T extends MessageLite> ProtobufMetaKey<T> create(int id, String name, String description, T defaultValue) {
+    public static <T extends MessageLite> ProtobufMetaKey<T> create(int id, String name,
+                                                                    String description,
+                                                                    T defaultValue) {
         return new ProtobufMetaKey<>(id, name, description, defaultValue);
     }
 
@@ -82,7 +89,8 @@ public class MetaKeys {
         private final MetaSerde<T> serde;
         private final MetaInfo.BytesHolder defaultValue;
 
-        AbstractMetaKey(int id, String name, String description, T defaultValue, MetaSerde<T> serde) {
+        AbstractMetaKey(int id, String name, String description, T defaultValue,
+                        MetaSerde<T> serde) {
             this.id = id;
             this.name = name;
             this.description = description;

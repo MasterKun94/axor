@@ -69,11 +69,49 @@ public class ConfigMapperTest {
         assertEquals(1, test.config.entrySet().size());
     }
 
-    public enum TestEnum {
-        A, B, C;
+    @Test
+    public void testTest() {
+        String s = """
+                field = hello
+                record2 = {
+                  value = world
+                  value2 = 2
+                  record3 = {
+                    a = 3
+                  }
+                }
+                """;
+        TestRecord1 record1 = ConfigMapper.map(ConfigFactory.parseString(s), TestRecord1.class);
+        assertEquals("hello", record1.field);
+        assertEquals("world", record1.record2.value);
+        assertEquals(2, record1.record2.value2);
+        assertEquals(3, record1.record2.record3.a);
     }
 
-    private record TestRecord1(String value, int value2) {
+    @Test(expected = ConfigParseException.class)
+    public void testThrow() {
+        String s = """
+                field = hello
+                record2 = {
+                  value = world
+                  value2 = 2
+                  record3 = {
+                    a = 3aa
+                  }
+                }
+                """;
+        try {
+            ConfigMapper.map(ConfigFactory.parseString(s), TestRecord1.class);
+        } catch (ConfigParseException e) {
+            System.out.println(e);
+            assertEquals("record2.record3.a", e.getPath());
+            // do
+            throw e;
+        }
+    }
+
+    public enum TestEnum {
+        A, B, C;
     }
 
     public record TestRecord(
@@ -102,6 +140,15 @@ public class ConfigMapperTest {
             @ConfigOrigin(retainAll = true) Config config2
     ) {
 
+    }
+
+    public record TestRecord1(TestRecord2 record2, @ConfigField("field") String field) {
+    }
+
+    public record TestRecord2(String value, int value2, TestRecord3 record3) {
+    }
+
+    public record TestRecord3(@ConfigField("a") long a) {
     }
 
 }

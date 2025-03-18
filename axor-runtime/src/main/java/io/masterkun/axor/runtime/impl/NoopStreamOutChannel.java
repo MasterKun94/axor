@@ -12,7 +12,8 @@ public class NoopStreamOutChannel<T> implements StreamOutChannel<T> {
     }
 
     @Override
-    public <OUT> StreamObserver<OUT> open(StreamDefinition<OUT> to, EventDispatcher executor, Observer observer) {
+    public <OUT> StreamObserver<OUT> open(StreamDefinition<OUT> to, EventDispatcher executor,
+                                          Observer observer) {
         throw new UnsupportedOperationException();
     }
 

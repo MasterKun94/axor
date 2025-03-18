@@ -2,17 +2,19 @@ package io.masterkun.axor.commons.config;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class ConfigParseException extends RuntimeException {
+    private final TypeRef type;
     private final List<String> pathElems = new ArrayList<>();
 
-    public ConfigParseException(String message, Throwable cause) {
+    public ConfigParseException(TypeRef type, String message, Throwable cause) {
         super(message, cause);
+        this.type = type;
     }
 
-    public ConfigParseException(String message) {
+    public ConfigParseException(TypeRef type, String message) {
         super(message);
+        this.type = type;
     }
 
     public void addKey(String key) {
@@ -24,8 +26,10 @@ public class ConfigParseException extends RuntimeException {
     }
 
     @Override
-    public String getLocalizedMessage() {
-        return pathElems.stream().collect(Collectors
-                .joining(".", "[", "] " + super.getLocalizedMessage()));
+    public String getMessage() {
+        if (getPath().isEmpty()) {
+            return type + " parse failed: " + super.getMessage();
+        }
+        return type + " parse failed: " + String.format(super.getMessage(), getPath());
     }
 }

@@ -22,7 +22,8 @@ public class BuiltinSerdeFactory extends AbstractSerdeFactory {
         if (!initialized) {
             synchronized (this) {
                 if (!initialized) {
-                    for (var initializer : Registry.listAvailable(BuiltinSerdeFactoryInitializer.class)) {
+                    for (var initializer :
+                            Registry.listAvailable(BuiltinSerdeFactoryInitializer.class)) {
                         initializer.initialize(this, getSerdeRegistry());
                     }
                     initialized = true;

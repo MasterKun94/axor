@@ -1,9 +1,10 @@
 package io.masterkun.axor.exception;
 
 /**
- * An unchecked exception that is thrown when an actor-related operation fails unexpectedly.
- * This exception wraps either an {@link ActorException} or an {@link ActorIOException} as its cause.
- * It implements the {@link HasActorException} interface to provide a method for retrieving the underlying actor exception.
+ * An unchecked exception that is thrown when an actor-related operation fails unexpectedly. This
+ * exception wraps either an {@link ActorException} or an {@link ActorIOException} as its cause. It
+ * implements the {@link HasActorException} interface to provide a method for retrieving the
+ * underlying actor exception.
  */
 public class ActorRuntimeException extends RuntimeException implements HasActorException {
 

@@ -13,10 +13,12 @@ public class PlatformDependent {
     private static final List<String> QUEUE_TYPES = List.of(
             "org.jctools.queues.MpscUnboundedArrayQueue",
             "io.netty.util.internal.shaded.org.jctools.queues.MpscUnboundedArrayQueue",
-            "io.grpc.netty.shaded.io.netty.util.internal.shaded.org.jctools.queues.MpscUnboundedArrayQueue",
+            "io.grpc.netty.shaded.io.netty.util.internal.shaded.org.jctools.queues" +
+                    ".MpscUnboundedArrayQueue",
             "org.jctools.queues.atomic.MpscUnboundedAtomicArrayQueue",
             "io.netty.util.internal.shaded.org.jctools.queues.atomic.MpscUnboundedAtomicArrayQueue",
-            "io.grpc.netty.shaded.io.netty.util.internal.shaded.org.jctools.queues.atomic.MpscUnboundedAtomicArrayQueue"
+            "io.grpc.netty.shaded.io.netty.util.internal.shaded.org.jctools.queues.atomic" +
+                    ".MpscUnboundedAtomicArrayQueue"
     );
     private static volatile Class<?> enabledQueueType;
 

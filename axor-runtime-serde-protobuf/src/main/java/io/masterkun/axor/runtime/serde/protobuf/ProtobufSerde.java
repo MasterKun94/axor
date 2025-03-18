@@ -45,11 +45,13 @@ public class ProtobufSerde<T extends MessageLite> implements Serde<T> {
     public T deserialize(InputStream stream) {
         if (stream instanceof ProtoInputStream) {
             ProtoInputStream protoStream = (ProtoInputStream) stream;
-            // Optimization for in-memory transport. Returning provided object is safe since protobufs
+            // Optimization for in-memory transport. Returning provided object is safe since
+            // protobufs
             // are immutable.
             //
             // However, we can't assume the types match, so we have to verify the parser matches.
-            // Today the parser is always the same for a given proto, but that isn't guaranteed. Even
+            // Today the parser is always the same for a given proto, but that isn't guaranteed.
+            // Even
             // if not, using the same MethodDescriptor would ensure the parser matches and permit us
             // to enable this optimization.
             if (protoStream.parser() == parser) {
@@ -58,8 +60,10 @@ public class ProtobufSerde<T extends MessageLite> implements Serde<T> {
                     T message = (T) ((ProtoInputStream) stream).message();
                     return message;
                 } catch (IllegalStateException ignored) {
-                    // Stream must have been read from, which is a strange state. Since the point of this
-                    // optimization is to be transparent, instead of throwing an error we'll continue,
+                    // Stream must have been read from, which is a strange state. Since the point
+                    // of this
+                    // optimization is to be transparent, instead of throwing an error we'll
+                    // continue,
                     // even though it seems likely there's a bug.
                 }
             }

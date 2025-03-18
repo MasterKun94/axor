@@ -42,8 +42,9 @@ public class MembershipActorTest {
     );
 
     private static ActorSystem createActorSystem(String name, int port) {
-        Config config = ConfigFactory.load(ConfigFactory.parseString("axor.network.bind.port = " + port))
-                .resolve();
+        Config config =
+                ConfigFactory.load(ConfigFactory.parseString("axor.network.bind.port = " + port))
+                        .resolve();
         return ActorSystem.create(name, config);
     }
 
@@ -51,7 +52,8 @@ public class MembershipActorTest {
         ActorSystem system = createActorSystem("test", port);
         ActorRef<MembershipMessage> actor = system.start(
                 actorContext ->
-                        new MembershipActor(actorContext, config, new DefaultSplitBrainResolver(2, 2)),
+                        new MembershipActor(actorContext, config, new DefaultSplitBrainResolver(2
+                                , 2)),
                 "membership"
         );
         actor.tell(new MembershipMessage.AddListener(new MembershipListener() {

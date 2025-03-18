@@ -15,8 +15,9 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * A registry for managing and creating instances of {@code Serde} (Serializer/Deserializer) based on message types.
- * This class provides a way to register, find, and create serde factories and their associated serdes.
+ * A registry for managing and creating instances of {@code Serde} (Serializer/Deserializer) based
+ * on message types. This class provides a way to register, find, and create serde factories and
+ * their associated serdes.
  */
 public class SerdeRegistry {
     public static final String CONFIG_PATH = Constants.RUNTIME_CONFIG_PATH + ".registry.serde";
@@ -52,7 +53,8 @@ public class SerdeRegistry {
                         Class<?> clazz = Class.forName(type);
                         int id = config.getInt(type);
                         if (!BuiltinSerde.class.isAssignableFrom(clazz)) {
-                            throw new IllegalArgumentException(type + " is not a builtin serde class");
+                            throw new IllegalArgumentException(type + " is not a builtin serde " +
+                                    "class");
                         }
                         register(id, (BuiltinSerde<?>) clazz.getConstructor().newInstance());
                     } else {
@@ -131,7 +133,8 @@ public class SerdeRegistry {
         return factories.stream()
                 .filter(f -> f.support(type))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Serde type " + type + " is not supported"))
+                .orElseThrow(() -> new IllegalArgumentException("Serde type " + type + " is not " +
+                        "supported"))
                 .create(type);
     }
 

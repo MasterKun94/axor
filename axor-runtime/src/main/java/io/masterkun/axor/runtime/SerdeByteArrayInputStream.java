@@ -5,15 +5,16 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 /**
- * A specialized {@code InputStream} that reads from a byte array and implements the {@link Serde.Drainable} and
- * {@link Serde.KnownLength} interfaces. This class is designed to be used in scenarios where data needs to be
- * efficiently read from a byte array, and it can also provide information about the number of bytes available and
- * drain its content to an output stream.
+ * A specialized {@code InputStream} that reads from a byte array and implements the
+ * {@link Serde.Drainable} and {@link Serde.KnownLength} interfaces. This class is designed to be
+ * used in scenarios where data needs to be efficiently read from a byte array, and it can also
+ * provide information about the number of bytes available and drain its content to an output
+ * stream.
  *
- * <p>This class extends {@code InputStream} and provides methods to read data from a byte array, skip bytes, and
- * determine the number of bytes available. It also implements the {@code Drainable} interface, allowing it to
- * transfer all available data to an output stream, and the {@code KnownLength} interface, providing the number of
- * bytes that can be read without blocking.
+ * <p>This class extends {@code InputStream} and provides methods to read data from a byte array,
+ * skip bytes, and determine the number of bytes available. It also implements the {@code Drainable}
+ * interface, allowing it to transfer all available data to an output stream, and the
+ * {@code KnownLength} interface, providing the number of bytes that can be read without blocking.
  *
  * @see Serde.Drainable
  * @see Serde.KnownLength

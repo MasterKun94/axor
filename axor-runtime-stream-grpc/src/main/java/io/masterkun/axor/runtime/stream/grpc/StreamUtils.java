@@ -11,14 +11,18 @@ import io.masterkun.axor.runtime.Status;
 import io.masterkun.axor.runtime.StatusCode;
 import io.masterkun.axor.runtime.Unsafe;
 import io.masterkun.axor.runtime.stream.grpc.proto.KActorProto;
+import org.jetbrains.annotations.VisibleForTesting;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 public class StreamUtils {
-    private static final Metadata.Key<Integer> STATUS_KEY = Metadata.Key.of("CODE-bin", new IntBinaryMarshaller());
-    private static final KActorProto.ResStatus COMPLETE_STATUS = KActorProto.ResStatus.newBuilder()
+    @VisibleForTesting
+    static final Metadata.Key<Integer> STATUS_KEY = Metadata.Key.of("CODE-bin",
+            new IntBinaryMarshaller());
+    @VisibleForTesting
+    static final KActorProto.ResStatus COMPLETE_STATUS = KActorProto.ResStatus.newBuilder()
             .setCode(StatusCode.COMPLETE.code)
             .build();
 
@@ -109,7 +113,8 @@ public class StreamUtils {
     }
 
     public static ActorAddress protoToActorAddress(KActorProto.ActorAddress proto) {
-        return ActorAddress.create(proto.getSystem(), proto.getHost(), proto.getPort(), proto.getName());
+        return ActorAddress.create(proto.getSystem(), proto.getHost(), proto.getPort(),
+                proto.getName());
     }
 
     public static KActorProto.MsgType msgTypeToProto(MsgType<?> msgType, SerdeRegistry registry) {

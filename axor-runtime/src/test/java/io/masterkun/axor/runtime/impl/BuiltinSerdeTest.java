@@ -24,7 +24,8 @@ public class BuiltinSerdeTest {
         testSerde(registry.create(MsgType.of(Serde.class)), msgTypeSerde);
         StreamAddress address = new StreamAddress("localhost", 123, "sys", "name");
         testSerde(registry.create(MsgType.of(StreamAddress.class)), address);
-        testSerde(registry.create(MsgType.of(StreamDefinition.class)), new StreamDefinition(address, msgTypeSerde));
+        testSerde(registry.create(MsgType.of(StreamDefinition.class)),
+                new StreamDefinition(address, msgTypeSerde));
     }
 
     private <T> void testSerde(Serde<T> serde, T obj) throws Exception {

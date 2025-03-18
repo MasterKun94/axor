@@ -7,13 +7,13 @@ import java.util.ServiceLoader;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * A utility class that provides a registry for service providers. This class allows
- * the lookup, creation, and listing of service provider implementations based on their
- * class, priority, or name.
+ * A utility class that provides a registry for service providers. This class allows the lookup,
+ * creation, and listing of service provider implementations based on their class, priority, or
+ * name.
  *
  * <p>Service providers must implement the {@code Provider} interface, which includes
- * methods to specify the priority, group, and name of the provider, as well as a method
- * to create an instance of the service.
+ * methods to specify the priority, group, and name of the provider, as well as a method to create
+ * an instance of the service.
  *
  * @see Provider
  */
@@ -41,7 +41,8 @@ public class Registry {
                 .stream()
                 .filter(s -> s.name().equalsIgnoreCase(name))
                 .findFirst()
-                .orElseThrow(() -> new RuntimeException("No implementation found for " + clazz + " with name " + name));
+                .orElseThrow(() -> new RuntimeException("No implementation found for " + clazz +
+                        " with name " + name));
     }
 
     @SuppressWarnings("unchecked")

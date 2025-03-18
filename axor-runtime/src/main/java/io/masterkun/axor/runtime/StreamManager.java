@@ -13,9 +13,10 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
 /**
- * Manages the lifecycle and communication of streams, including opening, closing, and handling messages.
- * This class is designed to work with a specific type of input and manages both incoming and outgoing streams.
- * It ensures that all operations are executed within the context of an event executor.
+ * Manages the lifecycle and communication of streams, including opening, closing, and handling
+ * messages. This class is designed to work with a specific type of input and manages both incoming
+ * and outgoing streams. It ensures that all operations are executed within the context of an event
+ * executor.
  *
  * @param <IN> the type of input this manager handles
  */

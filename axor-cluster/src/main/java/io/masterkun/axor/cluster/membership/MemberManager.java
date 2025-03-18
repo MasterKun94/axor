@@ -283,7 +283,8 @@ public class MemberManager {
         return holder;
     }
 
-    private void memberJoinOrUpdate(Member member, VectorClock clock, MemberAction action, long senderUid) {
+    private void memberJoinOrUpdate(Member member, VectorClock clock, MemberAction action,
+                                    long senderUid) {
         long uid = member.uid();
         MemberHolder holder = allMembers.get(uid);
         if (holder == null) {
@@ -362,7 +363,8 @@ public class MemberManager {
             case NONE:
             case UP:
             case DOWN:
-                memberStateChange(holder, holder.state, MemberAction.SUSPECT, MemberState.SUSPICIOUS);
+                memberStateChange(holder, holder.state, MemberAction.SUSPECT,
+                        MemberState.SUSPICIOUS);
                 break;
             case SUSPICIOUS:
                 break;
@@ -395,7 +397,8 @@ public class MemberManager {
             case NONE:
             case UP:
             case SUSPICIOUS:
-                memberStateChange(holder, holder.state, MemberAction.STRONG_SUSPECT, MemberState.DOWN);
+                memberStateChange(holder, holder.state, MemberAction.STRONG_SUSPECT,
+                        MemberState.DOWN);
                 break;
             case DOWN:
                 break;

@@ -20,7 +20,8 @@ public class ActorPatterns {
      * @param resType the message type of the expected response
      * @param timeout the duration to wait for the response before timing out
      * @param system  the actor system in which the actors are running
-     * @return a CompletableFuture that will be completed with the response or an exception if the operation fails or times out
+     * @return a CompletableFuture that will be completed with the response or an exception if the
+     * operation fails or times out
      */
     public static <REQ, RES> CompletableFuture<RES> ask(ActorRef<REQ> actor,
                                                         REQ request,

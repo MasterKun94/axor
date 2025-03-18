@@ -10,6 +10,7 @@ import io.masterkun.axor.runtime.Serde;
 import io.masterkun.axor.runtime.SerdeByteArrayInputStreamAdaptor;
 
 import java.io.InputStream;
+import java.util.Objects;
 
 public class KryoSerde<T> implements Serde<T> {
     private final MsgType<T> msgType;
@@ -63,5 +64,17 @@ public class KryoSerde<T> implements Serde<T> {
     @Override
     public String getImpl() {
         return "kryo";
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        KryoSerde<?> kryoSerde = (KryoSerde<?>) o;
+        return id == kryoSerde.id && Objects.equals(msgType, kryoSerde.msgType);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(msgType, id);
     }
 }

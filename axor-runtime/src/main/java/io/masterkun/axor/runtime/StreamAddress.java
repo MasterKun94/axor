@@ -5,7 +5,8 @@ import java.util.Objects;
 
 public record StreamAddress(String host, int port, String service, String method) {
 
-    public static StreamAddress fromURI(URI uri, int defaultPort, String defaultService, String defaultMethod) {
+    public static StreamAddress fromURI(URI uri, int defaultPort, String defaultService,
+                                        String defaultMethod) {
         String host = Objects.requireNonNull(uri.getHost(), "uri host");
         int port = uri.getPort() == -1 ? defaultPort : uri.getPort();
         String service = uri.getUserInfo() == null ? defaultService : uri.getUserInfo();

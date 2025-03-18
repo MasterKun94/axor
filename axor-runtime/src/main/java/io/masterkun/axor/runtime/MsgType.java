@@ -10,8 +10,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Represents a message type that can be used to describe and manipulate types, including parameterized types.
- * This interface provides methods to create, parse, and check the compatibility of different types.
+ * Represents a message type that can be used to describe and manipulate types, including
+ * parameterized types. This interface provides methods to create, parse, and check the
+ * compatibility of different types.
  *
  * @param <T> the type represented by this MsgType
  */
@@ -26,7 +27,8 @@ public sealed interface MsgType<T> {
     }
 
     /**
-     * Parses the given string representation of a message type and returns the corresponding {@code MsgType} object.
+     * Parses the given string representation of a message type and returns the corresponding
+     * {@code MsgType} object.
      *
      * @param msgType the string representation of the message type to be parsed
      * @return the {@code MsgType} object that represents the parsed message type
@@ -63,9 +65,9 @@ public sealed interface MsgType<T> {
     Class<T> type();
 
     /**
-     * Returns the list of type arguments associated with this message type.
-     * If this message type is a parameterized type, it returns the actual type arguments.
-     * For non-parameterized types, this method will return an empty list.
+     * Returns the list of type arguments associated with this message type. If this message type is
+     * a parameterized type, it returns the actual type arguments. For non-parameterized types, this
+     * method will return an empty list.
      *
      * @return the list of type arguments, or an empty list if there are no type arguments
      */
@@ -103,8 +105,8 @@ public sealed interface MsgType<T> {
 }
 
 /**
- * A record that represents a raw, non-parameterized message type. This class implements the {@link MsgType} interface
- * to provide a simple and direct way to work with basic types.
+ * A record that represents a raw, non-parameterized message type. This class implements the
+ * {@link MsgType} interface to provide a simple and direct way to work with basic types.
  *
  * @param <T> the type represented by this Raw instance
  */
@@ -143,9 +145,10 @@ record Raw<T>(Class<T> type) implements MsgType<T> {
 }
 
 /**
- * Represents a parameterized message type, which is a specific implementation of the {@link MsgType} interface.
- * This class encapsulates a raw type and its associated type arguments, allowing for the creation and manipulation
- * of parameterized types. It provides methods to check support for other types, generate names, and more.
+ * Represents a parameterized message type, which is a specific implementation of the
+ * {@link MsgType} interface. This class encapsulates a raw type and its associated type arguments,
+ * allowing for the creation and manipulation of parameterized types. It provides methods to check
+ * support for other types, generate names, and more.
  *
  * @param <T> the type represented by this parameterized message type
  */

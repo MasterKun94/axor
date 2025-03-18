@@ -34,7 +34,8 @@ public class LocalActorSystemTest {
     public void testAsk() {
         MsgType<String> resType = MsgType.of(String.class);
         Duration timeout = Duration.ofSeconds(1);
-        CompletableFuture<String> future = ActorPatterns.ask(simpleReply, "hello", resType, timeout, system);
+        CompletableFuture<String> future = ActorPatterns.ask(simpleReply, "hello", resType,
+                timeout, system);
         Assert.assertEquals("hello", future.join());
         future = ActorPatterns.ask(simpleReply, "world", resType, timeout, system);
         Assert.assertEquals("world", future.join());
@@ -95,25 +96,31 @@ public class LocalActorSystemTest {
                 "SystemEventSubscriber1", MsgType.of(SystemEvent.class));
         system.systemEvents().subscribe(subscriber1);
         ActorRef<String> actor = system.start(FailureOnStart::new, "failureOnStart");
-        SystemEvent.ActorError event = (SystemEvent.ActorError) subscriber1.pollMessage(10, TimeUnit.MILLISECONDS);
+        SystemEvent.ActorError event = (SystemEvent.ActorError) subscriber1.pollMessage(10,
+                TimeUnit.MILLISECONDS);
         Assert.assertEquals(SystemEvent.ActorAction.ON_START, event.action());
         Assert.assertEquals(actor, event.actor());
-        Assert.assertEquals(new SystemEvent.ActorStopped(actor), subscriber1.pollMessage(10, TimeUnit.MILLISECONDS));
+        Assert.assertEquals(new SystemEvent.ActorStopped(actor), subscriber1.pollMessage(10,
+                TimeUnit.MILLISECONDS));
         Assert.assertTrue(((LocalActorRef<String>) actor).isStopped());
 
         actor = system.start(FailureOnReceive::new, "failureOnReceive");
-        Assert.assertEquals(new SystemEvent.ActorStarted(actor), subscriber1.pollMessage(10, TimeUnit.MILLISECONDS));
+        Assert.assertEquals(new SystemEvent.ActorStarted(actor), subscriber1.pollMessage(10,
+                TimeUnit.MILLISECONDS));
         actor.tell("hello", ActorRef.noSender());
         event = (SystemEvent.ActorError) subscriber1.pollMessage(10, TimeUnit.MILLISECONDS);
         Assert.assertEquals(SystemEvent.ActorAction.ON_RECEIVE, event.action());
         Assert.assertEquals(actor, event.actor());
-        Assert.assertEquals(new SystemEvent.ActorRestarted(actor), subscriber1.pollMessage(10, TimeUnit.MILLISECONDS));
+        Assert.assertEquals(new SystemEvent.ActorRestarted(actor), subscriber1.pollMessage(10,
+                TimeUnit.MILLISECONDS));
         Assert.assertFalse(((LocalActorRef<String>) actor).isStopped());
         system.stop(actor);
-        Assert.assertEquals(new SystemEvent.ActorStopped(actor), subscriber1.pollMessage(10, TimeUnit.MILLISECONDS));
+        Assert.assertEquals(new SystemEvent.ActorStopped(actor), subscriber1.pollMessage(10,
+                TimeUnit.MILLISECONDS));
 
         actor = system.start(FailureOnReStart::new, "failureOnReStart");
-        Assert.assertEquals(new SystemEvent.ActorStarted(actor), subscriber1.pollMessage(10, TimeUnit.MILLISECONDS));
+        Assert.assertEquals(new SystemEvent.ActorStarted(actor), subscriber1.pollMessage(10,
+                TimeUnit.MILLISECONDS));
         actor.tell("hello", ActorRef.noSender());
         event = (SystemEvent.ActorError) subscriber1.pollMessage(10, TimeUnit.MILLISECONDS);
         Assert.assertEquals(SystemEvent.ActorAction.ON_RECEIVE, event.action());
@@ -121,25 +128,30 @@ public class LocalActorSystemTest {
         event = (SystemEvent.ActorError) subscriber1.pollMessage(10, TimeUnit.MILLISECONDS);
         Assert.assertEquals(SystemEvent.ActorAction.ON_RESTART, event.action());
         Assert.assertEquals(actor, event.actor());
-        Assert.assertEquals(new SystemEvent.ActorStopped(actor), subscriber1.pollMessage(10, TimeUnit.MILLISECONDS));
+        Assert.assertEquals(new SystemEvent.ActorStopped(actor), subscriber1.pollMessage(10,
+                TimeUnit.MILLISECONDS));
         Assert.assertTrue(((LocalActorRef<String>) actor).isStopped());
 
         actor = system.start(FailureOnPreStop::new, "failureOnPreStop");
-        Assert.assertEquals(new SystemEvent.ActorStarted(actor), subscriber1.pollMessage(10, TimeUnit.MILLISECONDS));
+        Assert.assertEquals(new SystemEvent.ActorStarted(actor), subscriber1.pollMessage(10,
+                TimeUnit.MILLISECONDS));
         system.stop(actor);
         event = (SystemEvent.ActorError) subscriber1.pollMessage(10, TimeUnit.MILLISECONDS);
         Assert.assertEquals(SystemEvent.ActorAction.ON_PRE_STOP, event.action());
         Assert.assertEquals(actor, event.actor());
-        Assert.assertEquals(new SystemEvent.ActorStopped(actor), subscriber1.pollMessage(10, TimeUnit.MILLISECONDS));
+        Assert.assertEquals(new SystemEvent.ActorStopped(actor), subscriber1.pollMessage(10,
+                TimeUnit.MILLISECONDS));
         Assert.assertTrue(((LocalActorRef<String>) actor).isStopped());
 
         actor = system.start(FailureOnPostStop::new, "failureOnPostStop");
-        Assert.assertEquals(new SystemEvent.ActorStarted(actor), subscriber1.pollMessage(10, TimeUnit.MILLISECONDS));
+        Assert.assertEquals(new SystemEvent.ActorStarted(actor), subscriber1.pollMessage(10,
+                TimeUnit.MILLISECONDS));
         system.stop(actor);
         event = (SystemEvent.ActorError) subscriber1.pollMessage(10, TimeUnit.MILLISECONDS);
         Assert.assertEquals(SystemEvent.ActorAction.ON_POST_STOP, event.action());
         Assert.assertEquals(actor, event.actor());
-        Assert.assertEquals(new SystemEvent.ActorStopped(actor), subscriber1.pollMessage(10, TimeUnit.MILLISECONDS));
+        Assert.assertEquals(new SystemEvent.ActorStopped(actor), subscriber1.pollMessage(10,
+                TimeUnit.MILLISECONDS));
         Assert.assertTrue(((LocalActorRef<String>) actor).isStopped());
 
     }
@@ -159,12 +171,15 @@ public class LocalActorSystemTest {
         }, "testCacheGet");
         ActorAddress address = testCacheGet.address();
         Assert.assertSame(testCacheGet, system.get(address));
-        Assert.assertThrows(IllegalMsgTypeException.class, () -> system.get(address, MsgType.of(String.class)));
+        Assert.assertThrows(IllegalMsgTypeException.class, () -> system.get(address,
+                MsgType.of(String.class)));
         Assert.assertSame(testCacheGet, system.get(address, MsgType.of(CharSequence.class)));
-        Assert.assertThrows(IllegalMsgTypeException.class, () -> system.get(address, MsgType.of(Object.class)));
+        Assert.assertThrows(IllegalMsgTypeException.class, () -> system.get(address,
+                MsgType.of(Object.class)));
         system.stop(testCacheGet);
         Assert.assertThrows(ActorNotFoundException.class, () -> system.get(address));
-        Assert.assertThrows(ActorNotFoundException.class, () -> system.get(address, MsgType.of(String.class)));
+        Assert.assertThrows(ActorNotFoundException.class, () -> system.get(address,
+                MsgType.of(String.class)));
     }
 
     private static abstract class StringActor extends Actor<String> {

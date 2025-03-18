@@ -9,7 +9,8 @@ public abstract class TypeReference<T> implements Comparable<TypeReference<T>> {
     protected TypeReference() {
         Type superClass = getClass().getGenericSuperclass();
         if (superClass instanceof Class<?>) { // sanity check, should never happen
-            throw new IllegalArgumentException("Internal error: TypeReference constructed without actual type information");
+            throw new IllegalArgumentException("Internal error: TypeReference constructed without" +
+                    " actual type information");
         }
         /* 22-Dec-2008, tatu: Not sure if this case is safe -- I suspect
          *   it is possible to make it fail?
@@ -26,9 +27,8 @@ public abstract class TypeReference<T> implements Comparable<TypeReference<T>> {
     }
 
     /**
-     * The only reason we define this method (and require implementation
-     * of <code>Comparable</code>) is to prevent constructing a
-     * reference without type information.
+     * The only reason we define this method (and require implementation of <code>Comparable</code>)
+     * is to prevent constructing a reference without type information.
      */
     @Override
     public int compareTo(TypeReference<T> o) {

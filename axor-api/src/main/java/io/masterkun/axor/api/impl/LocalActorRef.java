@@ -27,13 +27,13 @@ import java.util.function.BiConsumer;
 
 /**
  * A concrete implementation of {@link AbstractActorRef} that represents a local actor reference.
- * This class is responsible for managing the lifecycle and message delivery to a local actor.
- * It ensures that messages are processed in the context of an event executor, allowing for
+ * This class is responsible for managing the lifecycle and message delivery to a local actor. It
+ * ensures that messages are processed in the context of an event executor, allowing for
  * non-blocking and asynchronous message handling.
  *
  * <p>The {@code LocalActorRef} is created with an actor, an event executor, and other necessary
- * components. It handles the actor's start, stop, and restart processes, and it also manages
- * the communication channels for sending and receiving messages.
+ * components. It handles the actor's start, stop, and restart processes, and it also manages the
+ * communication channels for sending and receiving messages.
  *
  * @param <T> the type of messages that this actor can handle
  */
@@ -137,7 +137,8 @@ public final class LocalActorRef<T> extends AbstractActorRef<T> {
             this.tellAction = tellAction;
         }
 
-        var definition = new StreamDefinition<>(address.streamAddress(), serdeRegistry.create(msgType));
+        var definition = new StreamDefinition<>(address.streamAddress(),
+                serdeRegistry.create(msgType));
         var manager = new StreamManager<>(channel, executor, def -> new MsgHandler<>(def) {
             final ActorRef<?> sender = getSender();
 

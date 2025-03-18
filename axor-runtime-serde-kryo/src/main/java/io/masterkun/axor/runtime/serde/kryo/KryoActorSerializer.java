@@ -16,7 +16,8 @@ public class KryoActorSerializer extends Serializer<ActorRef> {
     private final Serializer<ActorAddress> addressSerializer;
     private final Serializer<MsgType> msgTypeSerializer;
 
-    public KryoActorSerializer(ActorSystem system, Serializer<ActorAddress> addressSerializer, Serializer<MsgType> msgTypeSerializer) {
+    public KryoActorSerializer(ActorSystem system, Serializer<ActorAddress> addressSerializer,
+                               Serializer<MsgType> msgTypeSerializer) {
         this.system = system;
         this.addressSerializer = addressSerializer;
         this.msgTypeSerializer = msgTypeSerializer;

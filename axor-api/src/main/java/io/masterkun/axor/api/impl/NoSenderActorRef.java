@@ -53,7 +53,8 @@ public final class NoSenderActorRef extends AbstractActorRef<Object> {
     private static NoSenderActorRef create() {
         var manager = new StreamManager<>(new StreamOutChannel<>() {
             @Override
-            public <OUT> StreamObserver<OUT> open(StreamDefinition<OUT> to, EventDispatcher executor, Observer observer) {
+            public <OUT> StreamObserver<OUT> open(StreamDefinition<OUT> to,
+                                                  EventDispatcher executor, Observer observer) {
                 throw new UnsupportedOperationException();
             }
 

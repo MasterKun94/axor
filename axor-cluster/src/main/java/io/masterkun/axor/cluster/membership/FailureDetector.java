@@ -141,7 +141,8 @@ final class FailureDetectorImpl implements FailureDetector {
                     }
                     var clock = memberManager.getClock(holder.uid)
                             .merge(memberManager.getClock());
-                    memberEvents.add(new MemberEvent(holder.member, MemberAction.STRONG_SUSPECT, clock));
+                    memberEvents.add(new MemberEvent(holder.member, MemberAction.STRONG_SUSPECT,
+                            clock));
                 }
             } else if (holder.status == MemberState.DOWN) {
                 if (holder.latestTs + memberFailTimeoutMillis < current) {

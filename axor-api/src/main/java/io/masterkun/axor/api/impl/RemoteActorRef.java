@@ -12,13 +12,13 @@ import io.masterkun.axor.runtime.StreamOutChannel;
 import java.util.function.BiConsumer;
 
 /**
- * Represents a reference to an actor that is located on a remote system.
- * This class extends {@link AbstractActorRef} and provides the necessary
- * functionality to send messages to a remote actor.
+ * Represents a reference to an actor that is located on a remote system. This class extends
+ * {@link AbstractActorRef} and provides the necessary functionality to send messages to a remote
+ * actor.
  *
  * <p>The {@code RemoteActorRef} uses a {@link StreamManager} to handle the
- * communication with the remote actor. It ensures that messages are sent
- * asynchronously, respecting the executor's context.
+ * communication with the remote actor. It ensures that messages are sent asynchronously, respecting
+ * the executor's context.
  *
  * @param <T> The type of messages that can be sent to this actor.
  */

@@ -6,8 +6,10 @@ import java.util.List;
 
 /**
  * A utility class for parsing string representations of message types into {@code MsgType} objects.
- * The parser supports nested and parameterized types, and it constructs a tree of nodes to represent the structure of the type.
- * This class is primarily used by the {@link MsgType#parse(String)} method to convert string representations into their corresponding {@code MsgType} instances.
+ * The parser supports nested and parameterized types, and it constructs a tree of nodes to
+ * represent the structure of the type. This class is primarily used by the
+ * {@link MsgType#parse(String)} method to convert string representations into their corresponding
+ * {@code MsgType} instances.
  */
 class MsgTypeParser {
 

@@ -33,7 +33,8 @@ public class KryoSerdeFactory extends AbstractSerdeFactory {
             maxBufferSize = Integer.MAX_VALUE;
         }
         if (bufferSize > maxBufferSize) {
-            throw new IllegalArgumentException("bufferSize " + bufferSize + " exceeds maxBufferSize " + maxBufferSize);
+            throw new IllegalArgumentException("bufferSize " + bufferSize + " exceeds " +
+                    "maxBufferSize " + maxBufferSize);
         }
         this.bufferSize = bufferSize;
         this.maxBufferSize = maxBufferSize;
@@ -81,7 +82,8 @@ public class KryoSerdeFactory extends AbstractSerdeFactory {
         if (type == null) {
             throw new IllegalArgumentException("type cannot be null.");
         } else {
-            return type.isArray() ? Modifier.isFinal(Util.getElementClass(type).getModifiers()) : Modifier.isFinal(type.getModifiers());
+            return type.isArray() ? Modifier.isFinal(Util.getElementClass(type).getModifiers()) :
+                    Modifier.isFinal(type.getModifiers());
         }
     }
 

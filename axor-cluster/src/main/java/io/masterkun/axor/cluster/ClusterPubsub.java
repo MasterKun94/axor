@@ -85,7 +85,8 @@ public class ClusterPubsub<T> implements Pubsub<T> {
                 .map(subscriber -> {
                     if (subscriber.hasName()) {
                         var addr = member.actor().address();
-                        return ActorAddress.create(addr.system(), addr.address(), subscriber.getName());
+                        return ActorAddress.create(addr.system(), addr.address(),
+                                subscriber.getName());
                     } else {
                         return StreamUtils.protoToActorAddress(subscriber.getAddress());
                     }
@@ -100,7 +101,8 @@ public class ClusterPubsub<T> implements Pubsub<T> {
             if (removeList.isEmpty() && addList.isEmpty()) {
                 return;
             }
-            Set<ActorAddress> removeSet = removeList.isEmpty() ? Set.of() : new HashSet<>(removeList);
+            Set<ActorAddress> removeSet = removeList.isEmpty() ? Set.of() :
+                    new HashSet<>(removeList);
             Set<ActorAddress> addSet = addList.isEmpty() ? Set.of() : new HashSet<>(addList);
             addList.forEach(removeSet::remove);
             removeList.forEach(addSet::remove);

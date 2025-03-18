@@ -42,8 +42,10 @@ public class DistributeActorSystemTest {
 
     @Test
     public void testAsk() throws Exception {
-        ActorRef<String> simpleReply = system2.get(simpleReply1.address(), MsgType.of(String.class));
-        CompletableFuture<String> future = ActorPatterns.ask(simpleReply, "hello", MsgType.of(String.class), Duration.ofSeconds(1), system2);
+        ActorRef<String> simpleReply = system2.get(simpleReply1.address(),
+                MsgType.of(String.class));
+        CompletableFuture<String> future = ActorPatterns.ask(simpleReply, "hello",
+                MsgType.of(String.class), Duration.ofSeconds(1), system2);
         Assert.assertEquals("hello", future.get());
         SystemEvent event;
         Queue<SystemEvent> queue = new LinkedList<>();
@@ -99,9 +101,11 @@ public class DistributeActorSystemTest {
 
     @Test
     public void testAskWithDeadLetter() throws Exception {
-        ActorAddress deadActorAddr = ActorAddress.create(system1.name(), system1.publishAddress(), "deadActor");
+        ActorAddress deadActorAddr = ActorAddress.create(system1.name(), system1.publishAddress()
+                , "deadActor");
         ActorRef<String> deadActor = system2.get(deadActorAddr, MsgType.of(String.class));
-        CompletableFuture<String> future = ActorPatterns.ask(deadActor, "hello", MsgType.of(String.class), Duration.ofMillis(100), system2);
+        CompletableFuture<String> future = ActorPatterns.ask(deadActor, "hello",
+                MsgType.of(String.class), Duration.ofMillis(100), system2);
         Assert.assertThrows(TimeoutException.class, () -> {
             try {
                 future.get();
@@ -155,8 +159,10 @@ public class DistributeActorSystemTest {
                     .resolve();
             system1 = ActorSystem.create("test", config1);
             Thread.sleep(1);
-            systemEventListener1 = new MessageBufferActorRef<>(system1, "systemEventListener", MsgType.of(SystemEvent.class));
-            deadLetterListener1 = new MessageBufferActorRef<>(system1, "deadLetterListener", MsgType.of(DeadLetter.class));
+            systemEventListener1 = new MessageBufferActorRef<>(system1, "systemEventListener",
+                    MsgType.of(SystemEvent.class));
+            deadLetterListener1 = new MessageBufferActorRef<>(system1, "deadLetterListener",
+                    MsgType.of(DeadLetter.class));
             system1.systemEvents().subscribe(systemEventListener1);
             system1.deadLetters().subscribe(deadLetterListener1);
             simpleReply1 = system1.start(LocalActorSystemTest.SimpleReply::new, "simpleReply");
@@ -184,8 +190,10 @@ public class DistributeActorSystemTest {
                     .resolve();
             system2 = ActorSystem.create("test", config2);
             Thread.sleep(1);
-            systemEventListener2 = new MessageBufferActorRef<>(system2, "systemEventListener", MsgType.of(SystemEvent.class));
-            deadLetterListener2 = new MessageBufferActorRef<>(system2, "deadLetterListener", MsgType.of(DeadLetter.class));
+            systemEventListener2 = new MessageBufferActorRef<>(system2, "systemEventListener",
+                    MsgType.of(SystemEvent.class));
+            deadLetterListener2 = new MessageBufferActorRef<>(system2, "deadLetterListener",
+                    MsgType.of(DeadLetter.class));
             system2.systemEvents().subscribe(systemEventListener2);
             system2.deadLetters().subscribe(deadLetterListener2);
         }
@@ -196,9 +204,11 @@ public class DistributeActorSystemTest {
 
         public static void main(String[] args) throws Exception {
             start();
-            ActorAddress address = ActorAddress.create(system2.name(), system2.publishAddress().host(), 10123, "simpleReply");
+            ActorAddress address = ActorAddress.create(system2.name(),
+                    system2.publishAddress().host(), 10123, "simpleReply");
             ActorRef<String> simpleReply = system2.get(address, MsgType.of(String.class));
-            CompletableFuture<String> future = ActorPatterns.ask(simpleReply, "hello", MsgType.of(String.class), Duration.ofSeconds(1), system2);
+            CompletableFuture<String> future = ActorPatterns.ask(simpleReply, "hello",
+                    MsgType.of(String.class), Duration.ofSeconds(1), system2);
             Assert.assertEquals("hello", future.get());
             Thread.sleep(1000);
             SystemEvent event;

@@ -1,14 +1,14 @@
 package io.masterkun.axor.runtime;
 
 /**
- * The {@code SerdeFactory} interface defines a factory for creating instances of {@link Serde} for specific message types.
- * Implementations of this interface provide the ability to check if a given message type is supported and to create
- * the corresponding {@code Serde} instance. Additionally, it provides access to the implementation name and the associated
- * {@link SerdeRegistry}.
+ * The {@code SerdeFactory} interface defines a factory for creating instances of {@link Serde} for
+ * specific message types. Implementations of this interface provide the ability to check if a given
+ * message type is supported and to create the corresponding {@code Serde} instance. Additionally,
+ * it provides access to the implementation name and the associated {@link SerdeRegistry}.
  *
- * <p>This interface is designed to be used in systems that require dynamic creation of serializers and deserializers
- * based on the message type, such as in messaging systems, data processing pipelines, and other scenarios where
- * serialization and deserialization are needed.
+ * <p>This interface is designed to be used in systems that require dynamic creation of serializers
+ * and deserializers based on the message type, such as in messaging systems, data processing
+ * pipelines, and other scenarios where serialization and deserialization are needed.
  */
 public interface SerdeFactory {
     /**
@@ -23,7 +23,8 @@ public interface SerdeFactory {
      * Creates a {@code Serde} instance for the specified message type.
      *
      * @param <T>  the type of the object that can be serialized and deserialized
-     * @param type the {@code MsgType} representing the type of objects to be serialized and deserialized
+     * @param type the {@code MsgType} representing the type of objects to be serialized and
+     *             deserialized
      * @return a new {@code Serde} instance for the given message type
      * @throws IllegalArgumentException if the specified message type is not supported
      */

@@ -90,7 +90,8 @@ public class ChannelPool implements Closeable {
                             break;
                         }
                         future = SCHEDULER.schedule(() -> {
-                            LOG.info("Channel state not ready over {}, start cleanup", keepaliveTimeout);
+                            LOG.info("Channel state not ready over {}, start cleanup",
+                                    keepaliveTimeout);
                             channelPool.remove(address, channel);
                             channel.shutdown();
                         }, keepaliveTimeout.toMillis(), TimeUnit.MILLISECONDS);

@@ -36,9 +36,11 @@ public class KryoSerdeFactoryProvider implements SerdeFactoryProvider {
             throw new IllegalArgumentException("bufferSize " + bufferSize + " is out of range");
         }
         if (maxBufferSize > Integer.MAX_VALUE) {
-            throw new IllegalArgumentException("maxBufferSize " + maxBufferSize + " is out of range");
+            throw new IllegalArgumentException("maxBufferSize " + maxBufferSize + " is out of " +
+                    "range");
         }
-        KryoSerdeFactory factory = new KryoSerdeFactory((int) bufferSize, (int) maxBufferSize, registry);
+        KryoSerdeFactory factory = new KryoSerdeFactory((int) bufferSize, (int) maxBufferSize,
+                registry);
 
         Config settings = config.getConfig("settings");
         boolean registrationRequired = settings.getBoolean("registrationRequired");

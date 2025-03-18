@@ -61,7 +61,8 @@ public class MarshallerAdaptor<T> implements MethodDescriptor.Marshaller<T> {
         }
     }
 
-    private static class InputStreamKnownLength extends FilterInputStream implements KnownLength, Serde.KnownLength {
+    private static class InputStreamKnownLength extends FilterInputStream implements KnownLength,
+            Serde.KnownLength {
         public InputStreamKnownLength(InputStream in) {
             super(in);
         }
@@ -72,7 +73,8 @@ public class MarshallerAdaptor<T> implements MethodDescriptor.Marshaller<T> {
         }
     }
 
-    private static class InputStreamDrainable extends FilterInputStream implements Drainable, Serde.Drainable {
+    private static class InputStreamDrainable extends FilterInputStream implements Drainable,
+            Serde.Drainable {
 
         public InputStreamDrainable(InputStream in) {
             super(in);
