@@ -6,7 +6,7 @@ import java.util.concurrent.CompletableFuture;
 
 public interface EventDispatcherGroup extends Iterable<EventDispatcher> {
 
-    EventDispatcher nextExecutor();
+    EventDispatcher nextDispatcher();
 
     default CompletableFuture<Void> shutdownAsync() {
         List<CompletableFuture<Void>> futures = new ArrayList<>();

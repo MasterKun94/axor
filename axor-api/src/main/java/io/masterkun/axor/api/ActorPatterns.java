@@ -1,9 +1,12 @@
 package io.masterkun.axor.api;
 
+import io.masterkun.axor.runtime.EventDispatcher;
 import io.masterkun.axor.runtime.MsgType;
+import io.masterkun.stateeasy.concurrent.EventPromise;
+import io.masterkun.stateeasy.concurrent.EventStage;
+import io.masterkun.stateeasy.concurrent.EventStageListener;
 
 import java.time.Duration;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -11,51 +14,65 @@ public class ActorPatterns {
     private static final AtomicInteger ADDER = new AtomicInteger();
 
     /**
-     * Sends a request to the specified actor and waits for a response of the specified type.
+     * Sends a request to the specified actor and waits for a response of the expected type.
      *
      * @param <REQ>   the type of the request message
      * @param <RES>   the type of the expected response message
-     * @param actor   the reference to the actor to which the request is sent
-     * @param request the request message to send
+     * @param actor   the {@code ActorRef} representing the recipient of the request
+     * @param request the request message to be sent
      * @param resType the message type of the expected response
-     * @param timeout the duration to wait for the response before timing out
-     * @param system  the actor system in which the actors are running
-     * @return a CompletableFuture that will be completed with the response or an exception if the
-     * operation fails or times out
+     * @param timeout the duration to wait for a response before timing out
+     * @param system  the actor system in which the operation is to be performed
+     * @return an {@code EventStage<RES>} that will complete with the response or a failure if the
+     * timeout is reached
      */
-    public static <REQ, RES> CompletableFuture<RES> ask(ActorRef<REQ> actor,
-                                                        REQ request,
-                                                        MsgType<RES> resType,
-                                                        Duration timeout,
-                                                        ActorSystem system) {
-        var future = new CompletableFuture<RES>();
+    public static <REQ, RES> EventStage<RES> ask(ActorRef<REQ> actor,
+                                                 REQ request,
+                                                 MsgType<RES> resType,
+                                                 Duration timeout,
+                                                 ActorSystem system) {
+        EventDispatcher dispatcher = EventDispatcher.current();
+        if (dispatcher == null) {
+            dispatcher = system.getDispatcherGroup().nextDispatcher();
+        }
+        var promise = EventPromise.<RES>newPromise(dispatcher);
         var askActor = system.<RES>start(
-                c -> new AskActor<>(c, future, resType, timeout),
-                "AskActor_" + ADDER.getAndIncrement());
+                c -> new AskActor<>(c, promise, resType, timeout),
+                "AskActor_" + ADDER.getAndIncrement(), dispatcher);
         actor.tell(request, askActor);
-        return future;
+        return promise;
     }
 
     private static class AskActor<RES> extends Actor<RES> {
-        private final CompletableFuture<RES> future;
+        private final EventPromise<RES> promise;
         private final MsgType<RES> resType;
 
         protected AskActor(ActorContext<RES> context,
-                           CompletableFuture<RES> future,
+                           EventPromise<RES> promise,
                            MsgType<RES> resType,
                            Duration timeout) {
             super(context);
-            this.future = future;
+            this.promise = promise;
             this.resType = resType;
-            context.executor().timeout(future, timeout.toMillis(), TimeUnit.MILLISECONDS);
-            future.whenCompleteAsync((r, t) -> {
-                context.stop();
-            }, context.executor());
+            context.executor().timeout(promise, timeout.toMillis(), TimeUnit.MILLISECONDS);
+            promise.addListener(new EventStageListener<>() {
+                @Override
+                public void success(RES res) {
+                    assert context.executor().inExecutor();
+                    context.stop();
+                }
+
+                @Override
+                public void failure(Throwable throwable) {
+                    assert context.executor().inExecutor();
+                    context.stop();
+                }
+            });
         }
 
         @Override
         public void onReceive(RES res) {
-            future.complete(res);
+            promise.success(res);
         }
 
         @Override

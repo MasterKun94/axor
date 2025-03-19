@@ -23,7 +23,7 @@ public class AbstractEventDispatcherGroup implements EventDispatcherGroup, HasMe
     }
 
     @Override
-    public EventDispatcher nextExecutor() {
+    public EventDispatcher nextDispatcher() {
         return executors.get(ADDER.getAndIncrement() % executors.size());
     }
 

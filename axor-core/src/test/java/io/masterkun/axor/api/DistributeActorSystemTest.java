@@ -6,6 +6,7 @@ import io.masterkun.axor.runtime.MsgType;
 import io.masterkun.axor.runtime.Status;
 import io.masterkun.axor.runtime.StatusCode;
 import io.masterkun.axor.testkit.MessageBufferActorRef;
+import io.masterkun.stateeasy.concurrent.EventStage;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
@@ -14,7 +15,6 @@ import org.junit.Test;
 import java.time.Duration;
 import java.util.LinkedList;
 import java.util.Queue;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -44,9 +44,9 @@ public class DistributeActorSystemTest {
     public void testAsk() throws Exception {
         ActorRef<String> simpleReply = system2.get(simpleReply1.address(),
                 MsgType.of(String.class));
-        CompletableFuture<String> future = ActorPatterns.ask(simpleReply, "hello",
+        EventStage<String> future = ActorPatterns.ask(simpleReply, "hello",
                 MsgType.of(String.class), Duration.ofSeconds(1), system2);
-        Assert.assertEquals("hello", future.get());
+        Assert.assertEquals("hello", future.toFuture().get());
         SystemEvent event;
         Queue<SystemEvent> queue = new LinkedList<>();
         while ((event = systemEventListener1.pollMessage(10, TimeUnit.MILLISECONDS)) != null) {
@@ -104,11 +104,11 @@ public class DistributeActorSystemTest {
         ActorAddress deadActorAddr = ActorAddress.create(system1.name(), system1.publishAddress()
                 , "deadActor");
         ActorRef<String> deadActor = system2.get(deadActorAddr, MsgType.of(String.class));
-        CompletableFuture<String> future = ActorPatterns.ask(deadActor, "hello",
+        EventStage<String> future = ActorPatterns.ask(deadActor, "hello",
                 MsgType.of(String.class), Duration.ofMillis(100), system2);
         Assert.assertThrows(TimeoutException.class, () -> {
             try {
-                future.get();
+                future.toFuture().get();
             } catch (ExecutionException e) {
                 throw e.getCause();
             }
@@ -207,9 +207,9 @@ public class DistributeActorSystemTest {
             ActorAddress address = ActorAddress.create(system2.name(),
                     system2.publishAddress().host(), 10123, "simpleReply");
             ActorRef<String> simpleReply = system2.get(address, MsgType.of(String.class));
-            CompletableFuture<String> future = ActorPatterns.ask(simpleReply, "hello",
+            EventStage<String> future = ActorPatterns.ask(simpleReply, "hello",
                     MsgType.of(String.class), Duration.ofSeconds(1), system2);
-            Assert.assertEquals("hello", future.get());
+            Assert.assertEquals("hello", future.toFuture().get());
             Thread.sleep(1000);
             SystemEvent event;
             while ((event = systemEventListener2.pollMessage(100, TimeUnit.MILLISECONDS)) != null) {

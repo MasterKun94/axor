@@ -6,13 +6,13 @@ import io.masterkun.axor.exception.IllegalMsgTypeException;
 import io.masterkun.axor.runtime.MsgType;
 import io.masterkun.axor.testkit.LocalActorSystem;
 import io.masterkun.axor.testkit.MessageBufferActorRef;
+import io.masterkun.stateeasy.concurrent.EventStage;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.time.Duration;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 public class LocalActorSystemTest {
@@ -31,14 +31,14 @@ public class LocalActorSystemTest {
     }
 
     @Test
-    public void testAsk() {
+    public void testAsk() throws Exception {
         MsgType<String> resType = MsgType.of(String.class);
         Duration timeout = Duration.ofSeconds(1);
-        CompletableFuture<String> future = ActorPatterns.ask(simpleReply, "hello", resType,
+        EventStage<String> future = ActorPatterns.ask(simpleReply, "hello", resType,
                 timeout, system);
-        Assert.assertEquals("hello", future.join());
+        Assert.assertEquals("hello", future.toFuture().get());
         future = ActorPatterns.ask(simpleReply, "world", resType, timeout, system);
-        Assert.assertEquals("world", future.join());
+        Assert.assertEquals("world", future.toFuture().get());
     }
 
     @Test

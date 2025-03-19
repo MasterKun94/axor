@@ -6,6 +6,7 @@ import io.masterkun.axor.api.impl.ActorSystemImpl;
 import io.masterkun.axor.commons.task.DependencyTaskRegistry;
 import io.masterkun.axor.exception.ActorNotFoundException;
 import io.masterkun.axor.exception.IllegalMsgTypeException;
+import io.masterkun.axor.runtime.EventDispatcher;
 import io.masterkun.axor.runtime.EventDispatcherGroup;
 import io.masterkun.axor.runtime.MsgType;
 import io.masterkun.axor.runtime.SerdeRegistry;
@@ -125,7 +126,21 @@ public interface ActorSystem {
      * @param name    the name of the actor, which must be unique within the actor system
      * @return an {@code ActorRef<T>} representing the reference to the newly created actor
      */
-    <T> ActorRef<T> start(ActorCreator<T> creator, String name);
+    default <T> ActorRef<T> start(ActorCreator<T> creator, String name) {
+        return start(creator, name, getDispatcherGroup().nextDispatcher());
+    }
+
+    /**
+     * Starts a new actor with the specified creator, name, and event dispatcher.
+     *
+     * @param <T>        the type of messages that the actor can handle
+     * @param creator    the {@code ActorCreator<T>} that is responsible for creating the actor
+     *                   instance
+     * @param name       the name of the actor, which must be unique within the actor system
+     * @param dispatcher the {@code EventDispatcher} to be used for dispatching events to the actor
+     * @return an {@code ActorRef<T>} representing the reference to the newly created actor
+     */
+    <T> ActorRef<T> start(ActorCreator<T> creator, String name, EventDispatcher dispatcher);
 
     /**
      * Stops the specified actor, causing it to cease processing any further messages and begin its
@@ -207,13 +222,13 @@ public interface ActorSystem {
     StreamServer getStreamServer();
 
     /**
-     * Returns the {@code EventExecutorGroup} associated with this actor system. The
-     * {@code EventExecutorGroup} is responsible for managing a group of event executors, which are
-     * used to execute tasks and handle events in a concurrent and efficient manner.
+     * Retrieves the {@code EventDispatcherGroup} associated with this actor system. The
+     * {@code EventDispatcherGroup} is responsible for managing a collection of event dispatchers,
+     * which are used to distribute and process events or messages within the actor system.
      *
-     * @return the {@code EventExecutorGroup} instance associated with this actor system
+     * @return the {@code EventDispatcherGroup} instance associated with this actor system
      */
-    EventDispatcherGroup getEventExecutorGroup();
+    EventDispatcherGroup getDispatcherGroup();
 
     /**
      * Initiates the asynchronous shutdown of the actor system. This method will trigger the

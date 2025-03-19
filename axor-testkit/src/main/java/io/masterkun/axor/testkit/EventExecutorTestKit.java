@@ -23,7 +23,7 @@ public class EventExecutorTestKit {
 
     public void test() throws Exception {
         assertNull(EventDispatcher.current());
-        EventDispatcher executor = eventExecutorGroup.nextExecutor();
+        EventDispatcher executor = eventExecutorGroup.nextDispatcher();
         assertFalse(executor.inExecutor());
         executor.submit(() -> {
             assertTrue(executor.inExecutor());

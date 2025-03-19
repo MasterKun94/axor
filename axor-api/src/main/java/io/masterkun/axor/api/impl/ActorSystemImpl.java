@@ -102,7 +102,7 @@ public class ActorSystemImpl implements ActorSystem, HasMeter {
         this.deadLetterPubsub = Pubsub.create(this, MsgType.of(DeadLetter.class), false);
         this.systemEventPubsub = Pubsub.create(this, MsgType.of(SystemEvent.class), false);
         var address = ActorAddress.create(this.name, publishAddress, NoSenderActorRef.ACTOR_NAME);
-        var executor = eventExecutorGroup.nextExecutor();
+        var executor = eventExecutorGroup.nextDispatcher();
         var serde = NoSenderActorRef.SERDE;
         var def = new StreamDefinition<>(address.streamAddress(), serde);
         var channel = streamServer.get(def, executor);
@@ -203,18 +203,17 @@ public class ActorSystemImpl implements ActorSystem, HasMeter {
 
     @SuppressWarnings("unchecked")
     @Override
-    public <T> ActorRef<T> start(ActorCreator<T> creator, String name) {
+    public <T> ActorRef<T> start(ActorCreator<T> creator, String name, EventDispatcher dispatcher) {
         checkClosed();
         ActorRef<?> ret = localActorCache.compute(name, (k, v) -> {
             if (v != null) {
                 throw new IllegalStateException("Actor already started: " + name);
             }
             var address = ActorAddress.create(this.name, publishAddress, k);
-            var executor = eventExecutorGroup.nextExecutor();
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Creating new actor ref: {}", address);
             }
-            return new LocalActorRef<>(address, this, executor, creator, actorConfig);
+            return new LocalActorRef<>(address, this, dispatcher, creator, actorConfig);
         });
         return (ActorRef<T>) ret;
     }
@@ -257,7 +256,7 @@ public class ActorSystemImpl implements ActorSystem, HasMeter {
     private <T> RemoteActorRef<T> createRemoteActorRef(ActorAddress address, MsgType<T> msgType) {
         var executor = EventDispatcher.current();
         if (executor == null) {
-            executor = eventExecutorGroup.nextExecutor();
+            executor = eventExecutorGroup.nextDispatcher();
         }
         var definition = new StreamDefinition<>(address.streamAddress(), getSerde(msgType));
         return RemoteActorRef.create(address,
@@ -298,7 +297,7 @@ public class ActorSystemImpl implements ActorSystem, HasMeter {
     }
 
     @Override
-    public EventDispatcherGroup getEventExecutorGroup() {
+    public EventDispatcherGroup getDispatcherGroup() {
         return eventExecutorGroup;
     }
 

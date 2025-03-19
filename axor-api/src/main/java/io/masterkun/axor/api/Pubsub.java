@@ -47,8 +47,8 @@ public interface Pubsub<T> extends EventStream<T> {
      * @return a new instance of {@link Pubsub} configured with the provided parameters
      */
     static <T> Pubsub<T> create(ActorSystem system, MsgType<T> msgType, boolean logUnSendMsg) {
-        EventDispatcherGroup executorGroup = system.getEventExecutorGroup();
-        EventDispatcher executor = executorGroup.nextExecutor();
+        EventDispatcherGroup executorGroup = system.getDispatcherGroup();
+        EventDispatcher executor = executorGroup.nextDispatcher();
         return new LocalPubsub<>(msgType, executor, logUnSendMsg);
     }
 
@@ -68,9 +68,8 @@ public interface Pubsub<T> extends EventStream<T> {
      * Sends the given message to a specific actor.
      *
      * <p>This method targets a single actor, identified by the provided {@code ActorRef}, and
-     * sends
-     * it the specified message. The sender of the message is also provided, which can be used by
-     * the receiving actor to identify the origin of the message.
+     * sends it the specified message. The sender of the message is also provided, which can be used
+     * by the receiving actor to identify the origin of the message.
      *
      * @param msg    the message to be sent, of type T
      * @param sender the {@code ActorRef} representing the sender of the message

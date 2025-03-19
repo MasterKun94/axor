@@ -6,6 +6,7 @@ import io.grpc.ServerBuilder;
 import io.masterkun.axor.runtime.MsgType;
 import io.masterkun.axor.runtime.StreamServer;
 import io.masterkun.axor.runtime.stream.grpc.GrpcStreamServer;
+import io.masterkun.stateeasy.concurrent.EventStage;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
@@ -14,7 +15,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
-import java.util.concurrent.CompletableFuture;
 
 public class ActorRefTest {
 
@@ -53,10 +53,10 @@ public class ActorRefTest {
         ActorRef<Message1> actor = system2.get(
                 address,
                 Message1.class);
-        CompletableFuture<Message2> hello = ActorPatterns.ask(
+        EventStage<Message2> hello = ActorPatterns.ask(
                 actor, new Message1(1, "hello"),
                 MsgType.of(Message2.class), Duration.ofSeconds(1), system2);
-        Assert.assertEquals(new Message2(1, "hello"), hello.get());
+        Assert.assertEquals(new Message2(1, "hello"), hello.toFuture().get());
         Assert.assertSame(actor, system2.get(actor.address(), Message1.class));
         Assert.assertSame(actor, system2.get(actor.address()));
 
