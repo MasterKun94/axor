@@ -2,10 +2,12 @@ package io.masterkun.axor.api.impl;
 
 import io.masterkun.axor.api.Actor;
 import io.masterkun.axor.api.ActorAddress;
+import io.masterkun.axor.api.ActorContext;
 import io.masterkun.axor.api.ActorCreator;
 import io.masterkun.axor.api.ActorRef;
 import io.masterkun.axor.api.ActorRefRich;
 import io.masterkun.axor.api.ActorSystem;
+import io.masterkun.axor.api.Signal;
 import io.masterkun.axor.api.SystemEvent;
 import io.masterkun.axor.config.ActorConfig;
 import io.masterkun.axor.exception.ActorException;
@@ -23,6 +25,13 @@ import org.slf4j.MDC;
 import org.slf4j.spi.MDCAdapter;
 
 import java.io.Closeable;
+import java.lang.ref.ReferenceQueue;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.BiConsumer;
 
 /**
@@ -44,6 +53,8 @@ public final class LocalActorRef<T> extends AbstractActorRef<T> {
     private final Actor<T> actor;
     private final Closeable unregisterHook;
     private final BiConsumer<ActorRef<?>, T> tellAction;
+    private List<Runnable> stopRunners;
+    private Map<ActorAddress, WatcherHolder> watchers;
     private boolean stopped;
 
     LocalActorRef(ActorAddress address, ActorSystem system, EventDispatcher executor,
@@ -102,7 +113,7 @@ public final class LocalActorRef<T> extends AbstractActorRef<T> {
                 context.sender(sender1);
                 actor.onReceive(msg);
             } catch (Throwable e) {
-                systemEvent(SystemEvent.ActorAction.ON_RECEIVE, e);
+                systemErrorEvent(SystemEvent.ActorAction.ON_RECEIVE, e);
                 try {
                     switch (actor.failureStrategy(e)) {
                         case RESTART -> internalRestart();
@@ -112,7 +123,7 @@ public final class LocalActorRef<T> extends AbstractActorRef<T> {
                         default -> throw new IllegalArgumentException("unknown failure strategy");
                     }
                 } catch (Throwable ex) {
-                    context.system().systemFailure(ex);
+                    actor.context().system().systemFailure(ex);
                 }
             } finally {
                 context.sender(ActorRef.noSender());
@@ -171,13 +182,13 @@ public final class LocalActorRef<T> extends AbstractActorRef<T> {
                 actor.onStart();
                 systemEvent(new SystemEvent.ActorStarted(this));
             } catch (Throwable e) {
-                systemEvent(SystemEvent.ActorAction.ON_START, e);
+                systemErrorEvent(SystemEvent.ActorAction.ON_START, e);
                 internalStop();
             }
         });
     }
 
-    private void systemEvent(SystemEvent.ActorAction action, Throwable cause) {
+    private void systemErrorEvent(SystemEvent.ActorAction action, Throwable cause) {
         LOG.error("{} error during action: {}", this, action, cause);
         systemEvent(new SystemEvent.ActorError(this, action, cause));
     }
@@ -193,6 +204,25 @@ public final class LocalActorRef<T> extends AbstractActorRef<T> {
             }
         }
         ((ActorSystemImpl) actor.context().system()).systemEvents().publishToAll(event, this);
+        if (watchers != null) {
+            for (var entry : watchers.entrySet()) {
+                maybeSignalWatcher(event, entry.getKey(), entry.getValue());
+            }
+        }
+    }
+
+    private void maybeSignalWatcher(SystemEvent event, ActorAddress address, WatcherHolder holder) {
+        LocalActorRef<?> watcher = holder.get();
+        if (watcher == null) {
+            watchers.remove(address, holder);
+            return;
+        }
+        for (Class<?> watchEvent : holder.watchEvents) {
+            if (watchEvent.isInstance(watchEvent)) {
+                watcher.signal(event);
+                return;
+            }
+        }
     }
 
     private void internalRestart() {
@@ -201,7 +231,7 @@ public final class LocalActorRef<T> extends AbstractActorRef<T> {
             actor.onRestart();
             systemEvent(new SystemEvent.ActorRestarted(this));
         } catch (Exception ex) {
-            systemEvent(SystemEvent.ActorAction.ON_RESTART, ex);
+            systemErrorEvent(SystemEvent.ActorAction.ON_RESTART, ex);
             internalStop();
         }
     }
@@ -211,19 +241,39 @@ public final class LocalActorRef<T> extends AbstractActorRef<T> {
         try {
             actor.preStop();
         } catch (Exception e) {
-            systemEvent(SystemEvent.ActorAction.ON_PRE_STOP, e);
+            systemErrorEvent(SystemEvent.ActorAction.ON_PRE_STOP, e);
         }
         try {
             unregisterHook.close();
             cleanup();
         } catch (Throwable e) {
-            // ignore TODO
+            LOG.error("{} unexpected error on stopping", this, e);
         }
         try {
             stopped = true;
             actor.postStop();
         } catch (Throwable e) {
-            systemEvent(SystemEvent.ActorAction.ON_POST_STOP, e);
+            systemErrorEvent(SystemEvent.ActorAction.ON_POST_STOP, e);
+        }
+        if (stopRunners != null) {
+            for (Runnable runnable : stopRunners) {
+                try {
+                    runnable.run();
+                } catch (Throwable e) {
+                    LOG.error("Stop runner throw unexpected error: " + e);
+                }
+            }
+            stopRunners = null;
+        }
+        if (watchers != null) {
+            for (WatcherHolder holder : watchers.values()) {
+                try {
+                    holder.release();
+                } catch (Throwable e) {
+                    LOG.error("Release throw unexpected error: " + e);
+                }
+            }
+            watchers = null;
         }
         systemEvent(new SystemEvent.ActorStopped(this));
     }
@@ -236,9 +286,25 @@ public final class LocalActorRef<T> extends AbstractActorRef<T> {
         internalStop();
     }
 
+    public ActorContext<T> context() {
+        return actor.context();
+    }
+
     @Override
     public void tell(T value, ActorRef<?> sender) {
         executor.execute(() -> tellAction.accept(sender, value));
+    }
+
+    public void signal(Signal signal) {
+        if (executor.inExecutor()) {
+            try {
+                actor.onSignal(signal);
+            } catch (Throwable e) {
+                systemErrorEvent(SystemEvent.ActorAction.ON_SIGNAL, e);
+            }
+        } else {
+            executor.execute(() -> signal(signal));
+        }
     }
 
     @Override
@@ -248,6 +314,98 @@ public final class LocalActorRef<T> extends AbstractActorRef<T> {
 
     public boolean isStopped() {
         return stopped;
+    }
+
+    @Override
+    public void addWatcher(LocalActorRef<?> watcher,
+                           List<Class<? extends SystemEvent>> watchEvents) {
+        if (executor.inExecutor()) {
+            if (isStopped()) {
+                maybeSignalWatcher(new SystemEvent.ActorStopped(this), watcher.address(),
+                        new WatcherHolder(watcher, watchEvents, () -> {
+                        }));
+                return;
+            }
+            if (watchers == null) {
+                watchers = new HashMap<>();
+            }
+            watchers.compute(watcher.address(), (k, v) -> {
+                if (v == null) {
+                    return new WatcherHolder(watcher, watchEvents, () -> removeWatcher(watcher));
+                } else {
+                    return v.addEvents(watchEvents);
+                }
+            });
+        } else {
+            executor.execute(() -> addWatcher(watcher, List.copyOf(watchEvents)));
+        }
+    }
+
+    @Override
+    public void removeWatcher(LocalActorRef<?> watcher) {
+        if (executor.inExecutor()) {
+            if (watchers == null) {
+                return;
+            }
+            watchers.compute(watcher.address(), (k, v) -> {
+                if (v == null || v.get() == null || v.get() == watcher) {
+                    return null;
+                }
+                return v;
+            });
+        } else {
+            executor.execute(() -> removeWatcher(watcher));
+        }
+    }
+
+    public void addStopRunner(Runnable runnable) {
+        if (executor.inExecutor()) {
+            if (stopRunners == null) {
+                stopRunners = new ArrayList<>();
+            }
+            stopRunners.add(runnable);
+        } else {
+            executor.execute(() -> addStopRunner(runnable));
+        }
+    }
+
+    public void removeStopRunner(Runnable runnable) {
+        if (executor.inExecutor()) {
+            if (stopRunners == null) {
+                return;
+            }
+            stopRunners.remove(runnable);
+        } else {
+            executor.execute(() -> removeStopRunner(runnable));
+        }
+    }
+
+    private static class WatcherHolder {
+        private final LocalActorRef<?> watcher;
+        private final Set<Class<? extends SystemEvent>> watchEvents;
+        private final Runnable stopRunner;
+
+        private WatcherHolder(LocalActorRef<?> watcher,
+                              List<Class<? extends SystemEvent>> watchEvents,
+                              Runnable stopRunner) {
+            this.watcher = watcher;
+            this.watchEvents = new HashSet<>(watchEvents);
+            this.stopRunner = stopRunner;
+            watcher.addStopRunner(stopRunner);
+        }
+
+        public LocalActorRef<?> get() {
+            return watcher;
+        }
+
+        public WatcherHolder addEvents(List<Class<? extends SystemEvent>> watchEvents) {
+            this.watchEvents.addAll(watchEvents);
+            return this;
+        }
+
+        public void release() {
+            watcher.removeStopRunner(stopRunner);
+        }
     }
 
     private final class ActorStreamInChannel implements StreamInChannel<T> {

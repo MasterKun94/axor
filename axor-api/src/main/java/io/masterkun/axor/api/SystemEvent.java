@@ -8,11 +8,12 @@ import io.masterkun.axor.runtime.Status;
  * stream. This interface is sealed and defines two sub-interfaces: {@code ActorEvent} and
  * {@code StreamEvent}.
  */
-public sealed interface SystemEvent {
+public sealed interface SystemEvent extends Signal {
 
     enum ActorAction {
         ON_START,
         ON_RECEIVE,
+        ON_SIGNAL,
         ON_RESTART,
         ON_PRE_STOP,
         ON_POST_STOP,

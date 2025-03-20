@@ -3,6 +3,8 @@ package io.masterkun.axor.api;
 import io.masterkun.axor.api.impl.ActorSystemImpl;
 import io.masterkun.axor.runtime.EventDispatcher;
 
+import java.util.List;
+
 /**
  * Provides the context for an actor, encapsulating the environment in which the actor operates.
  * This includes references to the actor system, the event executor, and methods to interact with
@@ -71,4 +73,8 @@ public interface ActorContext<T> {
     default ActorRef<T> noSender() {
         return system().noSender();
     }
+
+    void watch(ActorRef<?> target, List<Class<? extends SystemEvent>> watchEvents);
+
+    void unwatch(ActorRef<?> target);
 }

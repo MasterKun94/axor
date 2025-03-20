@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
+import java.lang.ref.SoftReference;
 import java.lang.ref.WeakReference;
 import java.util.Map;
 import java.util.Objects;
@@ -178,7 +179,7 @@ public class MapActorRefCache implements ActorRefCache, HasMeter {
         }
     }
 
-    private static class SoftReferenceRich extends WeakReference<RemoteActorRef<?>> implements ReferenceRich {
+    private static class SoftReferenceRich extends SoftReference<RemoteActorRef<?>> implements ReferenceRich {
         private final StreamManager<?> streamManager;
         private final ActorAddress address;
         private final Map<ActorAddress, Reference<RemoteActorRef<?>>> cache;

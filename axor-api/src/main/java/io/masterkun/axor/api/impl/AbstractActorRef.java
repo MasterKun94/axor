@@ -8,8 +8,8 @@ import io.masterkun.axor.runtime.Serde;
 import io.masterkun.axor.runtime.StreamDefinition;
 import io.masterkun.axor.runtime.StreamManager;
 
-public sealed abstract class AbstractActorRef<T> extends ActorRefRich<T> permits LocalActorRef,
-        RemoteActorRef, NoSenderActorRef {
+public sealed abstract class AbstractActorRef<T> extends ActorRefRich<T> implements Watchable
+        permits LocalActorRef, RemoteActorRef, NoSenderActorRef {
 
     private final ActorAddress address;
     private StreamDefinition<T> definition;

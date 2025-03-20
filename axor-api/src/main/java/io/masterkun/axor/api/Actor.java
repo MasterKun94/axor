@@ -79,6 +79,9 @@ public abstract class Actor<T> {
      */
     public abstract void onReceive(T t);
 
+    public void onSignal(Signal signal) {
+    }
+
     /**
      * Called before the actor is stopped. This method can be overridden to perform any necessary
      * cleanup or finalization tasks that need to be executed before the actor is terminated.

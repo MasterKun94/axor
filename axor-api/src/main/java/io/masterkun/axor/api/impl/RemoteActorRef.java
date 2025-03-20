@@ -4,11 +4,15 @@ import io.masterkun.axor.api.ActorAddress;
 import io.masterkun.axor.api.ActorRef;
 import io.masterkun.axor.api.ActorRefRich;
 import io.masterkun.axor.api.ActorSystem;
+import io.masterkun.axor.api.SystemEvent;
 import io.masterkun.axor.runtime.EventDispatcher;
 import io.masterkun.axor.runtime.Serde;
 import io.masterkun.axor.runtime.StreamManager;
 import io.masterkun.axor.runtime.StreamOutChannel;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.util.List;
 import java.util.function.BiConsumer;
 
 /**
@@ -23,6 +27,8 @@ import java.util.function.BiConsumer;
  * @param <T> The type of messages that can be sent to this actor.
  */
 public final class RemoteActorRef<T> extends AbstractActorRef<T> {
+    private static final Logger LOG = LoggerFactory.getLogger(RemoteActorRef.class);
+
     private final ActorSystem system;
     private final BiConsumer<StreamManager<?>, T> tellAction =
             (manager, t) -> manager
@@ -65,5 +71,18 @@ public final class RemoteActorRef<T> extends AbstractActorRef<T> {
     @Override
     public boolean isLocal() {
         return false;
+    }
+
+    @Override
+    public void addWatcher(LocalActorRef<?> watcher,
+                           List<Class<? extends SystemEvent>> watchEvents) {
+        LOG.warn("Method RemoteActorRef.addWatcher is not supported yet");
+        // TODO
+    }
+
+    @Override
+    public void removeWatcher(LocalActorRef<?> watcher) {
+        LOG.warn("Method RemoteActorRef.removeWatcher is not supported yet");
+        // TODO
     }
 }

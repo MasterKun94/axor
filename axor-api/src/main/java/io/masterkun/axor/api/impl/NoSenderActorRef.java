@@ -2,6 +2,7 @@ package io.masterkun.axor.api.impl;
 
 import io.masterkun.axor.api.ActorAddress;
 import io.masterkun.axor.api.ActorRef;
+import io.masterkun.axor.api.SystemEvent;
 import io.masterkun.axor.runtime.EventDispatcher;
 import io.masterkun.axor.runtime.MsgType;
 import io.masterkun.axor.runtime.Serde;
@@ -12,7 +13,9 @@ import io.masterkun.axor.runtime.impl.NoopSerdeFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public final class NoSenderActorRef extends AbstractActorRef<Object> {
+import java.util.List;
+
+public final class NoSenderActorRef extends AbstractActorRef<Object> implements Watchable {
     public static final String ACTOR_NAME = "no_sender";
     public static final MsgType<Object> MSG_TYPE = MsgType.of(Object.class);
     public static final Serde<Object> SERDE = new NoopSerdeFactory.NoopSerde<>(MSG_TYPE);
@@ -81,5 +84,16 @@ public final class NoSenderActorRef extends AbstractActorRef<Object> {
     @Override
     public boolean isNoSender() {
         return true;
+    }
+
+    @Override
+    public void addWatcher(LocalActorRef<?> watcher,
+                           List<Class<? extends SystemEvent>> watchEvents) {
+        LOG.warn("You are watching a noSender actor, this take no action");
+    }
+
+    @Override
+    public void removeWatcher(LocalActorRef<?> watcher) {
+
     }
 }
