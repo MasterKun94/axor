@@ -26,7 +26,7 @@ import java.util.function.BiConsumer;
  *
  * @param <T> The type of messages that can be sent to this actor.
  */
-public final class RemoteActorRef<T> extends AbstractActorRef<T> {
+final class RemoteActorRef<T> extends AbstractActorRef<T> {
     private static final Logger LOG = LoggerFactory.getLogger(RemoteActorRef.class);
 
     private final ActorSystem system;
@@ -74,14 +74,14 @@ public final class RemoteActorRef<T> extends AbstractActorRef<T> {
     }
 
     @Override
-    public void addWatcher(LocalActorRef<?> watcher,
+    public void addWatcher(ActorRef<?> watcher,
                            List<Class<? extends SystemEvent>> watchEvents) {
         LOG.warn("Method RemoteActorRef.addWatcher is not supported yet");
         // TODO
     }
 
     @Override
-    public void removeWatcher(LocalActorRef<?> watcher) {
+    public void removeWatcher(ActorRef<?> watcher) {
         LOG.warn("Method RemoteActorRef.removeWatcher is not supported yet");
         // TODO
     }

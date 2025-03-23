@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
-public final class NoSenderActorRef extends AbstractActorRef<Object> implements Watchable {
+public final class NoSenderActorRef extends AbstractActorRef<Object> {
     public static final String ACTOR_NAME = "no_sender";
     public static final MsgType<Object> MSG_TYPE = MsgType.of(Object.class);
     public static final Serde<Object> SERDE = new NoopSerdeFactory.NoopSerde<>(MSG_TYPE);
@@ -87,13 +87,13 @@ public final class NoSenderActorRef extends AbstractActorRef<Object> implements 
     }
 
     @Override
-    public void addWatcher(LocalActorRef<?> watcher,
+    public void addWatcher(ActorRef<?> watcher,
                            List<Class<? extends SystemEvent>> watchEvents) {
         LOG.warn("You are watching a noSender actor, this take no action");
     }
 
     @Override
-    public void removeWatcher(LocalActorRef<?> watcher) {
+    public void removeWatcher(ActorRef<?> watcher) {
 
     }
 }

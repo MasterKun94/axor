@@ -6,9 +6,7 @@ import io.masterkun.axor.api.ActorRef;
 import io.masterkun.axor.api.ActorRefRich;
 import io.masterkun.axor.api.ActorSystem;
 import io.masterkun.axor.api.impl.AbstractActorRef;
-import io.masterkun.axor.api.impl.LocalActorRef;
 import io.masterkun.axor.api.impl.NoSenderActorRef;
-import io.masterkun.axor.api.impl.RemoteActorRef;
 import io.masterkun.axor.runtime.MsgType;
 import io.masterkun.axor.runtime.Serde;
 import io.masterkun.axor.runtime.SerdeRegistry;
@@ -127,7 +125,7 @@ public class KryoActorSerdeInitializerTest {
         KryoActorSerdeInitializer initializer = new KryoActorSerdeInitializer();
         initializer.initialize(actorSystem, serdeFactory, registry);
 
-        assertEquals(kryo.getClassResolver().getRegistration(LocalActorRef.class).getId(), 1005);
+        assertEquals(kryo.getClassResolver().getRegistration(NoSenderActorRef.class).getId(), 1007);
     }
 
     @Test
@@ -148,7 +146,7 @@ public class KryoActorSerdeInitializerTest {
         KryoActorSerdeInitializer initializer = new KryoActorSerdeInitializer();
         initializer.initialize(actorSystem, serdeFactory, registry);
 
-        assertEquals(kryo.getClassResolver().getRegistration(RemoteActorRef.class).getId(), 1006);
+        assertEquals(kryo.getClassResolver().getRegistration(NoSenderActorRef.class).getId(), 1007);
     }
 
     @Test

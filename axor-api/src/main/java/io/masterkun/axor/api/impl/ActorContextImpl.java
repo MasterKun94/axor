@@ -2,6 +2,7 @@ package io.masterkun.axor.api.impl;
 
 import io.masterkun.axor.api.ActorContext;
 import io.masterkun.axor.api.ActorRef;
+import io.masterkun.axor.api.ActorRefRich;
 import io.masterkun.axor.api.ActorSystem;
 import io.masterkun.axor.api.SystemEvent;
 import io.masterkun.axor.runtime.EventDispatcher;
@@ -46,19 +47,11 @@ class ActorContextImpl<T> implements ActorContext<T> {
 
     @Override
     public void watch(ActorRef<?> target, List<Class<? extends SystemEvent>> watchEvents) {
-        if (target instanceof Watchable watchable) {
-            watchable.addWatcher(self, watchEvents);
-        } else {
-            throw new UnsupportedOperationException("Watch " + target + "Not supported yet");
-        }
+        ((ActorRefRich<?>) target).addWatcher(self, watchEvents);
     }
 
     @Override
     public void unwatch(ActorRef<?> target) {
-        if (target instanceof Watchable watchable) {
-            watchable.removeWatcher(self);
-        } else {
-            throw new UnsupportedOperationException("Watch " + target + "Not supported yet");
-        }
+        ((ActorRefRich<?>) target).removeWatcher(self);
     }
 }

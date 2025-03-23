@@ -19,13 +19,13 @@ import io.masterkun.axor.runtime.StreamInChannel;
 import io.masterkun.axor.runtime.StreamManager;
 import io.masterkun.axor.runtime.StreamManager.MsgHandler;
 import io.masterkun.axor.runtime.StreamOutChannel;
+import org.jetbrains.annotations.ApiStatus.Internal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.slf4j.spi.MDCAdapter;
 
 import java.io.Closeable;
-import java.lang.ref.ReferenceQueue;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -46,7 +46,7 @@ import java.util.function.BiConsumer;
  *
  * @param <T> the type of messages that this actor can handle
  */
-public final class LocalActorRef<T> extends AbstractActorRef<T> {
+final class LocalActorRef<T> extends AbstractActorRef<T> {
     private static final Logger LOG = LoggerFactory.getLogger(LocalActorRef.class);
 
     private final EventDispatcher executor;
@@ -212,14 +212,14 @@ public final class LocalActorRef<T> extends AbstractActorRef<T> {
     }
 
     private void maybeSignalWatcher(SystemEvent event, ActorAddress address, WatcherHolder holder) {
-        LocalActorRef<?> watcher = holder.get();
+        ActorRef<?> watcher = holder.get();
         if (watcher == null) {
             watchers.remove(address, holder);
             return;
         }
         for (Class<?> watchEvent : holder.watchEvents) {
-            if (watchEvent.isInstance(watchEvent)) {
-                watcher.signal(event);
+            if (watchEvent.isInstance(event)) {
+                LocalActorRefUnsafe.signal(watcher, event);
                 return;
             }
         }
@@ -265,6 +265,7 @@ public final class LocalActorRef<T> extends AbstractActorRef<T> {
             }
             stopRunners = null;
         }
+        systemEvent(new SystemEvent.ActorStopped(this));
         if (watchers != null) {
             for (WatcherHolder holder : watchers.values()) {
                 try {
@@ -275,7 +276,6 @@ public final class LocalActorRef<T> extends AbstractActorRef<T> {
             }
             watchers = null;
         }
-        systemEvent(new SystemEvent.ActorStopped(this));
     }
 
     void stop() {
@@ -286,6 +286,7 @@ public final class LocalActorRef<T> extends AbstractActorRef<T> {
         internalStop();
     }
 
+    @Internal
     public ActorContext<T> context() {
         return actor.context();
     }
@@ -295,6 +296,7 @@ public final class LocalActorRef<T> extends AbstractActorRef<T> {
         executor.execute(() -> tellAction.accept(sender, value));
     }
 
+    @Internal
     public void signal(Signal signal) {
         if (executor.inExecutor()) {
             try {
@@ -317,7 +319,7 @@ public final class LocalActorRef<T> extends AbstractActorRef<T> {
     }
 
     @Override
-    public void addWatcher(LocalActorRef<?> watcher,
+    public void addWatcher(ActorRef<?> watcher,
                            List<Class<? extends SystemEvent>> watchEvents) {
         if (executor.inExecutor()) {
             if (isStopped()) {
@@ -342,7 +344,7 @@ public final class LocalActorRef<T> extends AbstractActorRef<T> {
     }
 
     @Override
-    public void removeWatcher(LocalActorRef<?> watcher) {
+    public void removeWatcher(ActorRef<?> watcher) {
         if (executor.inExecutor()) {
             if (watchers == null) {
                 return;
@@ -358,7 +360,8 @@ public final class LocalActorRef<T> extends AbstractActorRef<T> {
         }
     }
 
-    public void addStopRunner(Runnable runnable) {
+    @Internal
+    void addStopRunner(Runnable runnable) {
         if (executor.inExecutor()) {
             if (stopRunners == null) {
                 stopRunners = new ArrayList<>();
@@ -369,7 +372,8 @@ public final class LocalActorRef<T> extends AbstractActorRef<T> {
         }
     }
 
-    public void removeStopRunner(Runnable runnable) {
+    @Internal
+    void removeStopRunner(Runnable runnable) {
         if (executor.inExecutor()) {
             if (stopRunners == null) {
                 return;
@@ -381,20 +385,20 @@ public final class LocalActorRef<T> extends AbstractActorRef<T> {
     }
 
     private static class WatcherHolder {
-        private final LocalActorRef<?> watcher;
+        private final ActorRef<?> watcher;
         private final Set<Class<? extends SystemEvent>> watchEvents;
         private final Runnable stopRunner;
 
-        private WatcherHolder(LocalActorRef<?> watcher,
+        private WatcherHolder(ActorRef<?> watcher,
                               List<Class<? extends SystemEvent>> watchEvents,
                               Runnable stopRunner) {
             this.watcher = watcher;
             this.watchEvents = new HashSet<>(watchEvents);
             this.stopRunner = stopRunner;
-            watcher.addStopRunner(stopRunner);
+            LocalActorRefUnsafe.runOnStop(watcher, stopRunner);
         }
 
-        public LocalActorRef<?> get() {
+        public ActorRef<?> get() {
             return watcher;
         }
 
@@ -404,7 +408,7 @@ public final class LocalActorRef<T> extends AbstractActorRef<T> {
         }
 
         public void release() {
-            watcher.removeStopRunner(stopRunner);
+            LocalActorRefUnsafe.cancelRunOnStop(watcher, stopRunner);
         }
     }
 

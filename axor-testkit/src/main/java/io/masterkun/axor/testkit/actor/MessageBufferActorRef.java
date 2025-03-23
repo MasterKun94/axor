@@ -1,13 +1,15 @@
-package io.masterkun.axor.testkit;
+package io.masterkun.axor.testkit.actor;
 
 import io.masterkun.axor.api.ActorAddress;
 import io.masterkun.axor.api.ActorRef;
 import io.masterkun.axor.api.ActorRefRich;
 import io.masterkun.axor.api.ActorSystem;
+import io.masterkun.axor.api.SystemEvent;
 import io.masterkun.axor.runtime.MsgType;
 import io.masterkun.axor.runtime.StreamDefinition;
 import io.masterkun.axor.runtime.StreamManager;
 
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -67,6 +69,16 @@ public class MessageBufferActorRef<T> extends ActorRefRich<T> {
 
     public void clear() {
         messages.clear();
+    }
+
+    @Override
+    public void addWatcher(ActorRef<?> watcher, List<Class<? extends SystemEvent>> watchEvents) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void removeWatcher(ActorRef<?> watcher) {
+        throw new UnsupportedOperationException();
     }
 
     @Override

@@ -3,6 +3,8 @@ package io.masterkun.axor.api;
 import io.masterkun.axor.runtime.StreamDefinition;
 import io.masterkun.axor.runtime.StreamManager;
 
+import java.util.List;
+
 /**
  * An abstract, non-sealed class that extends the {@code ActorRef} interface and provides additional
  * functionality. This class is intended to be extended by concrete actor reference
@@ -12,6 +14,11 @@ import io.masterkun.axor.runtime.StreamManager;
  */
 public non-sealed abstract class ActorRefRich<T> implements ActorRef<T> {
     private String name;
+
+    public abstract void addWatcher(ActorRef<?> watcher,
+                                    List<Class<? extends SystemEvent>> watchEvents);
+
+    public abstract void removeWatcher(ActorRef<?> watcher);
 
     public abstract StreamDefinition<T> getDefinition();
 

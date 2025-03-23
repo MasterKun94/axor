@@ -1,21 +1,25 @@
 package io.masterkun.axor.api;
 
-import io.masterkun.axor.api.impl.LocalActorRef;
+import io.masterkun.axor.api.impl.LocalActorRefUnsafe;
 import io.masterkun.axor.exception.ActorNotFoundException;
 import io.masterkun.axor.exception.IllegalMsgTypeException;
 import io.masterkun.axor.runtime.MsgType;
 import io.masterkun.axor.testkit.LocalActorSystem;
-import io.masterkun.axor.testkit.MessageBufferActorRef;
+import io.masterkun.axor.testkit.actor.ActorTestKit;
 import io.masterkun.stateeasy.concurrent.EventStage;
-import org.junit.AfterClass;
 import org.junit.Assert;
+import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.time.Duration;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class LocalActorSystemTest {
+    private static final ActorTestKit testKit = new ActorTestKit(Duration.ofMillis(100));
     private static ActorSystem system;
     private static ActorRef<String> simpleReply;
 
@@ -44,116 +48,104 @@ public class LocalActorSystemTest {
     @Test
     public void testPubsub() throws Exception {
         Pubsub<String> pubsub = Pubsub.create(system, MsgType.of(String.class));
-        MessageBufferActorRef<String> subscriber1 = new MessageBufferActorRef<>(
-                ActorAddress.create(system.name(), system.publishAddress(), "subscriber1"),
-                MsgType.of(String.class));
-        MessageBufferActorRef<String> publisher = new MessageBufferActorRef<>(
-                ActorAddress.create(system.name(), system.publishAddress(), "publisher"),
-                MsgType.of(String.class));
+        var subscriber1 = testKit.mock(system.address("subscriber1"), String.class);
+        var publisher = testKit.mock(system.address("publisher"), String.class);
 
         pubsub.subscribe(subscriber1);
         pubsub.publishToAll("hello", publisher);
-        Thread.sleep(10);
-        Assert.assertEquals("hello", subscriber1.pollMessage(10, TimeUnit.MILLISECONDS));
-        Assert.assertNull(publisher.pollMessage(10, TimeUnit.MILLISECONDS));
+        subscriber1.expectReceive("hello", publisher)
+                .expectNoMsg();
         pubsub.subscribe(simpleReply);
         pubsub.publishToAll("world", publisher);
-        Assert.assertEquals("world", subscriber1.pollMessage(10, TimeUnit.MILLISECONDS));
-        Assert.assertEquals("world", publisher.pollMessage(10, TimeUnit.MILLISECONDS));
+        subscriber1.expectReceive("world", publisher);
+        publisher.expectReceive("world", simpleReply);
 
         for (int i = 0; i < 2; i++) pubsub.sendToOne("test", publisher);
-        Assert.assertEquals("test", subscriber1.pollMessage(10, TimeUnit.MILLISECONDS));
-        Assert.assertEquals("test", publisher.pollMessage(10, TimeUnit.MILLISECONDS));
+        subscriber1.expectReceive("test", publisher);
+        publisher.expectReceive("test", simpleReply);
 
         pubsub.unsubscribe(subscriber1);
         pubsub.unsubscribe(simpleReply);
         pubsub.publishToAll("hello", publisher);
-        Assert.assertNull(subscriber1.pollMessage(10, TimeUnit.MILLISECONDS));
-        Assert.assertNull(publisher.pollMessage(10, TimeUnit.MILLISECONDS));
+        subscriber1.expectNoMsg();
+        publisher.expectNoMsg();
     }
 
     @Test
     public void testDeadLetter() throws Exception {
-        MessageBufferActorRef<DeadLetter> subscriber1 = new MessageBufferActorRef<>(system,
-                "DeadLetterSubscriber1", MsgType.of(DeadLetter.class));
+        var subscriber1 = testKit.mock(system.address("DeadLetterSubscriber1"), DeadLetter.class);
         system.deadLetters().subscribe(subscriber1);
         ActorRef<String> actor = system.start(SimpleReply::new, "simpleReplyForDeadLetter");
         actor.tell("hello", ActorRef.noSender());
-        Assert.assertNull(subscriber1.pollMessage(10, TimeUnit.MILLISECONDS));
+        subscriber1.expectNoMsg();
         system.stop(actor);
         actor.tell("hello", ActorRef.noSender());
-        DeadLetter deadLetter = subscriber1.pollMessage(10, TimeUnit.MILLISECONDS);
-        Assert.assertEquals("hello", deadLetter.message());
-        Assert.assertTrue(deadLetter.sender().isNoSender());
-        Assert.assertEquals(actor.address(), deadLetter.receiver());
-
+        subscriber1.expectReceive((deadLetter, sender) -> {
+            Assert.assertEquals("hello", deadLetter.message());
+            Assert.assertTrue(deadLetter.sender().isNoSender());
+            Assert.assertEquals(actor.address(), deadLetter.receiver());
+        });
         system.deadLetters().unsubscribe(subscriber1);
     }
 
     @Test
     public void testSystemEvent() throws Exception {
-        MessageBufferActorRef<SystemEvent> subscriber1 = new MessageBufferActorRef<>(system,
-                "SystemEventSubscriber1", MsgType.of(SystemEvent.class));
+        var subscriber1 = testKit.mock(system.address("SystemEventSubscriber1"), SystemEvent.class);
         system.systemEvents().subscribe(subscriber1);
-        ActorRef<String> actor = system.start(FailureOnStart::new, "failureOnStart");
-        SystemEvent.ActorError event = (SystemEvent.ActorError) subscriber1.pollMessage(10,
-                TimeUnit.MILLISECONDS);
-        Assert.assertEquals(SystemEvent.ActorAction.ON_START, event.action());
-        Assert.assertEquals(actor, event.actor());
-        Assert.assertEquals(new SystemEvent.ActorStopped(actor), subscriber1.pollMessage(10,
-                TimeUnit.MILLISECONDS));
-        Assert.assertTrue(((LocalActorRef<String>) actor).isStopped());
+        AtomicReference<ActorRef<String>> ref = new AtomicReference<>();
+        ref.set(system.start(FailureOnStart::new, "failureOnStart"));
+        subscriber1.expectReceive(SystemEvent.ActorError.class, ((event, sender) -> {
+            Assert.assertEquals(SystemEvent.ActorAction.ON_START, event.action());
+            Assert.assertEquals(ref.get(), event.actor());
+        }));
+        subscriber1.expectReceive(new SystemEvent.ActorStopped(ref.get()));
+        Assert.assertTrue(LocalActorRefUnsafe.isStopped(ref.get()));
 
-        actor = system.start(FailureOnReceive::new, "failureOnReceive");
-        Assert.assertEquals(new SystemEvent.ActorStarted(actor), subscriber1.pollMessage(10,
-                TimeUnit.MILLISECONDS));
-        actor.tell("hello", ActorRef.noSender());
-        event = (SystemEvent.ActorError) subscriber1.pollMessage(10, TimeUnit.MILLISECONDS);
-        Assert.assertEquals(SystemEvent.ActorAction.ON_RECEIVE, event.action());
-        Assert.assertEquals(actor, event.actor());
-        Assert.assertEquals(new SystemEvent.ActorRestarted(actor), subscriber1.pollMessage(10,
-                TimeUnit.MILLISECONDS));
-        Assert.assertFalse(((LocalActorRef<String>) actor).isStopped());
-        system.stop(actor);
-        Assert.assertEquals(new SystemEvent.ActorStopped(actor), subscriber1.pollMessage(10,
-                TimeUnit.MILLISECONDS));
+        ref.set(system.start(FailureOnReceive::new, "failureOnReceive"));
+        subscriber1.expectReceive(new SystemEvent.ActorStarted(ref.get()));
+        ref.get().tell("hello", ActorRef.noSender());
+        subscriber1.expectReceive(SystemEvent.ActorError.class, ((event, sender) -> {
+            Assert.assertEquals(SystemEvent.ActorAction.ON_RECEIVE, event.action());
+            Assert.assertEquals(ref.get(), event.actor());
+        }));
+        subscriber1.expectReceive(new SystemEvent.ActorRestarted(ref.get()));
+        Assert.assertFalse(LocalActorRefUnsafe.isStopped(ref.get()));
+        system.stop(ref.get());
+        subscriber1.expectReceive(new SystemEvent.ActorStopped(ref.get()));
 
-        actor = system.start(FailureOnReStart::new, "failureOnReStart");
-        Assert.assertEquals(new SystemEvent.ActorStarted(actor), subscriber1.pollMessage(10,
-                TimeUnit.MILLISECONDS));
-        actor.tell("hello", ActorRef.noSender());
-        event = (SystemEvent.ActorError) subscriber1.pollMessage(10, TimeUnit.MILLISECONDS);
-        Assert.assertEquals(SystemEvent.ActorAction.ON_RECEIVE, event.action());
-        Assert.assertEquals(actor, event.actor());
-        event = (SystemEvent.ActorError) subscriber1.pollMessage(10, TimeUnit.MILLISECONDS);
-        Assert.assertEquals(SystemEvent.ActorAction.ON_RESTART, event.action());
-        Assert.assertEquals(actor, event.actor());
-        Assert.assertEquals(new SystemEvent.ActorStopped(actor), subscriber1.pollMessage(10,
-                TimeUnit.MILLISECONDS));
-        Assert.assertTrue(((LocalActorRef<String>) actor).isStopped());
+        ref.set(system.start(FailureOnReStart::new, "failureOnReStart"));
+        subscriber1.expectReceive(new SystemEvent.ActorStarted(ref.get()));
+        ref.get().tell("hello", ActorRef.noSender());
+        subscriber1.expectReceive(SystemEvent.ActorError.class, ((event, sender) -> {
+            Assert.assertEquals(SystemEvent.ActorAction.ON_RECEIVE, event.action());
+            Assert.assertEquals(ref.get(), event.actor());
+        }));
+        subscriber1.expectReceive(SystemEvent.ActorError.class, ((event, sender) -> {
+            Assert.assertEquals(SystemEvent.ActorAction.ON_RESTART, event.action());
+            Assert.assertEquals(ref.get(), event.actor());
+        }));
+        subscriber1.expectReceive(new SystemEvent.ActorStopped(ref.get()));
+        Assert.assertTrue(LocalActorRefUnsafe.isStopped(ref.get()));
 
-        actor = system.start(FailureOnPreStop::new, "failureOnPreStop");
-        Assert.assertEquals(new SystemEvent.ActorStarted(actor), subscriber1.pollMessage(10,
-                TimeUnit.MILLISECONDS));
-        system.stop(actor);
-        event = (SystemEvent.ActorError) subscriber1.pollMessage(10, TimeUnit.MILLISECONDS);
-        Assert.assertEquals(SystemEvent.ActorAction.ON_PRE_STOP, event.action());
-        Assert.assertEquals(actor, event.actor());
-        Assert.assertEquals(new SystemEvent.ActorStopped(actor), subscriber1.pollMessage(10,
-                TimeUnit.MILLISECONDS));
-        Assert.assertTrue(((LocalActorRef<String>) actor).isStopped());
+        ref.set(system.start(FailureOnPreStop::new, "failureOnPreStop"));
+        subscriber1.expectReceive(new SystemEvent.ActorStarted(ref.get()));
+        system.stop(ref.get());
+        subscriber1.expectReceive(SystemEvent.ActorError.class, ((event, sender) -> {
+            Assert.assertEquals(SystemEvent.ActorAction.ON_PRE_STOP, event.action());
+            Assert.assertEquals(ref.get(), event.actor());
+        }));
+        subscriber1.expectReceive(new SystemEvent.ActorStopped(ref.get()));
+        Assert.assertTrue(LocalActorRefUnsafe.isStopped(ref.get()));
 
-        actor = system.start(FailureOnPostStop::new, "failureOnPostStop");
-        Assert.assertEquals(new SystemEvent.ActorStarted(actor), subscriber1.pollMessage(10,
-                TimeUnit.MILLISECONDS));
-        system.stop(actor);
-        event = (SystemEvent.ActorError) subscriber1.pollMessage(10, TimeUnit.MILLISECONDS);
-        Assert.assertEquals(SystemEvent.ActorAction.ON_POST_STOP, event.action());
-        Assert.assertEquals(actor, event.actor());
-        Assert.assertEquals(new SystemEvent.ActorStopped(actor), subscriber1.pollMessage(10,
-                TimeUnit.MILLISECONDS));
-        Assert.assertTrue(((LocalActorRef<String>) actor).isStopped());
-
+        ref.set(system.start(FailureOnPostStop::new, "failureOnPostStop"));
+        subscriber1.expectReceive(new SystemEvent.ActorStarted(ref.get()));
+        system.stop(ref.get());
+        subscriber1.expectReceive(SystemEvent.ActorError.class, ((event, sender) -> {
+            Assert.assertEquals(SystemEvent.ActorAction.ON_POST_STOP, event.action());
+            Assert.assertEquals(ref.get(), event.actor());
+        }));
+        subscriber1.expectReceive(new SystemEvent.ActorStopped(ref.get()));
+        Assert.assertTrue(LocalActorRefUnsafe.isStopped(ref.get()));
     }
 
     @Test
@@ -180,6 +172,48 @@ public class LocalActorSystemTest {
         Assert.assertThrows(ActorNotFoundException.class, () -> system.get(address));
         Assert.assertThrows(ActorNotFoundException.class, () -> system.get(address,
                 MsgType.of(String.class)));
+    }
+
+    @Test
+    public void testWatch() throws Exception {
+        CompletableFuture<SystemEvent.ActorStopped> future = new CompletableFuture<>();
+        ActorRef<String> actor = system.start(SimpleReply::new, "SimpleReplyForTestWatch");
+        ActorRef<CharSequence> testCacheGet = system.start(c -> new Actor<>(c) {
+
+            @Override
+            public void onStart() {
+                context().watch(actor, List.of(SystemEvent.ActorStopped.class));
+            }
+
+            @Override
+            public void preStop() {
+                context().unwatch(actor);
+            }
+
+            @Override
+            public void onReceive(CharSequence charSequence) {
+                // noop
+            }
+
+            @Override
+            public void onSignal(Signal signal) {
+                if (signal instanceof SystemEvent.ActorStopped stopped) {
+                    future.complete(stopped);
+                } else {
+                    future.completeExceptionally(new RuntimeException(signal.toString()));
+                }
+            }
+
+            @Override
+            public MsgType<CharSequence> msgType() {
+                return MsgType.of(CharSequence.class);
+            }
+        }, "testWatch");
+        Thread.sleep(10);
+        system.stop(actor);
+        Assert.assertEquals(new SystemEvent.ActorStopped(actor), future.get(100,
+                TimeUnit.MILLISECONDS));
+
     }
 
     private static abstract class StringActor extends Actor<String> {

@@ -7,7 +7,7 @@ import io.masterkun.axor.cluster.config.MemberManageConfig;
 import io.masterkun.axor.commons.collection.LongObjectHashMap;
 import io.masterkun.axor.commons.collection.LongObjectMap;
 import io.masterkun.axor.runtime.MsgType;
-import io.masterkun.axor.testkit.MessageBufferActorRef;
+import io.masterkun.axor.testkit.actor.MessageBufferActorRef;
 import org.junit.BeforeClass;
 import org.junit.Test;
 

@@ -7,9 +7,7 @@ import io.masterkun.axor.api.ActorRefRich;
 import io.masterkun.axor.api.ActorSystem;
 import io.masterkun.axor.api.ActorSystemSerdeInitializer;
 import io.masterkun.axor.api.impl.AbstractActorRef;
-import io.masterkun.axor.api.impl.LocalActorRef;
 import io.masterkun.axor.api.impl.NoSenderActorRef;
-import io.masterkun.axor.api.impl.RemoteActorRef;
 import io.masterkun.axor.runtime.MsgType;
 import io.masterkun.axor.runtime.Serde;
 import io.masterkun.axor.runtime.SerdeRegistry;
@@ -37,8 +35,14 @@ public class KryoActorSerdeInitializer extends ActorSystemSerdeInitializer<KryoS
             kryo.register(ActorRef.class, actorSerializer, 1002);
             kryo.register(ActorRefRich.class, actorSerializer, 1003);
             kryo.register(AbstractActorRef.class, actorSerializer, 1004);
-            kryo.register(LocalActorRef.class, actorSerializer, 1005);
-            kryo.register(RemoteActorRef.class, actorSerializer, 1006);
+            try {
+                kryo.register(Class.forName("io.masterkun.axor.api.impl.LocalActorRef"),
+                        actorSerializer, 1005);
+                kryo.register(Class.forName("io.masterkun.axor.api.impl.RemoteActorRef"),
+                        actorSerializer, 1006);
+            } catch (ClassNotFoundException e) {
+                throw new RuntimeException(e);
+            }
             kryo.register(NoSenderActorRef.class, actorSerializer, 1007);
             kryo.register(MsgType.class, msgTypeSerializer, 1008);
             kryo.register(Serde.class, serdeSerializer, 1009);

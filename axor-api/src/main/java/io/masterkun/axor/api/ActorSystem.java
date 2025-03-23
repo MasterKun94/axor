@@ -63,6 +63,16 @@ public interface ActorSystem {
     String name();
 
     /**
+     * Creates an {@code ActorAddress} for the given actor name.
+     *
+     * @param name the name of the actor for which to create the address
+     * @return an {@code ActorAddress} representing the address of the specified actor
+     */
+    default ActorAddress address(String name) {
+        return ActorAddress.create(name(), publishAddress(), name);
+    }
+
+    /**
      * Returns the address at which this actor system is published.
      *
      * @return the {@code Address} representing the host and port where the actor system is

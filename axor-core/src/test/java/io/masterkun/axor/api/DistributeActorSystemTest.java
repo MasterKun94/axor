@@ -5,7 +5,7 @@ import com.typesafe.config.ConfigFactory;
 import io.masterkun.axor.runtime.MsgType;
 import io.masterkun.axor.runtime.Status;
 import io.masterkun.axor.runtime.StatusCode;
-import io.masterkun.axor.testkit.MessageBufferActorRef;
+import io.masterkun.axor.testkit.actor.MessageBufferActorRef;
 import io.masterkun.stateeasy.concurrent.EventStage;
 import org.junit.AfterClass;
 import org.junit.Assert;
