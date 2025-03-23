@@ -6,7 +6,6 @@ import io.masterkun.axor.runtime.MsgType;
 import io.masterkun.axor.runtime.Status;
 import io.masterkun.axor.runtime.StatusCode;
 import io.masterkun.axor.testkit.actor.ActorTestKit;
-import io.masterkun.axor.testkit.actor.MessageBufferActorRef;
 import io.masterkun.axor.testkit.actor.MockActorRef;
 import io.masterkun.stateeasy.concurrent.EventStage;
 import org.junit.AfterClass;
@@ -18,7 +17,6 @@ import java.time.Duration;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 public class DistributeActorSystemTest {

@@ -7,8 +7,8 @@ import io.masterkun.axor.runtime.MsgType;
 import io.masterkun.axor.testkit.LocalActorSystem;
 import io.masterkun.axor.testkit.actor.ActorTestKit;
 import io.masterkun.stateeasy.concurrent.EventStage;
-import org.junit.Assert;
 import org.junit.AfterClass;
+import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
