@@ -23,6 +23,20 @@ import static io.masterkun.axor.cluster.proto.MembershipProto.TopicDesc;
 import static io.masterkun.axor.runtime.stream.grpc.StreamUtils.msgTypeToProto;
 import static io.masterkun.axor.runtime.stream.grpc.StreamUtils.protoToMsgType;
 
+/**
+ * A cluster-aware implementation of the {@link Pubsub} interface that manages message publishing
+ * and subscribing across a distributed system. This class ensures that messages are delivered to
+ * all active subscribers in the cluster, and it automatically updates the list of subscribers based
+ * on cluster membership changes.
+ *
+ * <p>The {@code ClusterPubsub} class is designed to work with a specific topic and message type,
+ * and it uses the
+ * provided {@link Cluster} instance to track and manage the cluster's membership. It listens for
+ * member updates and state changes to keep the list of subscribers up-to-date, ensuring that
+ * messages are only sent to currently active and compatible subscribers.</p>
+ *
+ * @param <T> the type of the message being published and subscribed to
+ */
 public class ClusterPubsub<T> implements Pubsub<T> {
     private static final Logger LOG = LoggerFactory.getLogger(ClusterPubsub.class);
 

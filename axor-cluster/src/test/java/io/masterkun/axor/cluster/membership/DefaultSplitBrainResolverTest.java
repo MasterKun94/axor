@@ -6,14 +6,14 @@ import org.junit.Test;
 
 import java.util.Collections;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertSame;
 
 public class DefaultSplitBrainResolverTest {
-
     @Test
-    public void test() {
+    public void testAll() {
         MetaKey<Integer> opt = MetaKey.builder(1001)
                 .name("TEST")
                 .description("TEST")
@@ -44,4 +44,34 @@ public class DefaultSplitBrainResolverTest {
         assertSame(LocalMemberState.UP, resolver.getLocalMemberState());
     }
 
+
+    @Test
+    public void testGetLocalMemberState_Initial_NoAliveMembers() {
+        DefaultSplitBrainResolver resolver = new DefaultSplitBrainResolver(3, 2);
+        assertEquals(LocalMemberState.DISCONNECTED, resolver.getLocalMemberState());
+    }
+
+    @Test
+    public void testGetLocalMemberState_LessThanMinRequireMembers() {
+        DefaultSplitBrainResolver resolver = new DefaultSplitBrainResolver(3, 2);
+        resolver.setAliveMemberCount(2);
+        resolver.setInitialState(false);
+        assertEquals(LocalMemberState.WEEKLY_UP, resolver.getLocalMemberState());
+    }
+
+    @Test
+    public void testGetLocalMemberState_EqualToMinRequireMembers_Initial() {
+        DefaultSplitBrainResolver resolver = new DefaultSplitBrainResolver(3, 2);
+        resolver.setAliveMemberCount(3);
+        resolver.setInitialState(true);
+        assertEquals(LocalMemberState.WEEKLY_UP, resolver.getLocalMemberState());
+    }
+
+    @Test
+    public void testGetLocalMemberState_GreaterThanMinRequireMembers_NotInitial() {
+        DefaultSplitBrainResolver resolver = new DefaultSplitBrainResolver(3, 2);
+        resolver.setAliveMemberCount(4);
+        resolver.setInitialState(false);
+        assertEquals(LocalMemberState.UP, resolver.getLocalMemberState());
+    }
 }

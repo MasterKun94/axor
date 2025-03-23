@@ -2,6 +2,7 @@ package io.masterkun.axor.cluster.membership;
 
 import io.masterkun.axor.cluster.LocalMemberState;
 import io.masterkun.axor.cluster.MemberState;
+import org.jetbrains.annotations.VisibleForTesting;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -27,6 +28,16 @@ public class DefaultSplitBrainResolver implements SplitBrainResolver {
         this.minRequireMembers = minRequireMembers;
         this.minInitialMembers = minInitialMembers;
         this.filters = filters.isEmpty() ? Collections.emptyList() : new ArrayList<>(filters);
+    }
+
+    @VisibleForTesting
+    void setAliveMemberCount(int aliveMemberCount) {
+        this.aliveMemberCount = aliveMemberCount;
+    }
+
+    @VisibleForTesting
+    void setInitialState(boolean initialState) {
+        this.initialState = initialState;
     }
 
     private boolean match(Member member) {
