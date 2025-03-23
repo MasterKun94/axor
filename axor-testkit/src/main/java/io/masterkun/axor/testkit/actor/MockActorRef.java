@@ -12,7 +12,7 @@ import java.util.concurrent.TimeUnit;
 import static io.masterkun.axor.testkit.actor.MsgAssertions.eq;
 
 public class MockActorRef<T> extends ForwardingActorRef<T> {
-    private final BlockingQueue<MsgAndSeder> queue = new LinkedBlockingQueue<>();
+    private final BlockingQueue<MsgAndSender> queue = new LinkedBlockingQueue<>();
     private final BlockingQueue<Signal> signals = new LinkedBlockingQueue<>();
     private final long pollTimeout;
 
@@ -36,7 +36,7 @@ public class MockActorRef<T> extends ForwardingActorRef<T> {
 
     @Override
     public void tell(T value, ActorRef<?> sender) {
-        queue.add(new MsgAndSeder(value, sender));
+        queue.add(new MsgAndSender(value, sender));
         super.tell(value, sender);
     }
 
@@ -44,6 +44,28 @@ public class MockActorRef<T> extends ForwardingActorRef<T> {
     public void signal(Signal signal) {
         signals.add(signal);
         super.signal(signal);
+    }
+
+    public T pollMessage() {
+        try {
+            MsgAndSender poll = queue.poll(pollTimeout, TimeUnit.MILLISECONDS);
+            return poll == null ? null : poll.msg;
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public MsgAndSender poll() {
+        try {
+            return queue.poll(pollTimeout, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void clear() {
+        queue.clear();
+        signals.clear();
     }
 
     public MockActorRef<T> expectNoMsg() {
@@ -72,13 +94,13 @@ public class MockActorRef<T> extends ForwardingActorRef<T> {
     }
 
     public MockActorRef<T> expectReceive(MsgAssertion<T> assertion) {
-        MsgAndSeder poll = take(queue, pollTimeout);
+        MsgAndSender poll = take(queue, pollTimeout);
         assertion.testAssert(poll.msg, poll.sender);
         return this;
     }
 
     public <P extends T> MockActorRef<T> expectReceive(Class<P> clazz, MsgAssertion<P> assertion) {
-        MsgAndSeder poll = take(queue, pollTimeout);
+        MsgAndSender poll = take(queue, pollTimeout);
         if (!clazz.isInstance(poll.msg)) {
             throw new AssertionError("expect type is: " + clazz + ", but got: " + poll.getClass());
         }
@@ -92,13 +114,21 @@ public class MockActorRef<T> extends ForwardingActorRef<T> {
         return this;
     }
 
-    private class MsgAndSeder {
+    public class MsgAndSender {
         private final T msg;
         private final ActorRef<?> sender;
 
-        private MsgAndSeder(T msg, ActorRef<?> sender) {
+        private MsgAndSender(T msg, ActorRef<?> sender) {
             this.msg = msg;
             this.sender = sender;
+        }
+
+        public T getMsg() {
+            return msg;
+        }
+
+        public ActorRef<?> getSender() {
+            return sender;
         }
     }
 }

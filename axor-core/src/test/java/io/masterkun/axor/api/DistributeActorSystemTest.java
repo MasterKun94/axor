@@ -5,7 +5,9 @@ import com.typesafe.config.ConfigFactory;
 import io.masterkun.axor.runtime.MsgType;
 import io.masterkun.axor.runtime.Status;
 import io.masterkun.axor.runtime.StatusCode;
+import io.masterkun.axor.testkit.actor.ActorTestKit;
 import io.masterkun.axor.testkit.actor.MessageBufferActorRef;
+import io.masterkun.axor.testkit.actor.MockActorRef;
 import io.masterkun.stateeasy.concurrent.EventStage;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -20,13 +22,14 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 public class DistributeActorSystemTest {
+    private static ActorTestKit testKit = new ActorTestKit(Duration.ofMillis(100));
     private static ActorSystem system1;
     private static ActorSystem system2;
     private static ActorRef<String> simpleReply1;
-    private static MessageBufferActorRef<SystemEvent> systemEventListener1;
-    private static MessageBufferActorRef<DeadLetter> deadLetterListener1;
-    private static MessageBufferActorRef<SystemEvent> systemEventListener2;
-    private static MessageBufferActorRef<DeadLetter> deadLetterListener2;
+    private static MockActorRef<SystemEvent> systemEventListener1;
+    private static MockActorRef<DeadLetter> deadLetterListener1;
+    private static MockActorRef<SystemEvent> systemEventListener2;
+    private static MockActorRef<DeadLetter> deadLetterListener2;
 
     @BeforeClass
     public static void setup() throws Exception {
@@ -49,7 +52,7 @@ public class DistributeActorSystemTest {
         Assert.assertEquals("hello", future.toFuture().get());
         SystemEvent event;
         Queue<SystemEvent> queue = new LinkedList<>();
-        while ((event = systemEventListener1.pollMessage(10, TimeUnit.MILLISECONDS)) != null) {
+        while ((event = systemEventListener1.pollMessage()) != null) {
             queue.add(event);
             System.out.println(event);
         }
@@ -73,7 +76,7 @@ public class DistributeActorSystemTest {
         Assert.assertTrue(queue.isEmpty());
 
         System.out.println("---");
-        while ((event = systemEventListener2.pollMessage(10, TimeUnit.MILLISECONDS)) != null) {
+        while ((event = systemEventListener2.pollMessage()) != null) {
             queue.add(event);
             System.out.println(event);
         }
@@ -159,10 +162,13 @@ public class DistributeActorSystemTest {
                     .resolve();
             system1 = ActorSystem.create("test", config1);
             Thread.sleep(1);
-            systemEventListener1 = new MessageBufferActorRef<>(system1, "systemEventListener",
-                    MsgType.of(SystemEvent.class));
-            deadLetterListener1 = new MessageBufferActorRef<>(system1, "deadLetterListener",
-                    MsgType.of(DeadLetter.class));
+            systemEventListener1 = testKit.mock(
+                    system1.address("deadLetterListener"),
+                    SystemEvent.class
+            );
+            deadLetterListener1 = testKit.mock(
+                    system1.address("deadLetterListener"),
+                    DeadLetter.class);
             system1.systemEvents().subscribe(systemEventListener1);
             system1.deadLetters().subscribe(deadLetterListener1);
             simpleReply1 = system1.start(LocalActorSystemTest.SimpleReply::new, "simpleReply");
@@ -175,7 +181,7 @@ public class DistributeActorSystemTest {
         public static void main(String[] args) throws Exception {
             start();
             while (true) {
-                SystemEvent event = systemEventListener1.pollMessage(1000, TimeUnit.MILLISECONDS);
+                SystemEvent event = systemEventListener1.pollMessage();
                 if (event != null) {
                     System.out.println(event);
                 }
@@ -190,10 +196,13 @@ public class DistributeActorSystemTest {
                     .resolve();
             system2 = ActorSystem.create("test", config2);
             Thread.sleep(1);
-            systemEventListener2 = new MessageBufferActorRef<>(system2, "systemEventListener",
-                    MsgType.of(SystemEvent.class));
-            deadLetterListener2 = new MessageBufferActorRef<>(system2, "deadLetterListener",
-                    MsgType.of(DeadLetter.class));
+            systemEventListener2 = testKit.mock(
+                    system2.address("deadLetterListener"),
+                    SystemEvent.class
+            );
+            deadLetterListener2 = testKit.mock(
+                    system2.address("deadLetterListener"),
+                    DeadLetter.class);
             system2.systemEvents().subscribe(systemEventListener2);
             system2.deadLetters().subscribe(deadLetterListener2);
         }
@@ -212,7 +221,7 @@ public class DistributeActorSystemTest {
             Assert.assertEquals("hello", future.toFuture().get());
             Thread.sleep(1000);
             SystemEvent event;
-            while ((event = systemEventListener2.pollMessage(100, TimeUnit.MILLISECONDS)) != null) {
+            while ((event = systemEventListener2.pollMessage()) != null) {
                 System.out.println(event);
             }
             Thread.sleep(1000);
