@@ -298,7 +298,7 @@ public class MemberManager {
             return;
         }
         assert holder.member.uid() == uid;
-        holder.clock = holder.clock.merge(clock);
+        holder.mergeClock(clock, senderUid);
         switch (holder.state) {
             case NONE:
             case SUSPICIOUS:
@@ -329,7 +329,7 @@ public class MemberManager {
             sendEvent(senderUid, holder, holder.state.BIND_ACTION);
             return;
         }
-        holder.clock = holder.clock.merge(clock);
+        holder.mergeClock(clock, senderUid);
         switch (holder.state) {
             case NONE:
             case UP:
@@ -361,7 +361,7 @@ public class MemberManager {
             sendEvent(senderUid, holder, holder.state.BIND_ACTION);
             return;
         }
-        holder.clock = holder.clock.merge(clock);
+        holder.mergeClock(clock, senderUid);
         switch (holder.state) {
             case NONE:
             case UP:
@@ -395,7 +395,7 @@ public class MemberManager {
             sendEvent(senderUid, holder, holder.state.BIND_ACTION);
             return;
         }
-        holder.clock = holder.clock.merge(clock);
+        holder.mergeClock(clock, senderUid);
         switch (holder.state) {
             case NONE:
             case UP:
@@ -413,7 +413,7 @@ public class MemberManager {
         }
     }
 
-    private void memberFail(Member member, VectorClock clock, long ignoreSenderUid) {
+    private void memberFail(Member member, VectorClock clock, long senderUid) {
         long uid = member.uid();
         MemberHolder holder = allMembers.get(uid);
         if (uid == selfUid) {
@@ -422,7 +422,7 @@ public class MemberManager {
         if (holder == null) {
             holder = holder(member, clock);
         }
-        holder.clock = holder.clock.merge(clock);
+        holder.mergeClock(clock, senderUid);
         switch (holder.state) {
             case NONE:
             case UP:
@@ -446,7 +446,7 @@ public class MemberManager {
         if (holder == null) {
             return;
         }
-        holder.clock = holder.clock.merge(clock);
+        holder.mergeClock(clock, senderUid);
         switch (holder.state) {
             case NONE:
             case UP:
@@ -477,6 +477,15 @@ public class MemberManager {
         VectorClock clock;
         MemberState state;
         long stateChangeTime;
+
+        void mergeClock(VectorClock clock, long ignoreSenderUid) {
+            if (clock.size() == 1) {
+                assert !this.clock.isLaterThan(clock);
+                this.clock = clock;
+            } else {
+                this.clock = this.clock.merge(clock);
+            }
+        }
     }
 
     @VisibleForTesting
