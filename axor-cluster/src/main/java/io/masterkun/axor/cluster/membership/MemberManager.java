@@ -5,6 +5,8 @@ import io.masterkun.axor.cluster.MemberState;
 import io.masterkun.axor.cluster.config.MemberManageConfig;
 import io.masterkun.axor.commons.collection.LongObjectHashMap;
 import io.masterkun.axor.commons.collection.LongObjectMap;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,7 +29,7 @@ public class MemberManager {
     private final LongObjectMap<MemberEvent> publishEvents = new LongObjectHashMap<>();
     private final LongObjectMap<LongObjectMap<MemberEvent>> sendEvents = new LongObjectHashMap<>();
     private final List<Listener> listeners = new ArrayList<>();
-    private final PublishMembers publishMembers = new PublishMembers();
+    private final PublishMembers publishMembers;
     private long selfClock;
     private int sendTargetSize = 0;
 
@@ -40,6 +42,7 @@ public class MemberManager {
         this.config = config;
         this.failureHook = failureHook;
         this.selfClock = 1;
+        this.publishMembers = new PublishMembers(config, selfUid, allMembers);
     }
 
     long getSelfUid() {
@@ -467,25 +470,37 @@ public class MemberManager {
         }
     }
 
-    private static final class MemberHolder {
-        private Member member;
-        private ActorRef<Gossip> actor;
-        private VectorClock clock;
-        private MemberState state;
-        private long stateChangeTime;
+    @VisibleForTesting
+    static final class MemberHolder {
+        Member member;
+        ActorRef<Gossip> actor;
+        VectorClock clock;
+        MemberState state;
+        long stateChangeTime;
     }
 
-    private class PublishMembers implements Iterable<Member> {
+    @VisibleForTesting
+    static class PublishMembers implements Iterable<Member> {
         private final List<Member> actors = new ArrayList<>();
+        private final MemberManageConfig config;
+        private final long selfUid;
+        private final Map<?, MemberHolder> allMembers;
         private int numActorsToPublish;
         private int publishIdx;
         private int size;
         private boolean upMemberChanged = false;
 
-        private void upMemberChanged() {
+        PublishMembers(MemberManageConfig config, long selfUid, Map<?, MemberHolder> allMembers) {
+            this.config = config;
+            this.selfUid = selfUid;
+            this.allMembers = allMembers;
+        }
+
+        void upMemberChanged() {
             this.upMemberChanged = true;
         }
 
+        @NotNull
         @Override
         public Iterator<Member> iterator() {
             if (upMemberChanged) {
@@ -502,7 +517,7 @@ public class MemberManager {
                 }
                 size = actors.size();
                 numActorsToPublish = Math.min(size, Math.max(config.publishNumMin(),
-                        (int) Math.ceil(actors.size() * config.publishRate())));
+                        (int) Math.rint(actors.size() * config.publishRate())));
                 upMemberChanged = false;
             }
             return new Iterator<>() {

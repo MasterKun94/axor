@@ -39,8 +39,11 @@
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
+        <stateeasy.version>0.1.0-SNAPSHOT</stateeasy.version>
         <typesafe.config.version>1.4.3</typesafe.config.version>
         <caffeine.version>3.1.8</caffeine.version>
+        <agrona.verison>1.23.0</agrona.verison>
+        <jctools.version>4.0.5</jctools.version>
         <disruptor.version>3.4.4</disruptor.version>
         <micrometer.version>1.13.3</micrometer.version>
         <kryo.version>5.6.2</kryo.version>
@@ -49,6 +52,8 @@
         <grpc.version>1.68.1</grpc.version>
         <slf4j.version>2.0.7</slf4j.version>
         <log4j2.version>2.20.0</log4j2.version>
+        <junit.version>4.13.2</junit.version>
+        <mockito.version>5.14.2</mockito.version>
     </properties>
 
     <dependencyManagement>
@@ -93,6 +98,11 @@
                 <artifactId>axor-core</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>io.masterkun.commons</groupId>
+                <artifactId>stateeasy-persistence</artifactId>
+                <version>${stateeasy.version}</version>
+            </dependency>
 
             <dependency>
                 <groupId>org.jetbrains</groupId>
@@ -101,15 +111,11 @@
                 <scope>provided</scope>
             </dependency>
 
-            <dependency>
-                <groupId>io.masterkun.commons</groupId>
-                <artifactId>stateeasy-persistence</artifactId>
-                <version>0.1.0-SNAPSHOT</version>
-            </dependency>
+
             <dependency>
                 <groupId>org.agrona</groupId>
                 <artifactId>agrona</artifactId>
-                <version>1.22.0</version>
+                <version>${agrona.verison}</version>
             </dependency>
             <dependency>
                 <groupId>com.typesafe</groupId>
@@ -160,7 +166,7 @@
             <dependency>
                 <groupId>org.jctools</groupId>
                 <artifactId>jctools-core</artifactId>
-                <version>4.0.5</version>
+                <version>${jctools.version}</version>
             </dependency>
 
             <dependency>
@@ -184,12 +190,12 @@
             <dependency>
                 <groupId>junit</groupId>
                 <artifactId>junit</artifactId>
-                <version>4.13.2</version>
+                <version>${junit.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.mockito</groupId>
                 <artifactId>mockito-bom</artifactId>
-                <version>5.14.2</version>
+                <version>${mockito.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -250,6 +256,7 @@
                         -Djava.net.preferIPv6Addresses=false
                         -XX:-RestrictContended
                         --add-exports=java.base/jdk.internal.vm.annotation=ALL-UNNAMED
+                        -javaagent:"${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar"
                     </argLine>
                 </configuration>
             </plugin>
