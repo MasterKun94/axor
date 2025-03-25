@@ -56,6 +56,15 @@ public class MembershipActor extends AbstractActor<MembershipMessage> {
         return ready();
     }
 
+    @Override
+    public void postStop() {
+        LOG.info("Local member stopped");
+        for (MembershipListener listener : listeners) {
+            listener.onLocalMemberStopped();
+        }
+        listeners.clear();
+    }
+
     private void updateLocalMemberState(LocalMemberState state) {
         if (localMemberState != state) {
             this.localMemberState = state;
@@ -148,7 +157,7 @@ public class MembershipActor extends AbstractActor<MembershipMessage> {
             if (msg instanceof Gossip.PushedEvents gossip) {
                 memberManager.gossipEvent(gossip);
                 if (splitBrainResolver.getLocalMemberState() == LocalMemberState.UP ||
-                        splitBrainResolver.getLocalMemberState() == LocalMemberState.WEEKLY_UP) {
+                        splitBrainResolver.getLocalMemberState() == LocalMemberState.WEAKLY_UP) {
                     return up();
                 }
                 return Behaviors.same();
@@ -198,19 +207,34 @@ public class MembershipActor extends AbstractActor<MembershipMessage> {
             }
         }, 0, config.leave().reqInterval().toMillis(), TimeUnit.MILLISECONDS);
         return Behaviors.receiveMessage((ctx, msg) -> {
-            if (msg == MembershipMessage.FORCE_LEAVE) {
-                return left();
-            }
             if (msg instanceof Gossip gossip) {
                 for (MemberEvent event : gossip.events()) {
                     if (event.action() == MemberAction.LEAVE_ACK) {
+                        map.remove(gossip.sender());
+                    } else if (event.action() == MemberAction.FAIL ||
+                            event.action() == MemberAction.STRONG_SUSPECT) {
                         map.remove(event.uid());
+                    } else if (event.action() == MemberAction.LEAVE) {
+                        Member removed = map.remove(event.uid());
+                        if (removed != null) {
+                            removed.actor().tell(Gossip.of(
+                                    new MemberEvent(removed, MemberAction.LEAVE_ACK,
+                                            memberManager.getClock(removed.uid())),
+                                    memberManager.getSelfUid()
+                            ), sender());
+                        }
                     }
                 }
                 if (map.isEmpty()) {
                     return left();
                 }
                 return Behaviors.same();
+            }
+            if (msg == MembershipMessage.FORCE_LEAVE) {
+                return commonBehavior(msg);
+            }
+            if (msg instanceof MembershipMessage.RemoveListener) {
+                return commonBehavior(msg);
             }
             return Behaviors.unhandled();
         });

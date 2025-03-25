@@ -5,7 +5,6 @@ import org.junit.Test;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -48,31 +47,20 @@ public class DependencyTaskRegistryRunnerTest {
         assertTrue(task10.done);
     }
 
-    public class Task extends DependencyTask {
-        private final String name;
-        private final List<Task> dependencyUpstream;
+    public static class Task extends DependencyTask {
+        private final List<Task> dependencyTasks;
         private volatile boolean done;
 
         public Task(String name, Task... dependencyUpstream) {
-            this.name = name;
-            this.dependencyUpstream = Arrays.asList(dependencyUpstream);
-        }
-
-        @Override
-        public String name() {
-            return name;
-        }
-
-        @Override
-        public List<String> dependencyDownstream() {
-            return dependencyUpstream.stream().map(Task::name).collect(Collectors.toList());
+            super(name, Arrays.stream(dependencyUpstream).map(Task::name).toArray(String[]::new));
+            dependencyTasks = List.of(dependencyUpstream);
         }
 
         @Override
         public CompletableFuture<Void> run() {
             assertFalse(done);
             done = true;
-            for (Task task : dependencyUpstream) {
+            for (Task task : dependencyTasks) {
                 assertFalse(task.done);
             }
             return CompletableFuture.completedFuture(null);

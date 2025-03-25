@@ -15,6 +15,8 @@ public interface ActorRefCache {
 
     void remove(ActorRef<?> actorRef);
 
+    void cleanup();
+
     interface Factory {
         <T> RemoteActorRef<T> create(ActorAddress address, MsgType<T> msgType);
     }

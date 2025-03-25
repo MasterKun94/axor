@@ -4,7 +4,7 @@ public enum LocalMemberState {
     NONE,
     JOINING,
     UP,
-    WEEKLY_UP,
+    WEAKLY_UP,
     DISCONNECTED,
     LEAVING,
     LEFT

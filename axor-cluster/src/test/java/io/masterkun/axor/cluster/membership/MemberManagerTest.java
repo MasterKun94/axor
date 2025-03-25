@@ -23,6 +23,8 @@ public class MemberManagerTest {
             Gossip.class
     );
     private static Member member1 = new Member(1, MetaInfo.EMPTY, node1);
+    private static final MemberManager memberManager = new MemberManager(1, node1, config,
+            failureHook);
     private static final MockActorRef<Gossip> node2 = testKit.mock(
             ActorAddress.create("test@localhost:123/node2"),
             Gossip.class
@@ -50,8 +52,6 @@ public class MemberManagerTest {
             publishRate=0.8
             publishNumMin=5
             """), MemberManageConfig.class);
-    private static final MemberManager memberManager = new MemberManager(1, node1, config,
-            failureHook);
     private static final MockActorRef<ListenerEvent> listener = testKit.mock(
             ActorAddress.create("test@localhost:123/listener"),
             ListenerEvent.class
@@ -87,6 +87,9 @@ public class MemberManagerTest {
         _08_suspect_node3();
         _09_strong_suspect_node3();
         _10_update_node3();
+        _11_leave_node3();
+        _12_strong_suspect_node5();
+        _13_down_node5();
     }
 
     private void _00_join_node1() {
@@ -253,6 +256,56 @@ public class MemberManagerTest {
                 MemberState.UP)));
         listener.expectNoMsg();
         Assert.assertEquals(event.clock(), memberManager.getClock(3));
+    }
+
+    private void _11_leave_node3() {
+        MemberEvent event = new MemberEvent(
+                member3, MemberAction.LEAVE, VectorClock.wrap(0, 5)
+        );
+        memberManager.gossipEvent(Gossip.of(event, 4));
+        node1.expectNoMsg();
+        node2.expectReceive(Gossip.of(event, 1));
+        node3.expectReceive(Gossip.of(new MemberEvent(
+                member3, MemberAction.LEAVE_ACK, VectorClock.wrap(0, 5)
+        ), 1));
+        node4.expectNoMsg();
+        node5.expectReceive(Gossip.of(event, 1));
+        listener.expectReceive(eq(new MemberStateChange(member3, MemberState.UP,
+                MemberState.LEFT)));
+        listener.expectNoMsg();
+        Assert.assertEquals(event.clock(), memberManager.getClock(3));
+    }
+
+    private void _12_strong_suspect_node5() {
+        MemberEvent event = new MemberEvent(
+                member5, MemberAction.STRONG_SUSPECT, VectorClock.wrap(0, 2, 4, 2)
+        );
+        memberManager.gossipEvent(Gossip.of(event, 4));
+        node1.expectNoMsg();
+        node2.expectReceive(Gossip.of(event, 1));
+        node3.expectNoMsg();
+        node4.expectNoMsg();
+        node5.expectNoMsg();
+        listener.expectReceive(eq(new MemberStateChange(member5, MemberState.UP,
+                MemberState.DOWN)));
+        listener.expectNoMsg();
+        Assert.assertEquals(event.clock(), memberManager.getClock(5));
+    }
+
+    private void _13_down_node5() {
+        MemberEvent event = new MemberEvent(
+                member5, MemberAction.FAIL, VectorClock.wrap(0, 2, 4, 3)
+        );
+        memberManager.gossipEvent(Gossip.of(event, 4));
+        node1.expectNoMsg();
+        node2.expectReceive(Gossip.of(event, 1));
+        node3.expectNoMsg();
+        node4.expectNoMsg();
+        node5.expectNoMsg();
+        listener.expectReceive(eq(new MemberStateChange(member5, MemberState.DOWN,
+                MemberState.LEFT)));
+        listener.expectNoMsg();
+        Assert.assertEquals(event.clock(), memberManager.getClock(5));
     }
 
 

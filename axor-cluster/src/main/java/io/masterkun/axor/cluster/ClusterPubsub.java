@@ -30,10 +30,9 @@ import static io.masterkun.axor.runtime.stream.grpc.StreamUtils.protoToMsgType;
  * on cluster membership changes.
  *
  * <p>The {@code ClusterPubsub} class is designed to work with a specific topic and message type,
- * and it uses the
- * provided {@link Cluster} instance to track and manage the cluster's membership. It listens for
- * member updates and state changes to keep the list of subscribers up-to-date, ensuring that
- * messages are only sent to currently active and compatible subscribers.</p>
+ * and it uses the provided {@link Cluster} instance to track and manage the cluster's membership.
+ * It listens for member updates and state changes to keep the list of subscribers up-to-date,
+ * ensuring that messages are only sent to currently active and compatible subscribers.</p>
  *
  * @param <T> the type of the message being published and subscribed to
  */

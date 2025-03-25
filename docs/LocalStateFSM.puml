@@ -1,0 +1,21 @@
+@startuml
+'https://plantuml.com/state-diagram
+
+[*] --> JOINING : MemberJoin
+JOINING --> UP : +M
+UP : UP节点数量>=n
+JOINING --> WEEKLY_UP : +M
+WEEKLY_UP : UP节点数量<n
+UP --> WEEKLY_UP : -M
+WEEKLY_UP --> UP : +M
+UP --> UNREACHABLE : -M
+UNREACHABLE : UP节点数量=0
+WEEKLY_UP --> UNREACHABLE : -M
+UNREACHABLE --> UP  : +M
+UNREACHABLE --> WEEKLY_UP : +M
+
+UP --> LEAVING : MemberLeave
+WEEKLY_UP --> LEAVING : MemberLeave
+UNREACHABLE --> LEFT : MemberLeave
+LEAVING --> LEFT : Gossip.LeaveAck
+@enduml

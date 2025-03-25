@@ -12,7 +12,7 @@ public interface LocalActorSystem {
         Config config = ConfigFactory.load();
         return ActorSystem.create(name,
                 new NoopStreamServer(SerdeRegistry.defaultInstance(), name),
-                new DefaultEventDispatcherGroup("test-executor", 2),
+                new DefaultEventDispatcherGroup("test-executor", 2, 1),
                 config);
     }
 }

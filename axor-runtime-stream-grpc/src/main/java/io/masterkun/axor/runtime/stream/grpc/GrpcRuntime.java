@@ -166,7 +166,14 @@ public class GrpcRuntime {
         @Override
         public void onNext(InputStream value) {
             assert executor.inExecutor();
-            open.onNext(msgMarshaller.parse(value));
+            try {
+                open.onNext(msgMarshaller.parse(value));
+            } catch (Throwable e) {
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Message send error", e);
+                }
+                onError(e);
+            }
         }
 
         @Override
@@ -190,7 +197,7 @@ public class GrpcRuntime {
             try {
                 assert executor.inExecutor();
                 if (done) {
-                    throw new IllegalArgumentException("already completed");
+                    return;
                 }
                 done = true;
                 open.onEnd(StatusCode.COMPLETE.toStatus());
@@ -298,9 +305,45 @@ public class GrpcRuntime {
         }
     }
 
+    private static class SafeStreamObserver<T> implements StreamObserver<T> {
+        private final StreamObserver<T> delegate;
+        private boolean done = false;
+
+        private SafeStreamObserver(StreamObserver<T> delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public void onNext(T value) {
+            if (done) {
+                return;
+            }
+            delegate.onNext(value);
+        }
+
+        @Override
+        public void onError(Throwable t) {
+            if (done) {
+                return;
+            }
+            delegate.onError(t);
+            done = true;
+        }
+
+        @Override
+        public void onCompleted() {
+            if (done) {
+                return;
+            }
+            delegate.onCompleted();
+            done = true;
+        }
+    }
+
     class StreamService implements BindableService {
 
-        private StreamObserver<InputStream> call(StreamObserver<ResStatus> resObserver) {
+        private StreamObserver<InputStream> call(StreamObserver<ResStatus> ob) {
+            var resObserver = new SafeStreamObserver<>(ob);
             Metadata headers = METADATA_TL.get();
             StreamDefinition<?> clientStreamDef = headers.get(clientStreamDefKey);
             StreamDefinition<?> serverStreamDef = headers.get(serverStreamDefKey);
@@ -392,6 +435,5 @@ public class GrpcRuntime {
                 }
             });
         }
-
     }
 }

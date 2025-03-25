@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -82,9 +83,10 @@ public class LocalPubsub<T> implements Pubsub<T> {
             }
             return;
         }
-        for (ActorRef<? super T> actorRef : sendList) {
+        for (Iterator<ActorRef<? super T>> iterator = sendList.iterator(); iterator.hasNext(); ) {
+            ActorRef<? super T> actorRef = iterator.next();
             if (actorRef instanceof LocalActorRef<? super T> l && l.isStopped()) {
-                sendList.remove(actorRef);
+                iterator.remove();
                 LOG.warn("{} already stopped", actorRef);
                 continue;
             }

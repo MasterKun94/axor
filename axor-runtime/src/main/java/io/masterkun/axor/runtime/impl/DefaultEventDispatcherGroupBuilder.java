@@ -4,9 +4,11 @@ import com.typesafe.config.Config;
 import io.masterkun.axor.runtime.EventDispatcherGroupBuilder;
 
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class DefaultEventDispatcherGroupBuilder implements EventDispatcherGroupBuilder<DefaultEventDispatcherGroupBuilder> {
-    private String name = "EventDispatcher-%s";
+    private static final AtomicInteger GROUP_ID_ADDER = new AtomicInteger();
+    private String name = "DefaultEventDispatcher-%s-%s";
     private int threads = Runtime.getRuntime().availableProcessors();
 
     public DefaultEventDispatcherGroupBuilder() {
@@ -37,6 +39,6 @@ public class DefaultEventDispatcherGroupBuilder implements EventDispatcherGroupB
 
     @Override
     public DefaultEventDispatcherGroup build() {
-        return new DefaultEventDispatcherGroup(name, threads);
+        return new DefaultEventDispatcherGroup(name, threads, GROUP_ID_ADDER.getAndIncrement());
     }
 }

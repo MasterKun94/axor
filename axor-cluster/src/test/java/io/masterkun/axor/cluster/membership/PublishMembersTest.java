@@ -143,10 +143,10 @@ public class PublishMembersTest {
 
 
     /**
-     * Tests the publish rate of members based on the configuration.
-     * The method sets up a scenario with multiple members, each in an UP state, and verifies that
-     * the number of members to be published matches the expected value based on different configurations.
-     * It checks the behavior of the PublishMembers class when the member manage configuration changes,
+     * Tests the publish rate of members based on the configuration. The method sets up a scenario
+     * with multiple members, each in an UP state, and verifies that the number of members to be
+     * published matches the expected value based on different configurations. It checks the
+     * behavior of the PublishMembers class when the member manage configuration changes,
      * specifically focusing on how the publish rate (number of members to publish) is affected by
      * the configuration's threshold and maxPublish parameters.
      */

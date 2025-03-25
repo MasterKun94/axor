@@ -170,7 +170,7 @@ public class StreamManager<IN> implements Closeable {
     private void onEnd(boolean streamIn, StreamAddress from, StreamAddress to, long toId,
                        Status status, int streamId) {
         var code = status.codeStatus();
-        String prefix = streamIn ? "StramIn" : "StramOut";
+        String prefix = streamIn ? "StreamIn" : "StreamOut";
         if (code.success) {
             LOG.debug("{}[{} -> {}] closed with status {}", prefix, from, to, code);
         } else {

@@ -19,14 +19,14 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class Registry {
 
-    private static final Map<Class<?>, List<?>> CACHE = new ConcurrentHashMap<>();
+    private static final Map<Class<?>, ServiceLoader<?>> CACHE = new ConcurrentHashMap<>();
 
     @SuppressWarnings("unchecked")
     private static <T> List<T> cacheGet(Class<T> clazz) {
-        return (List<T>) CACHE.computeIfAbsent(clazz, k -> ServiceLoader.load(clazz)
+        return (List<T>) CACHE.computeIfAbsent(clazz, k -> ServiceLoader.load(clazz))
                 .stream()
                 .map(ServiceLoader.Provider::get)
-                .toList());
+                .toList();
     }
 
     public static <T extends Provider<?>> T getByPriority(Class<T> clazz) {

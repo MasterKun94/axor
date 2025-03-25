@@ -19,6 +19,7 @@ import io.masterkun.axor.runtime.StreamInChannel;
 import io.masterkun.axor.runtime.StreamManager;
 import io.masterkun.axor.runtime.StreamManager.MsgHandler;
 import io.masterkun.axor.runtime.StreamOutChannel;
+import io.masterkun.stateeasy.concurrent.EventStage;
 import org.jetbrains.annotations.ApiStatus.Internal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -238,6 +239,9 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
 
     private void internalStop() {
         assert executor.inExecutor();
+        if (isStopped()) {
+            return;
+        }
         try {
             actor.preStop();
         } catch (Exception e) {
@@ -248,12 +252,6 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
             cleanup();
         } catch (Throwable e) {
             LOG.error("{} unexpected error on stopping", this, e);
-        }
-        try {
-            stopped = true;
-            actor.postStop();
-        } catch (Throwable e) {
-            systemErrorEvent(SystemEvent.ActorAction.ON_POST_STOP, e);
         }
         if (stopRunners != null) {
             for (Runnable runnable : stopRunners) {
@@ -276,14 +274,24 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
             }
             watchers = null;
         }
+        try {
+            stopped = true;
+            actor.postStop();
+        } catch (Throwable e) {
+            systemErrorEvent(SystemEvent.ActorAction.ON_POST_STOP, e);
+        }
     }
 
-    void stop() {
+    EventStage<Void> stop() {
         if (!executor.inExecutor()) {
-            executor.execute(this::internalStop);
-            return;
+            return EventStage.runAsync(this::internalStop, executor);
         }
-        internalStop();
+        try {
+            internalStop();
+            return EventStage.succeed(null, executor);
+        } catch (Throwable e) {
+            return EventStage.failed(e, executor);
+        }
     }
 
     @Internal

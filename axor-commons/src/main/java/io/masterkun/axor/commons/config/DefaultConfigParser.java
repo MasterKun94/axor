@@ -1,6 +1,7 @@
 package io.masterkun.axor.commons.config;
 
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigMemorySize;
 
 import java.net.URI;
@@ -35,8 +36,9 @@ public class DefaultConfigParser implements ConfigParser {
                 }
             }
             if (clazz.isRecord()) {
+                Config c = config.hasPath(key) ? config.getConfig(key) : ConfigFactory.empty();
                 //noinspection unchecked
-                return ConfigMapper.map(config.getConfig(key), (Class<? extends Record>) clazz);
+                return ConfigMapper.map(c, (Class<? extends Record>) clazz);
             } else if (clazz.equals(String.class)) {
                 return config.getString(key);
             } else if (clazz.equals(Integer.class) || clazz.equals(int.class)) {

@@ -11,6 +11,7 @@ import io.masterkun.axor.runtime.EventDispatcherGroup;
 import io.masterkun.axor.runtime.MsgType;
 import io.masterkun.axor.runtime.SerdeRegistry;
 import io.masterkun.axor.runtime.StreamServer;
+import io.masterkun.stateeasy.concurrent.EventStage;
 import org.slf4j.Logger;
 
 import java.util.concurrent.CompletableFuture;
@@ -61,6 +62,13 @@ public interface ActorSystem {
      * @return the name of the actor system as a {@code String}
      */
     String name();
+
+    /**
+     * Returns the configuration used to create this actor system.
+     *
+     * @return the {@code Config} object containing the configuration settings for this actor system
+     */
+    Config config();
 
     /**
      * Creates an {@code ActorAddress} for the given actor name.
@@ -153,12 +161,13 @@ public interface ActorSystem {
     <T> ActorRef<T> start(ActorCreator<T> creator, String name, EventDispatcher dispatcher);
 
     /**
-     * Stops the specified actor, causing it to cease processing any further messages and begin its
-     * termination process.
+     * Stops the specified actor.
      *
-     * @param actor the {@code ActorRef} of the actor to stop
+     * @param actor the {@code ActorRef} of the actor to be stopped
+     * @return an {@code EventStage<Void>} that can be used to track the completion of the stop
+     * operation
      */
-    void stop(ActorRef<?> actor);
+    EventStage<Void> stop(ActorRef<?> actor);
 
     /**
      * Retrieves the {@code ActorRef} for the actor located at the specified address.

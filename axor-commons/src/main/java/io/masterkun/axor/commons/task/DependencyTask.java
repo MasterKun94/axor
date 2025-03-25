@@ -16,15 +16,25 @@ import java.util.List;
  * @see AsyncTask
  */
 public abstract class DependencyTask implements AsyncTask {
-    public abstract String name();
+    private final String name;
+    private final List<String> dependencyDownstream;
+
+    protected DependencyTask(String name, String... dependency) {
+        this.name = name;
+        this.dependencyDownstream = List.of(dependency);
+    }
+
+    public final String name() {
+        return name;
+    }
 
     /**
      * Returns a list of names of tasks that should be executed after this task.
      *
      * @return a list of strings representing the names of downstream tasks
      */
-    public List<String> dependencyDownstream() {
-        return List.of();
+    public final List<String> dependencyDownstream() {
+        return dependencyDownstream;
     }
 
     @Override

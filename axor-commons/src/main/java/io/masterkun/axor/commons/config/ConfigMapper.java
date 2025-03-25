@@ -1,6 +1,7 @@
 package io.masterkun.axor.commons.config;
 
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 
 import java.lang.reflect.RecordComponent;
 import java.util.Arrays;
@@ -31,7 +32,14 @@ public class ConfigMapper {
                         key = configField.value();
                     }
                     typeArgs = configField.typeArges();
-                    parser = configField.parser().getConstructor().newInstance();
+                    if (!configField.parser().isInstance(parser)) {
+                        parser = configField.parser().getConstructor().newInstance();
+                    }
+                    if (!configField.fallback().isEmpty()) {
+                        Config fallback =
+                                ConfigFactory.parseString(key + "=" + configField.fallback());
+                        remainConfig = remainConfig.withFallback(fallback);
+                    }
                 }
                 TypeRef typeRef = new TypeRef(nullable, type, typeArgs);
                 constructorArgs[i] = parser.parseFrom(remainConfig, key, typeRef);

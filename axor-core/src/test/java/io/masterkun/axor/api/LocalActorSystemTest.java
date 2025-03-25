@@ -255,7 +255,7 @@ public class LocalActorSystemTest {
 
         @Override
         public void onStart() {
-            throw new RuntimeException("FailureOnStart");
+            throw new RuntimeException("Testing: FailureOnStart");
         }
     }
 
@@ -267,7 +267,7 @@ public class LocalActorSystemTest {
 
         @Override
         public void onReceive(String s) {
-            throw new RuntimeException("FailureOnReceive");
+            throw new RuntimeException("Testing: FailureOnReceive");
         }
     }
 
@@ -279,7 +279,7 @@ public class LocalActorSystemTest {
 
         @Override
         public void preStop() {
-            throw new RuntimeException("FailureOnPreStop");
+            throw new RuntimeException("Testing: FailureOnPreStop");
         }
     }
 
@@ -290,7 +290,7 @@ public class LocalActorSystemTest {
 
         @Override
         public void postStop() {
-            throw new RuntimeException("FailureOnPostStop");
+            throw new RuntimeException("Testing: FailureOnPostStop");
         }
     }
 
@@ -302,12 +302,12 @@ public class LocalActorSystemTest {
 
         @Override
         public void onReceive(String s) {
-            throw new RuntimeException("FailureOnReStart");
+            throw new RuntimeException("Testing: FailureOnReStart");
         }
 
         @Override
         public void onRestart() {
-            throw new RuntimeException("FailureOnReStart");
+            throw new RuntimeException("Testing: FailureOnReStart");
         }
     }
 }

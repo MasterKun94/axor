@@ -9,7 +9,7 @@ public class MembershipConfigTest {
 
     @Test
     public void test() {
-        Config config = ConfigFactory.load().getConfig("axor.cluster");
+        Config config = ConfigFactory.load().getConfig("axor.cluster.default-cluster");
         MembershipConfig membershipConfig = ConfigMapper.map(config, MembershipConfig.class);
     }
 

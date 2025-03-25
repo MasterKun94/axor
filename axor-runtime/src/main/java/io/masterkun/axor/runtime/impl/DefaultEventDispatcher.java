@@ -2,18 +2,28 @@ package io.masterkun.axor.runtime.impl;
 
 import io.masterkun.axor.runtime.EventDispatcher;
 import io.masterkun.axor.runtime.EventDispatcherThread;
-import io.masterkun.axor.runtime.EventDispatcherThreadFactory;
 import io.masterkun.stateeasy.concurrent.DefaultSingleThreadEventExecutor;
+import io.masterkun.stateeasy.concurrent.EventExecutorThreadFactory;
+import io.masterkun.stateeasy.concurrent.ForwardingEventExecutor;
+import io.masterkun.stateeasy.concurrent.SingleThreadEventExecutor;
 
-public class DefaultEventDispatcher extends DefaultSingleThreadEventExecutor implements EventDispatcher {
+public class DefaultEventDispatcher extends ForwardingEventExecutor implements EventDispatcher {
+
+    private final SingleThreadEventExecutor executor;
 
     public DefaultEventDispatcher(String threadName) {
-        super(threadFactory(threadName));
+        executor = new DefaultSingleThreadEventExecutor(threadFactory(this, threadName));
     }
 
     @SuppressWarnings("InstantiatingAThreadWithDefaultRunMethod")
-    private static EventDispatcherThreadFactory threadFactory(String threadName) {
+    private static EventExecutorThreadFactory threadFactory(EventDispatcher dispatcher,
+                                                            String threadName) {
         return (eventExecutor, runnable) ->
-                new EventDispatcherThread(runnable, threadName, eventExecutor);
+                new EventDispatcherThread(runnable, threadName, dispatcher);
+    }
+
+    @Override
+    protected SingleThreadEventExecutor delegate() {
+        return executor;
     }
 }

@@ -51,4 +51,12 @@ public @interface ConfigField {
      * not specified
      */
     Class<? extends ConfigParser> parser() default DefaultConfigParser.class;
+
+    /**
+     * Specifies a fallback value to be used if the configuration field is not found or cannot be
+     * parsed.
+     *
+     * @return the fallback value as a String, or an empty string if no fallback is provided
+     */
+    String fallback() default "";
 }

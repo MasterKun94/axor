@@ -31,6 +31,8 @@ import io.masterkun.axor.runtime.SerdeRegistry;
 import io.masterkun.axor.runtime.StreamDefinition;
 import io.masterkun.axor.runtime.StreamServer;
 import io.masterkun.axor.runtime.StreamServerBuilderProvider;
+import io.masterkun.stateeasy.concurrent.EventStage;
+import io.masterkun.stateeasy.concurrent.Try;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
@@ -56,6 +58,7 @@ public class ActorSystemImpl implements ActorSystem, HasMeter {
             new MapActorRefCache(this::createRemoteActorRef, false);
     private final ActorRef<Object> noSenderActor;
     private final ActorConfig actorConfig;
+    private final Config config;
     private final Pubsub<DeadLetter> deadLetterPubsub;
     private final Pubsub<SystemEvent> systemEventPubsub;
     private final DependencyTaskRegistryRunner shutdownHooks =
@@ -90,6 +93,7 @@ public class ActorSystemImpl implements ActorSystem, HasMeter {
                     .createFromRootConfig(config).build();
         }
         this.actorConfig = ConfigMapper.map(config.getConfig("axor"), ActorConfig.class);
+        this.config = config;
         Address publishAddress = actorConfig.network().publishAddress();
         if (SYSTEM_CACHE.putIfAbsent(new CacheKey(name, publishAddress), this) != null) {
             throw new IllegalArgumentException("ActorSystem key already exists: " +
@@ -140,6 +144,11 @@ public class ActorSystemImpl implements ActorSystem, HasMeter {
     @Override
     public String name() {
         return name;
+    }
+
+    @Override
+    public Config config() {
+        return config;
     }
 
     @Override
@@ -219,15 +228,16 @@ public class ActorSystemImpl implements ActorSystem, HasMeter {
     }
 
     @Override
-    public void stop(ActorRef<?> actor) {
+    public EventStage<Void> stop(ActorRef<?> actor) {
         if (actor instanceof LocalActorRef<?> localActorRef) {
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Stopping actor {}", actor);
             }
             localActorCache.remove(localActorRef.address().name());
-            localActorRef.stop();
+            return localActorRef.stop();
         } else {
-            throw new IllegalArgumentException("ActorRef is not a LocalActorRef");
+            var ex = new IllegalArgumentException("ActorRef is not a LocalActorRef");
+            return EventStage.failed(ex, getDispatcherGroup().nextDispatcher());
         }
     }
 
@@ -303,7 +313,6 @@ public class ActorSystemImpl implements ActorSystem, HasMeter {
 
     @Override
     public CompletableFuture<Void> shutdownAsync() {
-        closed = true;
         return shutdownHooks.run();
     }
 
@@ -358,20 +367,48 @@ public class ActorSystemImpl implements ActorSystem, HasMeter {
 
     private class RootShutdownTask extends DependencyTask {
 
-        @Override
-        public String name() {
-            return "root";
+        RootShutdownTask() {
+            super("root");
         }
 
         @Override
         public CompletableFuture<Void> run() {
+            EventStage<Void> stage = EventStage.succeed(null, eventExecutorGroup.nextDispatcher());
             for (ActorRef<?> actor : localActorCache.values()) {
-                stop(actor);
+                if (stage == null) {
+                    stage = stop(actor);
+                } else {
+                    stage = stage.flatmap(v -> stop(actor));
+                }
             }
-            CompletableFuture<Void> future = streamServer.shutdownAsync();
-            SYSTEM_CACHE.remove(new CacheKey(name, publishAddress));
-            CompletableFuture<Void> future1 = eventExecutorGroup.shutdownAsync();
-            return CompletableFuture.allOf(future, future1);
+            return stage
+                    .transform(t -> {
+                        if (t.isFailure()) {
+                            LOG.error("Stop actor failed", t.cause());
+                        }
+                        closed = true;
+                        return Try.success(null);
+                    })
+                    .toCompletableFuture()
+                    .thenCompose(v -> {
+                        SYSTEM_CACHE.remove(new CacheKey(name, publishAddress));
+                        CompletableFuture<Void> future = streamServer.shutdownAsync();
+                        try {
+                            remoteActorCache.cleanup();
+                        } catch (Throwable e) {
+                            LOG.error("Cleanup RemoteActorRefCache failed", e);
+                        }
+                        return future;
+                    })
+                    .exceptionally(e -> {
+                        LOG.error("Shutdown StreamServer failed", e);
+                        return null;
+                    })
+                    .thenCompose(v -> eventExecutorGroup.shutdownAsync())
+                    .exceptionally(e -> {
+                        LOG.error("Shutdown DispatcherGroup failed", e);
+                        return null;
+                    });
         }
     }
 }

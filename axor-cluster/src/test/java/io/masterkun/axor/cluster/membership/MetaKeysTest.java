@@ -1,13 +1,24 @@
 package io.masterkun.axor.cluster.membership;
 
 import com.google.protobuf.Any;
-import io.masterkun.axor.cluster.membership.MetaKeys.*;
+import io.masterkun.axor.cluster.membership.MetaKeys.BooleanMetaKey;
+import io.masterkun.axor.cluster.membership.MetaKeys.ByteMetaKey;
+import io.masterkun.axor.cluster.membership.MetaKeys.DoubleMetaKey;
+import io.masterkun.axor.cluster.membership.MetaKeys.EnumMetaKey;
+import io.masterkun.axor.cluster.membership.MetaKeys.FloatMetaKey;
+import io.masterkun.axor.cluster.membership.MetaKeys.IntMetaKey;
+import io.masterkun.axor.cluster.membership.MetaKeys.LongMetaKey;
+import io.masterkun.axor.cluster.membership.MetaKeys.ProtobufMetaKey;
+import io.masterkun.axor.cluster.membership.MetaKeys.ShortMetaKey;
+import io.masterkun.axor.cluster.membership.MetaKeys.StringListMetaKey;
+import io.masterkun.axor.cluster.membership.MetaKeys.StringMetaKey;
 import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class MetaKeysTest {
 
@@ -98,7 +109,8 @@ public class MetaKeysTest {
     @Test
     public void testCreateEnumMetaKey() {
         TestEnum defaultValue = TestEnum.VALUE1;
-        EnumMetaKey<TestEnum> key = MetaKeys.create(10, "testName", "testDescription", defaultValue);
+        EnumMetaKey<TestEnum> key = MetaKeys.create(10, "testName", "testDescription",
+                defaultValue);
         assertEquals(10, key.id());
         assertEquals("testName", key.name());
         assertEquals("testDescription", key.description());

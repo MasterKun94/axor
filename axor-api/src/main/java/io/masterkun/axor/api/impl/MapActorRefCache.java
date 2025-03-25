@@ -119,6 +119,14 @@ public class MapActorRefCache implements ActorRefCache, HasMeter {
                 .register(registry);
     }
 
+    @Override
+    public void cleanup() {
+        for (RemoteActorRef<?> ref : getAll().toList()) {
+            ref.getStreamManager().close();
+            remove(ref);
+        }
+    }
+
     private interface ReferenceRich {
 
         StreamManager<?> streamManager();

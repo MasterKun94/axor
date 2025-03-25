@@ -56,7 +56,7 @@ public class DefaultSplitBrainResolverTest {
         DefaultSplitBrainResolver resolver = new DefaultSplitBrainResolver(3, 2);
         resolver.setAliveMemberCount(2);
         resolver.setInitialState(false);
-        assertEquals(LocalMemberState.WEEKLY_UP, resolver.getLocalMemberState());
+        assertEquals(LocalMemberState.WEAKLY_UP, resolver.getLocalMemberState());
     }
 
     @Test
@@ -64,7 +64,7 @@ public class DefaultSplitBrainResolverTest {
         DefaultSplitBrainResolver resolver = new DefaultSplitBrainResolver(3, 2);
         resolver.setAliveMemberCount(3);
         resolver.setInitialState(true);
-        assertEquals(LocalMemberState.WEEKLY_UP, resolver.getLocalMemberState());
+        assertEquals(LocalMemberState.WEAKLY_UP, resolver.getLocalMemberState());
     }
 
     @Test
