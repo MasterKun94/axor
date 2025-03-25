@@ -57,7 +57,7 @@ public abstract class AbstractActor<T> extends Actor<T> {
             }
             case MESSAGE_HANDLE -> behavior = ret;
             case STOP -> context().stop();
-            case UNHANDLED -> context().system().logger()
+            case UNHANDLED -> context().system().getLogger()
                     .warn("{} receive unhandled message: {}", context().self(), t);
             default ->
                     throw new IllegalStateException("Unknown Behavior: " + BehaviorInternal.getTag(ret));

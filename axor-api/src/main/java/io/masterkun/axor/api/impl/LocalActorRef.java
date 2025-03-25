@@ -2,7 +2,6 @@ package io.masterkun.axor.api.impl;
 
 import io.masterkun.axor.api.Actor;
 import io.masterkun.axor.api.ActorAddress;
-import io.masterkun.axor.api.ActorContext;
 import io.masterkun.axor.api.ActorCreator;
 import io.masterkun.axor.api.ActorRef;
 import io.masterkun.axor.api.ActorRefRich;
@@ -48,7 +47,7 @@ import java.util.function.BiConsumer;
  * @param <T> the type of messages that this actor can handle
  */
 final class LocalActorRef<T> extends AbstractActorRef<T> {
-    private static final Logger LOG = LoggerFactory.getLogger(LocalActorRef.class);
+    private final Logger LOG = LoggerFactory.getLogger(LocalActorRef.class);
 
     private final EventDispatcher executor;
     private final Actor<T> actor;
@@ -282,6 +281,7 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
         }
     }
 
+    @Internal
     EventStage<Void> stop() {
         if (!executor.inExecutor()) {
             return EventStage.runAsync(this::internalStop, executor);
@@ -295,8 +295,8 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
     }
 
     @Internal
-    public ActorContext<T> context() {
-        return actor.context();
+    Actor<T> getActor() {
+        return actor;
     }
 
     @Override

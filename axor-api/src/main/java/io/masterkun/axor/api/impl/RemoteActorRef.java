@@ -27,8 +27,7 @@ import java.util.function.BiConsumer;
  * @param <T> The type of messages that can be sent to this actor.
  */
 final class RemoteActorRef<T> extends AbstractActorRef<T> {
-    private static final Logger LOG = LoggerFactory.getLogger(RemoteActorRef.class);
-
+    private final Logger LOG = LoggerFactory.getLogger(RemoteActorRef.class);
     private final ActorSystem system;
     private final BiConsumer<StreamManager<?>, T> tellAction =
             (manager, t) -> manager

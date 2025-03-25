@@ -12,7 +12,6 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.time.Duration;
-import java.util.function.Consumer;
 
 import static io.masterkun.axor.testkit.actor.MsgAssertions.eq;
 
@@ -23,8 +22,14 @@ public class MemberManagerTest {
             Gossip.class
     );
     private static Member member1 = new Member(1, MetaInfo.EMPTY, node1);
-    private static final MemberManager memberManager = new MemberManager(1, node1, config,
-            failureHook);
+    private static final MemberManager memberManager = new MemberManager(1, node1,
+            ConfigMapper.map(ConfigFactory.parseString("""
+                    publishRate=0.8
+                    publishNumMin=5
+                    """), MemberManageConfig.class),
+            e -> {
+                throw new RuntimeException(e);
+            });
     private static final MockActorRef<Gossip> node2 = testKit.mock(
             ActorAddress.create("test@localhost:123/node2"),
             Gossip.class
@@ -45,13 +50,6 @@ public class MemberManagerTest {
             Gossip.class
     );
     private static final Member member5 = new Member(5, MetaInfo.EMPTY, node5);
-    private static final Consumer<Throwable> failureHook = e -> {
-        throw new RuntimeException(e);
-    };
-    private static final MemberManageConfig config = ConfigMapper.map(ConfigFactory.parseString("""
-            publishRate=0.8
-            publishNumMin=5
-            """), MemberManageConfig.class);
     private static final MockActorRef<ListenerEvent> listener = testKit.mock(
             ActorAddress.create("test@localhost:123/listener"),
             ListenerEvent.class

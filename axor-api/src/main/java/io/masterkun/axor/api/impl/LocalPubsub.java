@@ -42,6 +42,7 @@ public class LocalPubsub<T> implements Pubsub<T> {
     private final boolean logUnSendMsg;
     private int sendOffset = 0;
     private volatile boolean closed = false;
+
     LocalPubsub(String name, MsgType<T> msgType, EventDispatcher executor, boolean logUnSendMsg,
                 ActorSystem system) {
         this.name = name;

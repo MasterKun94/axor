@@ -159,7 +159,7 @@ public class ActorSystemImpl implements ActorSystem, HasMeter {
     }
 
     @Override
-    public Logger logger() {
+    public Logger getLogger() {
         return LOG;
     }
 

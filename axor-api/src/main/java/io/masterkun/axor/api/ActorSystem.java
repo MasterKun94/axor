@@ -94,7 +94,7 @@ public interface ActorSystem {
      *
      * @return the {@code Logger} instance for this actor system
      */
-    Logger logger();
+    Logger getLogger();
 
     /**
      * Determines whether the specified actor is local to the current actor system.
