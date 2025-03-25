@@ -57,6 +57,15 @@ public interface ActorSystem {
     }
 
     /**
+     * Checks if there are multiple instances of the ActorSystem running within the same JVM.
+     *
+     * @return true if there are multiple instances of the ActorSystem in the JVM, false otherwise.
+     */
+    static boolean hasMultiInstance() {
+        return ActorSystemImpl.hasMultipalInstance();
+    }
+
+    /**
      * Returns the name of the actor system.
      *
      * @return the name of the actor system as a {@code String}

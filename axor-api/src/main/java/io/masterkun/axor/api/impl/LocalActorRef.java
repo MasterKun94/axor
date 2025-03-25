@@ -130,18 +130,18 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
             }
         };
         if (config.logger().mdcEnabled()) {
-            String systemName = system.name();
+            Map<String, String> ctxMap = new HashMap<>(3);
+            ctxMap.put("system", system.name());
+            ctxMap.put("actor", ActorSystem.hasMultiInstance() ?
+                    LocalActorRef.this.address().toString() :
+                    LocalActorRef.this.displayName());
             this.tellAction = (sender, msg) -> {
                 MDCAdapter mdc = MDC.getMDCAdapter();
-                mdc.put("system", systemName);
-                mdc.put("actor", LocalActorRef.this.displayName());
-                mdc.put("sender", ((ActorRefRich<?>) sender).displayName());
+                mdc.setContextMap(ctxMap);
                 try {
                     tellAction.accept(sender, msg);
                 } finally {
-                    mdc.remove("system");
-                    mdc.remove("actor");
-                    mdc.remove("sender");
+                    mdc.setContextMap(null);
                 }
             };
         } else {

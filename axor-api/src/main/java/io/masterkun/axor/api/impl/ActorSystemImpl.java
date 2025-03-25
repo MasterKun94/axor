@@ -143,6 +143,10 @@ public class ActorSystemImpl implements ActorSystem, HasMeter {
         return streamServer.serdeRegistry().create(type);
     }
 
+    public static boolean hasMultipalInstance() {
+        return SYSTEM_CACHE.size() > 1;
+    }
+
     @Override
     public String name() {
         return name;
