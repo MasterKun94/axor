@@ -26,9 +26,9 @@ public class ClusterTest {
 
     @BeforeClass
     public static void startNode() {
-        system1 = createActorSystem("test", 11001);
-        system2 = createActorSystem("test", 11002);
-        system3 = createActorSystem("test", 11003);
+        system1 = createActorSystem("test", 21001);
+        system2 = createActorSystem("test", 21002);
+        system3 = createActorSystem("test", 21003);
         cluster1 = Cluster.get("ClusterTest", system1);
         listener1 = testkit.mock(system1.address("listener"), ClusterEvent.class);
         cluster1.clusterEvents().subscribe(listener1);

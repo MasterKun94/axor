@@ -28,6 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class Cluster {
     private static final Map<SystemCacheKey, Cluster> cache = new ConcurrentHashMap<>();
+    public static final String DEFAULT_NAME = "default-cluster";
     private final String name;
     private final ActorSystem system;
     private final ActorRef<MembershipMessage> actor;
@@ -68,7 +69,7 @@ public class Cluster {
     }
 
     public static Cluster get(ActorSystem system) {
-        return get("default-cluster", system);
+        return get(DEFAULT_NAME, system);
     }
 
     public static Cluster get(String name, ActorSystem system) {
