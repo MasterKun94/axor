@@ -23,8 +23,6 @@ public class MemberManagerTest {
             Gossip.class
     );
     private static Member member1 = new Member(1, MetaInfo.EMPTY, node1);
-    private static final MemberManager memberManager = new MemberManager(1, node1, config,
-            failureHook);
     private static final MockActorRef<Gossip> node2 = testKit.mock(
             ActorAddress.create("test@localhost:123/node2"),
             Gossip.class
@@ -52,6 +50,8 @@ public class MemberManagerTest {
             publishRate=0.8
             publishNumMin=5
             """), MemberManageConfig.class);
+    private static final MemberManager memberManager = new MemberManager(1, node1, config,
+            failureHook);
     private static final MockActorRef<ListenerEvent> listener = testKit.mock(
             ActorAddress.create("test@localhost:123/listener"),
             ListenerEvent.class
