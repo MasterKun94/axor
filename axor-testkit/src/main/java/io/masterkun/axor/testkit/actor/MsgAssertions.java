@@ -29,11 +29,11 @@ public class MsgAssertions {
         return (msg, sender) -> Assert.assertTrue(message, matcher.match(msg, sender));
     }
 
-    public static <T> MsgAssertion<T> eq(T expect) {
+    public static <T> MsgAssertion<T> msgEq(T expect) {
         return (msg, sender) -> Assert.assertEquals(expect, msg);
     }
 
-    public static <T> MsgAssertion<T> eq(String message, T expect) {
+    public static <T> MsgAssertion<T> msgEq(String message, T expect) {
         return ((msg, sender) -> Assert.assertEquals(message, expect, msg));
     }
 

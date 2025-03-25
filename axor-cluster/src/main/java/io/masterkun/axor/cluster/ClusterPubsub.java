@@ -115,20 +115,23 @@ public class ClusterPubsub<T> implements Pubsub<T> {
             if (removeList.isEmpty() && addList.isEmpty()) {
                 return;
             }
-            Set<ActorAddress> removeSet = removeList.isEmpty() ? Set.of() :
-                    new HashSet<>(removeList);
-            Set<ActorAddress> addSet = addList.isEmpty() ? Set.of() : new HashSet<>(addList);
-            addList.forEach(removeSet::remove);
-            removeList.forEach(addSet::remove);
-            for (var addr : removeSet) {
-                var actor = cluster.system().get(addr, msgType);
-                LOG.info("Notify unsubscribe {} from topic[{}]", actor, topic);
-                internalPubsub.unsubscribe(actor);
+            if (!removeList.isEmpty()) {
+                Set<ActorAddress> removeSet = new HashSet<>(removeList);
+                addList.forEach(removeSet::remove);
+                for (var addr : removeSet) {
+                    var actor = cluster.system().get(addr, msgType);
+                    LOG.info("Unsubscribe {} from topic[{}]", actor, topic);
+                    internalPubsub.unsubscribe(actor);
+                }
             }
-            for (var addr : addSet) {
-                var actor = cluster.system().get(addr, msgType);
-                LOG.info("Notify subscribe {} to topic[{}]", actor, topic);
-                internalPubsub.subscribe(actor);
+            if (!addList.isEmpty()) {
+                Set<ActorAddress> addSet = new HashSet<>(addList);
+                removeList.forEach(addSet::remove);
+                for (var addr : addSet) {
+                    var actor = cluster.system().get(addr, msgType);
+                    LOG.info("Subscribe {} to topic[{}]", actor, topic);
+                    internalPubsub.subscribe(actor);
+                }
             }
         } catch (Exception e) {
             // TODO error handle
@@ -164,7 +167,7 @@ public class ClusterPubsub<T> implements Pubsub<T> {
             if (desc.getSubscriberList().contains(subscriber)) {
                 return topics;
             }
-            LOG.info("Adding subscriber {} to topic[{}]", ref, topic);
+            LOG.debug("Adding subscriber {} to topic[{}]", ref, topic);
             return builder
                     .putTopic(topic, desc.toBuilder().addSubscriber(subscriber).build())
                     .build();

@@ -139,12 +139,23 @@ public class ActorSystemImpl implements ActorSystem, HasMeter {
         }
     }
 
+    public static boolean hasMultipalInstance() {
+        return SYSTEM_CACHE.size() > 1;
+    }
+
     private <T> Serde<T> getSerde(MsgType<T> type) {
         return streamServer.serdeRegistry().create(type);
     }
 
-    public static boolean hasMultipalInstance() {
-        return SYSTEM_CACHE.size() > 1;
+    void replaceCache(ActorRef<?> replace) {
+        ActorRef<?> get = localActorCache.get(replace.address().name());
+        if (get == null) {
+            throw new IllegalArgumentException("actor not found");
+        }
+        if (!get.address().equals(replace.address())) {
+            throw new IllegalArgumentException("address not same");
+        }
+        localActorCache.put(replace.address().name(), get);
     }
 
     @Override

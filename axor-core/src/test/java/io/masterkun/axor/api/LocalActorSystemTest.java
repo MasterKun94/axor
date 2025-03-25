@@ -1,6 +1,6 @@
 package io.masterkun.axor.api;
 
-import io.masterkun.axor.api.impl.LocalActorRefUnsafe;
+import io.masterkun.axor.api.impl.ActorUnsafe;
 import io.masterkun.axor.exception.ActorNotFoundException;
 import io.masterkun.axor.exception.IllegalMsgTypeException;
 import io.masterkun.axor.runtime.MsgType;
@@ -99,7 +99,7 @@ public class LocalActorSystemTest {
             Assert.assertEquals(ref.get(), event.actor());
         }));
         subscriber1.expectReceive(new SystemEvent.ActorStopped(ref.get()));
-        Assert.assertTrue(LocalActorRefUnsafe.isStopped(ref.get()));
+        Assert.assertTrue(ActorUnsafe.isStopped(ref.get()));
 
         ref.set(system.start(FailureOnReceive::new, "failureOnReceive"));
         subscriber1.expectReceive(new SystemEvent.ActorStarted(ref.get()));
@@ -109,7 +109,7 @@ public class LocalActorSystemTest {
             Assert.assertEquals(ref.get(), event.actor());
         }));
         subscriber1.expectReceive(new SystemEvent.ActorRestarted(ref.get()));
-        Assert.assertFalse(LocalActorRefUnsafe.isStopped(ref.get()));
+        Assert.assertFalse(ActorUnsafe.isStopped(ref.get()));
         system.stop(ref.get());
         subscriber1.expectReceive(new SystemEvent.ActorStopped(ref.get()));
 
@@ -125,7 +125,7 @@ public class LocalActorSystemTest {
             Assert.assertEquals(ref.get(), event.actor());
         }));
         subscriber1.expectReceive(new SystemEvent.ActorStopped(ref.get()));
-        Assert.assertTrue(LocalActorRefUnsafe.isStopped(ref.get()));
+        Assert.assertTrue(ActorUnsafe.isStopped(ref.get()));
 
         ref.set(system.start(FailureOnPreStop::new, "failureOnPreStop"));
         subscriber1.expectReceive(new SystemEvent.ActorStarted(ref.get()));
@@ -135,7 +135,7 @@ public class LocalActorSystemTest {
             Assert.assertEquals(ref.get(), event.actor());
         }));
         subscriber1.expectReceive(new SystemEvent.ActorStopped(ref.get()));
-        Assert.assertTrue(LocalActorRefUnsafe.isStopped(ref.get()));
+        Assert.assertTrue(ActorUnsafe.isStopped(ref.get()));
 
         ref.set(system.start(FailureOnPostStop::new, "failureOnPostStop"));
         subscriber1.expectReceive(new SystemEvent.ActorStarted(ref.get()));
@@ -145,7 +145,7 @@ public class LocalActorSystemTest {
             Assert.assertEquals(SystemEvent.ActorAction.ON_POST_STOP, event.action());
             Assert.assertEquals(ref.get(), event.actor());
         }));
-        Assert.assertTrue(LocalActorRefUnsafe.isStopped(ref.get()));
+        Assert.assertTrue(ActorUnsafe.isStopped(ref.get()));
     }
 
     @Test

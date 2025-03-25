@@ -219,7 +219,7 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
         }
         for (Class<?> watchEvent : holder.watchEvents) {
             if (watchEvent.isInstance(event)) {
-                LocalActorRefUnsafe.signal(watcher, event);
+                ActorUnsafe.signal(watcher, event);
                 return;
             }
         }
@@ -403,7 +403,7 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
             this.watcher = watcher;
             this.watchEvents = new HashSet<>(watchEvents);
             this.stopRunner = stopRunner;
-            LocalActorRefUnsafe.runOnStop(watcher, stopRunner);
+            ActorUnsafe.runOnStop(watcher, stopRunner);
         }
 
         public ActorRef<?> get() {
@@ -416,7 +416,7 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
         }
 
         public void release() {
-            LocalActorRefUnsafe.cancelRunOnStop(watcher, stopRunner);
+            ActorUnsafe.cancelRunOnStop(watcher, stopRunner);
         }
     }
 

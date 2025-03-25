@@ -1,10 +1,15 @@
 package io.masterkun.axor.testkit.actor;
 
 import io.masterkun.axor.api.ActorRef;
+import io.masterkun.axor.api.ActorRefRich;
 import io.masterkun.axor.api.Signal;
+import io.masterkun.axor.api.SystemEvent;
 import io.masterkun.axor.api.impl.ForwardingActorRef;
+import io.masterkun.axor.runtime.StreamDefinition;
+import io.masterkun.axor.runtime.StreamManager;
 import org.junit.Assert;
 
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -15,6 +20,7 @@ public class MockActorRef<T> extends ForwardingActorRef<T> {
     private final BlockingQueue<MsgAndSender> queue = new LinkedBlockingQueue<>();
     private final BlockingQueue<Signal> signals = new LinkedBlockingQueue<>();
     private final long pollTimeout;
+    private ActorRefRich<T> combine;
 
     public MockActorRef(ActorRef<T> delegate, long pollTimeout) {
         super(delegate);
@@ -44,6 +50,47 @@ public class MockActorRef<T> extends ForwardingActorRef<T> {
     public void signal(Signal signal) {
         signals.add(signal);
         super.signal(signal);
+    }
+
+    public void combineWith(ActorRef<T> combine) {
+        if (!address().equals(combine.address())) {
+            throw new IllegalArgumentException("not same address");
+        }
+        if (!(getDelegate() instanceof NoopActorRef<T>)) {
+            throw new IllegalArgumentException("delegate should be noop");
+        }
+        if (this.combine != null) {
+            throw new IllegalArgumentException("already combined");
+        }
+        this.combine = (ActorRefRich<T>) combine;
+    }
+
+    @Override
+    public void addWatcher(ActorRef<?> watcher, List<Class<? extends SystemEvent>> watchEvents) {
+        if (combine != null) {
+            combine.addWatcher(watcher, watchEvents);
+        } else {
+            super.addWatcher(watcher, watchEvents);
+        }
+    }
+
+    @Override
+    public void removeWatcher(ActorRef<?> watcher) {
+        if (combine != null) {
+            combine.removeWatcher(watcher);
+        } else {
+            super.removeWatcher(watcher);
+        }
+    }
+
+    @Override
+    public StreamDefinition<T> getDefinition() {
+        return combine != null ? combine.getDefinition() : super.getDefinition();
+    }
+
+    @Override
+    public StreamManager<T> getStreamManager() {
+        return combine != null ? combine.getStreamManager() : super.getStreamManager();
     }
 
     public T pollMessage() {
@@ -78,11 +125,11 @@ public class MockActorRef<T> extends ForwardingActorRef<T> {
     }
 
     public MockActorRef<T> expectReceive(T value) {
-        return expectReceive(eq(value));
+        return expectReceive(MsgAssertions.msgEq(value));
     }
 
     public MockActorRef<T> expectReceive(String message, T value) {
-        return expectReceive(eq(message, value));
+        return expectReceive(MsgAssertions.msgEq(message, value));
     }
 
     public MockActorRef<T> expectReceive(T value, ActorRef<?> sender) {
@@ -112,6 +159,22 @@ public class MockActorRef<T> extends ForwardingActorRef<T> {
         Signal poll = take(signals, pollTimeout);
         Assert.assertEquals(poll, signal);
         return this;
+    }
+
+    @Override
+    public int hashCode() {
+        return combine != null ? combine.hashCode() : super.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof MockActorRef<?>) {
+            return super.equals(obj);
+        }
+        if (combine != null) {
+            return combine.equals(obj);
+        }
+        return super.equals(obj);
     }
 
     public class MsgAndSender {

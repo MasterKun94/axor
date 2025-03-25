@@ -7,13 +7,12 @@ import io.masterkun.axor.cluster.config.MemberManageConfig;
 import io.masterkun.axor.commons.config.ConfigMapper;
 import io.masterkun.axor.testkit.actor.ActorTestKit;
 import io.masterkun.axor.testkit.actor.MockActorRef;
+import io.masterkun.axor.testkit.actor.MsgAssertions;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.time.Duration;
-
-import static io.masterkun.axor.testkit.actor.MsgAssertions.eq;
 
 public class MemberManagerTest {
     private static final ActorTestKit testKit = new ActorTestKit(Duration.ofMillis(10));
@@ -95,7 +94,7 @@ public class MemberManagerTest {
                 member1, MemberAction.JOIN, VectorClock.wrap(0, 1)
         ), 1));
         node1.expectNoMsg();
-        listener.expectReceive(eq(new MemberStateChange(member1, MemberState.NONE,
+        listener.expectReceive(MsgAssertions.msgEq(new MemberStateChange(member1, MemberState.NONE,
                 MemberState.UP)));
         listener.expectNoMsg();
         Assert.assertEquals(VectorClock.wrap(1, 1), memberManager.getClock());
@@ -107,7 +106,7 @@ public class MemberManagerTest {
         ), 2));
         node2.expectNoMsg();
         node1.expectNoMsg();
-        listener.expectReceive(eq(new MemberStateChange(member2, MemberState.NONE,
+        listener.expectReceive(MsgAssertions.msgEq(new MemberStateChange(member2, MemberState.NONE,
                 MemberState.UP)));
         listener.expectNoMsg();
         Assert.assertEquals(VectorClock.wrap(0, 2), memberManager.getClock(2));
@@ -118,9 +117,9 @@ public class MemberManagerTest {
                 member3, MemberAction.JOIN, VectorClock.wrap(0, 2)
         );
         memberManager.gossipEvent(Gossip.of(event, 3));
-        node2.expectReceive(eq(Gossip.of(event, 1)));
+        node2.expectReceive(MsgAssertions.msgEq(Gossip.of(event, 1)));
         node1.expectNoMsg();
-        listener.expectReceive(eq(new MemberStateChange(member3, MemberState.NONE,
+        listener.expectReceive(MsgAssertions.msgEq(new MemberStateChange(member3, MemberState.NONE,
                 MemberState.UP)));
         listener.expectNoMsg();
         Assert.assertEquals(VectorClock.wrap(0, 2), memberManager.getClock(3));
@@ -134,9 +133,9 @@ public class MemberManagerTest {
         );
         memberManager.gossipEvent(Gossip.of(event, 1));
         node1.expectNoMsg();
-        node2.expectReceive(eq(Gossip.of(event, 1)));
-        node3.expectReceive(eq(Gossip.of(event, 1)));
-        listener.expectReceive(eq(new MemberUpdate(prev, member1)));
+        node2.expectReceive(MsgAssertions.msgEq(Gossip.of(event, 1)));
+        node3.expectReceive(MsgAssertions.msgEq(Gossip.of(event, 1)));
+        listener.expectReceive(MsgAssertions.msgEq(new MemberUpdate(prev, member1)));
         listener.expectNoMsg();
         Assert.assertEquals(VectorClock.wrap(0, 2), memberManager.getClock(1));
     }
@@ -167,9 +166,9 @@ public class MemberManagerTest {
         node3.expectNoMsg();
         node4.expectReceive(Gossip.of(events, 1));
         node5.expectReceive(Gossip.of(events, 1));
-        listener.expectReceive(eq(new MemberStateChange(member4, MemberState.NONE,
+        listener.expectReceive(MsgAssertions.msgEq(new MemberStateChange(member4, MemberState.NONE,
                 MemberState.UP)));
-        listener.expectReceive(eq(new MemberStateChange(member5, MemberState.NONE,
+        listener.expectReceive(MsgAssertions.msgEq(new MemberStateChange(member5, MemberState.NONE,
                 MemberState.UP)));
         listener.expectNoMsg();
         Assert.assertEquals(VectorClock.wrap(0, 1), memberManager.getClock(4));
@@ -218,7 +217,7 @@ public class MemberManagerTest {
         node3.expectNoMsg();
         node4.expectReceive(Gossip.of(event, 1));
         node5.expectReceive(Gossip.of(event, 1));
-        listener.expectReceive(eq(new MemberStateChange(member3, MemberState.UP,
+        listener.expectReceive(MsgAssertions.msgEq(new MemberStateChange(member3, MemberState.UP,
                 MemberState.SUSPICIOUS)));
         listener.expectNoMsg();
         Assert.assertEquals(VectorClock.wrap(0, 3, 2, 4), memberManager.getClock(3));
@@ -234,7 +233,8 @@ public class MemberManagerTest {
         node3.expectNoMsg();
         node4.expectReceive(Gossip.of(event, 1));
         node5.expectReceive(Gossip.of(event, 1));
-        listener.expectReceive(eq(new MemberStateChange(member3, MemberState.SUSPICIOUS,
+        listener.expectReceive(MsgAssertions.msgEq(new MemberStateChange(member3,
+                MemberState.SUSPICIOUS,
                 MemberState.DOWN)));
         listener.expectNoMsg();
         Assert.assertEquals(VectorClock.wrap(0, 3, 2, 5), memberManager.getClock(3));
@@ -250,7 +250,7 @@ public class MemberManagerTest {
         node3.expectReceive(Gossip.of(event, 1));
         node4.expectNoMsg();
         node5.expectReceive(Gossip.of(event, 1));
-        listener.expectReceive(eq(new MemberStateChange(member3, MemberState.DOWN,
+        listener.expectReceive(MsgAssertions.msgEq(new MemberStateChange(member3, MemberState.DOWN,
                 MemberState.UP)));
         listener.expectNoMsg();
         Assert.assertEquals(event.clock(), memberManager.getClock(3));
@@ -268,7 +268,7 @@ public class MemberManagerTest {
         ), 1));
         node4.expectNoMsg();
         node5.expectReceive(Gossip.of(event, 1));
-        listener.expectReceive(eq(new MemberStateChange(member3, MemberState.UP,
+        listener.expectReceive(MsgAssertions.msgEq(new MemberStateChange(member3, MemberState.UP,
                 MemberState.LEFT)));
         listener.expectNoMsg();
         Assert.assertEquals(event.clock(), memberManager.getClock(3));
@@ -284,7 +284,7 @@ public class MemberManagerTest {
         node3.expectNoMsg();
         node4.expectNoMsg();
         node5.expectNoMsg();
-        listener.expectReceive(eq(new MemberStateChange(member5, MemberState.UP,
+        listener.expectReceive(MsgAssertions.msgEq(new MemberStateChange(member5, MemberState.UP,
                 MemberState.DOWN)));
         listener.expectNoMsg();
         Assert.assertEquals(event.clock(), memberManager.getClock(5));
@@ -300,7 +300,7 @@ public class MemberManagerTest {
         node3.expectNoMsg();
         node4.expectNoMsg();
         node5.expectNoMsg();
-        listener.expectReceive(eq(new MemberStateChange(member5, MemberState.DOWN,
+        listener.expectReceive(MsgAssertions.msgEq(new MemberStateChange(member5, MemberState.DOWN,
                 MemberState.LEFT)));
         listener.expectNoMsg();
         Assert.assertEquals(event.clock(), memberManager.getClock(5));

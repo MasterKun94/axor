@@ -1,9 +1,10 @@
 package io.masterkun.axor.api.impl;
 
 import io.masterkun.axor.api.ActorRef;
+import io.masterkun.axor.api.ActorSystem;
 import io.masterkun.axor.api.Signal;
 
-public class LocalActorRefUnsafe {
+public class ActorUnsafe {
     public static boolean isStopped(ActorRef<?> ref) {
         if (ref instanceof LocalActorRef<?> l) {
             return l.isStopped();
@@ -42,5 +43,9 @@ public class LocalActorRefUnsafe {
         } else {
             throw new IllegalArgumentException("Not a LocalActorRef");
         }
+    }
+
+    public static void replaceCache(ActorSystem system, ActorRef<?> actor) {
+        ((ActorSystemImpl) system).replaceCache(actor);
     }
 }
