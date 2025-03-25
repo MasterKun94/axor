@@ -102,7 +102,7 @@ public class MockActorRef<T> extends ForwardingActorRef<T> {
     public <P extends T> MockActorRef<T> expectReceive(Class<P> clazz, MsgAssertion<P> assertion) {
         MsgAndSender poll = take(queue, pollTimeout);
         if (!clazz.isInstance(poll.msg)) {
-            throw new AssertionError("expect type is: " + clazz + ", but got: " + poll.getClass());
+            throw new AssertionError("expect type is: " + clazz + ", but got: " + poll.msg.getClass());
         }
         assertion.testAssert((P) poll.msg, poll.sender);
         return this;

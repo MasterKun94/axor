@@ -2,7 +2,12 @@ package io.masterkun.axor.api.impl;
 
 import io.masterkun.axor.api.ActorAddress;
 import io.masterkun.axor.api.ActorRef;
+import io.masterkun.axor.api.ActorSystem;
 import io.masterkun.axor.api.Pubsub;
+import io.masterkun.axor.api.SystemCacheKey;
+import io.masterkun.axor.commons.task.DependencyTask;
+import io.masterkun.axor.exception.ActorRuntimeException;
+import io.masterkun.axor.exception.IllegalMsgTypeException;
 import io.masterkun.axor.runtime.EventDispatcher;
 import io.masterkun.axor.runtime.MsgType;
 import org.slf4j.Logger;
@@ -14,6 +19,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * A local implementation of the {@link Pubsub} interface, designed to handle message distribution
@@ -26,22 +33,50 @@ import java.util.Map;
  */
 public class LocalPubsub<T> implements Pubsub<T> {
     private static final Logger LOG = LoggerFactory.getLogger(LocalPubsub.class);
-
+    private static final Map<SystemCacheKey, LocalPubsub<?>> CACHE = new ConcurrentHashMap<>();
+    private final String name;
     private final MsgType<T> msgType;
     private final Map<ActorAddress, ActorRef<? super T>> actors = new HashMap<>();
     private final List<ActorRef<? super T>> sendList = new ArrayList<>();
     private final EventDispatcher executor;
     private final boolean logUnSendMsg;
     private int sendOffset = 0;
-
-    public LocalPubsub(MsgType<T> msgType, EventDispatcher executor, boolean logUnSendMsg) {
+    private volatile boolean closed = false;
+    LocalPubsub(String name, MsgType<T> msgType, EventDispatcher executor, boolean logUnSendMsg,
+                ActorSystem system) {
+        this.name = name;
         this.msgType = msgType;
         this.executor = executor;
         this.logUnSendMsg = logUnSendMsg;
+        system.shutdownHooks().register(new DependencyTask("pubsub-" + name, "root") {
+            @Override
+            public CompletableFuture<Void> run() {
+                closed = true;
+                return CompletableFuture.completedFuture(null);
+            }
+        });
     }
 
-    public LocalPubsub(MsgType<T> msgType, EventDispatcher executor) {
-        this(msgType, executor, true);
+    public static <T> LocalPubsub<T> get(String name, MsgType<T> msgType, ActorSystem system) {
+        return get(name, msgType, true, system);
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T> LocalPubsub<T> get(String name, MsgType<T> msgType, boolean logUnSendMsg,
+                                         ActorSystem system) {
+        return (LocalPubsub<T>) CACHE.compute(new SystemCacheKey(name, system), (k, v) -> {
+            if (v != null) {
+                if (v.msgType().equals(msgType)) {
+                    return v;
+                } else {
+                    throw new ActorRuntimeException(new IllegalMsgTypeException(v.msgType(),
+                            msgType));
+                }
+            } else {
+                EventDispatcher dispatcher = system.getDispatcherGroup().nextDispatcher();
+                return new LocalPubsub<>(name, msgType, dispatcher, logUnSendMsg, system);
+            }
+        });
     }
 
     @Override
@@ -73,10 +108,20 @@ public class LocalPubsub<T> implements Pubsub<T> {
 
     @Override
     public void publishToAll(T msg, ActorRef<?> sender) {
-        if (!executor.inExecutor()) {
-            executor.execute(() -> publishToAll(msg, sender));
+        if (closed) {
+            if (logUnSendMsg) {
+                LOG.warn("{} ignore publish msg because already closed", this);
+            }
             return;
         }
+        if (executor.inExecutor()) {
+            doPublishToAll(msg, sender);
+        } else {
+            executor.execute(() -> doPublishToAll(msg, sender));
+        }
+    }
+
+    private void doPublishToAll(T msg, ActorRef<?> sender) {
         if (actors.isEmpty()) {
             if (logUnSendMsg) {
                 LOG.warn("{} has no actors to publish for this message", this);
@@ -96,10 +141,20 @@ public class LocalPubsub<T> implements Pubsub<T> {
 
     @Override
     public void sendToOne(T msg, ActorRef<?> sender) {
-        if (!executor.inExecutor()) {
-            executor.execute(() -> sendToOne(msg, sender));
+        if (closed) {
+            if (logUnSendMsg) {
+                LOG.warn("{} ignore send msg because already closed", this);
+            }
             return;
         }
+        if (executor.inExecutor()) {
+            doSendToOne(msg, sender);
+        } else {
+            executor.execute(() -> doSendToOne(msg, sender));
+        }
+    }
+
+    private void doSendToOne(T msg, ActorRef<?> sender) {
         if (actors.isEmpty()) {
             if (logUnSendMsg) {
                 LOG.warn("{} has no actors to send for this message", this);
@@ -120,7 +175,8 @@ public class LocalPubsub<T> implements Pubsub<T> {
     @Override
     public String toString() {
         return "LocalPubsub[" +
-                "msgType=" + msgType +
+                "name=" + name + ", " +
+                "msgType=" + msgType.name() +
                 ']';
     }
 }

@@ -52,7 +52,8 @@ public class ClusterPubsub<T> implements Pubsub<T> {
         this.defaultTopicDesc = TopicDesc.newBuilder()
                 .setMsgType(msgTypeToProto(msgType, cluster.system().getSerdeRegistry()))
                 .build();
-        this.internalPubsub = Pubsub.create(cluster.system(), msgType, false);
+        this.internalPubsub = Pubsub.get("__ClusterPubsub__" + topic, msgType, false,
+                cluster.system());
         cluster.addListener(new MembershipListener() {
             @Override
             public void onMemberUpdate(Member from, Member to) {
@@ -199,5 +200,13 @@ public class ClusterPubsub<T> implements Pubsub<T> {
     @Override
     public MsgType<T> msgType() {
         return msgType;
+    }
+
+    @Override
+    public String toString() {
+        return "ClusterPubsub[" +
+                "topic=" + topic + ", " +
+                "msgType=" + msgType.name() +
+                "]";
     }
 }

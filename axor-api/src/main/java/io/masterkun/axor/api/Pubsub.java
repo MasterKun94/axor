@@ -1,8 +1,6 @@
 package io.masterkun.axor.api;
 
 import io.masterkun.axor.api.impl.LocalPubsub;
-import io.masterkun.axor.runtime.EventDispatcher;
-import io.masterkun.axor.runtime.EventDispatcherGroup;
 import io.masterkun.axor.runtime.MsgType;
 
 /**
@@ -17,39 +15,41 @@ import io.masterkun.axor.runtime.MsgType;
  */
 public interface Pubsub<T> extends EventStream<T> {
 
+
     /**
-     * Creates a new instance of {@link Pubsub} with the specified message type and actor system.
-     * This method is a convenience wrapper that calls the full create method with logging for
-     * unsendable messages enabled by default.
+     * Retrieves a {@code Pubsub} instance for the specified message type within the given actor
+     * system.
      *
      * @param <T>     the type of the message that can be published and received through this pubsub
      *                mechanism
-     * @param system  the {@link ActorSystem} in which the pubsub will operate
-     * @param msgType the {@link MsgType} representing the type of messages that will be handled by
-     *                this pubsub
-     * @return a new instance of {@link Pubsub} configured with the provided parameters and default
-     * logging behavior
+     * @param name    the name of the pubsub instance to retrieve
+     * @param msgType the message type, which describes the type of messages that will be published
+     *                and received
+     * @param system  the actor system in which the pubsub instance will operate
+     * @return a {@code Pubsub<T>} instance configured with the specified name, message type, and
+     * actor system
      */
-    static <T> Pubsub<T> create(ActorSystem system, MsgType<T> msgType) {
-        return create(system, msgType, true);
+    static <T> Pubsub<T> get(String name, MsgType<T> msgType, ActorSystem system) {
+        return LocalPubsub.get(name, msgType, system);
     }
 
     /**
-     * Creates a new instance of {@link Pubsub} with the specified message type, actor system, and
-     * logging behavior.
+     * Retrieves a {@code Pubsub} instance for the specified message type within the given actor
+     * system.
      *
      * @param <T>          the type of the message that can be published and received through this
      *                     pubsub mechanism
-     * @param system       the {@link ActorSystem} in which the pubsub will operate
-     * @param msgType      the {@link MsgType} representing the type of messages that will be
-     *                     handled by this pubsub
-     * @param logUnSendMsg a boolean indicating whether unsendable messages should be logged
-     * @return a new instance of {@link Pubsub} configured with the provided parameters
+     * @param name         the name of the pubsub instance to retrieve
+     * @param msgType      the message type, which describes the type of messages that will be
+     *                     published and received
+     * @param logUnSendMsg a boolean flag indicating whether to log messages that could not be sent
+     * @param system       the actor system in which the pubsub instance will operate
+     * @return a {@code Pubsub<T>} instance configured with the specified name, message type, and
+     * actor system
      */
-    static <T> Pubsub<T> create(ActorSystem system, MsgType<T> msgType, boolean logUnSendMsg) {
-        EventDispatcherGroup executorGroup = system.getDispatcherGroup();
-        EventDispatcher executor = executorGroup.nextDispatcher();
-        return new LocalPubsub<>(msgType, executor, logUnSendMsg);
+    static <T> Pubsub<T> get(String name, MsgType<T> msgType, boolean logUnSendMsg,
+                             ActorSystem system) {
+        return LocalPubsub.get(name, msgType, logUnSendMsg, system);
     }
 
     /**

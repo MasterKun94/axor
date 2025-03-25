@@ -43,7 +43,7 @@ public class ResObserverAdaptorTest {
     @Test
     public void testOnNextThrowsExceptionIfNotInExecutor() {
         EventDispatcher executor = Mockito.mock(EventDispatcher.class);
-        StreamChannel.StreamObserver open = Mockito.mock(StreamChannel.StreamObserver.class);
+        StreamChannel.StreamObserver<?> open = Mockito.mock(StreamChannel.StreamObserver.class);
         MethodDescriptor.Marshaller<InputStream> msgMarshaller =
                 Mockito.mock(MethodDescriptor.Marshaller.class);
         StreamObserver<KActorProto.ResStatus> resObserver = Mockito.mock(StreamObserver.class);
@@ -64,7 +64,7 @@ public class ResObserverAdaptorTest {
     @Test
     public void testOnErrorMarksAsDoneAndCallsOnEndWithStatus() {
         EventDispatcher executor = Mockito.mock(EventDispatcher.class);
-        StreamChannel.StreamObserver open = Mockito.mock(StreamChannel.StreamObserver.class);
+        StreamChannel.StreamObserver<?> open = Mockito.mock(StreamChannel.StreamObserver.class);
         MethodDescriptor.Marshaller<InputStream> msgMarshaller =
                 Mockito.mock(MethodDescriptor.Marshaller.class);
         StreamObserver<KActorProto.ResStatus> resObserver = Mockito.mock(StreamObserver.class);
@@ -83,7 +83,7 @@ public class ResObserverAdaptorTest {
     @Test
     public void testOnErrorDoesNothingIfAlreadyDone() {
         EventDispatcher executor = Mockito.mock(EventDispatcher.class);
-        StreamChannel.StreamObserver open = Mockito.mock(StreamChannel.StreamObserver.class);
+        StreamChannel.StreamObserver<?> open = Mockito.mock(StreamChannel.StreamObserver.class);
         MethodDescriptor.Marshaller<InputStream> msgMarshaller =
                 Mockito.mock(MethodDescriptor.Marshaller.class);
         StreamObserver<KActorProto.ResStatus> resObserver = Mockito.mock(StreamObserver.class);
@@ -103,7 +103,7 @@ public class ResObserverAdaptorTest {
     @Test
     public void testOnCompletedMarksAsDoneAndCallsOnEndWithCompleteStatus() {
         EventDispatcher executor = Mockito.mock(EventDispatcher.class);
-        StreamChannel.StreamObserver open = Mockito.mock(StreamChannel.StreamObserver.class);
+        StreamChannel.StreamObserver<?> open = Mockito.mock(StreamChannel.StreamObserver.class);
         MethodDescriptor.Marshaller<InputStream> msgMarshaller =
                 Mockito.mock(MethodDescriptor.Marshaller.class);
         StreamObserver<KActorProto.ResStatus> resObserver = Mockito.mock(StreamObserver.class);
@@ -119,9 +119,9 @@ public class ResObserverAdaptorTest {
     }
 
     @Test
-    public void testOnCompletedThrowsExceptionIfAlreadyDone() {
+    public void testOnCompletedNotThrowsExceptionIfAlreadyDone() {
         EventDispatcher executor = Mockito.mock(EventDispatcher.class);
-        StreamChannel.StreamObserver open = Mockito.mock(StreamChannel.StreamObserver.class);
+        StreamChannel.StreamObserver<?> open = Mockito.mock(StreamChannel.StreamObserver.class);
         MethodDescriptor.Marshaller<InputStream> msgMarshaller =
                 Mockito.mock(MethodDescriptor.Marshaller.class);
         StreamObserver<KActorProto.ResStatus> resObserver = Mockito.mock(StreamObserver.class);
@@ -131,12 +131,9 @@ public class ResObserverAdaptorTest {
         ResObserverAdaptor adaptor = new ResObserverAdaptor(executor, open, msgMarshaller,
                 resObserver);
         adaptor.setDone(true);
-        try {
-            adaptor.onCompleted();
-            verifyNoInteractions(open);
-            verifyNoInteractions(resObserver);
-        } catch (IllegalArgumentException e) {
-            // Expected to throw an IllegalArgumentException
-        }
+
+        adaptor.onCompleted();
+        verifyNoInteractions(open);
+        verify(resObserver).onCompleted();
     }
 }

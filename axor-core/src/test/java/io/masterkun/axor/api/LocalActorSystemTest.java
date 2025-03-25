@@ -47,7 +47,7 @@ public class LocalActorSystemTest {
 
     @Test
     public void testPubsub() throws Exception {
-        Pubsub<String> pubsub = Pubsub.create(system, MsgType.of(String.class));
+        Pubsub<String> pubsub = Pubsub.get("testPubsub", MsgType.of(String.class), system);
         var subscriber1 = testKit.mock(system.address("subscriber1"), String.class);
         var publisher = testKit.mock(system.address("publisher"), String.class);
 
@@ -140,11 +140,11 @@ public class LocalActorSystemTest {
         ref.set(system.start(FailureOnPostStop::new, "failureOnPostStop"));
         subscriber1.expectReceive(new SystemEvent.ActorStarted(ref.get()));
         system.stop(ref.get());
+        subscriber1.expectReceive(new SystemEvent.ActorStopped(ref.get()));
         subscriber1.expectReceive(SystemEvent.ActorError.class, ((event, sender) -> {
             Assert.assertEquals(SystemEvent.ActorAction.ON_POST_STOP, event.action());
             Assert.assertEquals(ref.get(), event.actor());
         }));
-        subscriber1.expectReceive(new SystemEvent.ActorStopped(ref.get()));
         Assert.assertTrue(LocalActorRefUnsafe.isStopped(ref.get()));
     }
 

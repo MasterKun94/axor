@@ -5,6 +5,7 @@ import io.masterkun.axor.api.ActorRef;
 import io.masterkun.axor.api.ActorSystem;
 import io.masterkun.axor.api.EventStream;
 import io.masterkun.axor.api.Pubsub;
+import io.masterkun.axor.api.SystemCacheKey;
 import io.masterkun.axor.cluster.config.MembershipConfig;
 import io.masterkun.axor.cluster.membership.DefaultSplitBrainResolver;
 import io.masterkun.axor.cluster.membership.Member;
@@ -15,7 +16,6 @@ import io.masterkun.axor.cluster.membership.MembershipMessage;
 import io.masterkun.axor.cluster.membership.MetaKey;
 import io.masterkun.axor.commons.config.ConfigMapper;
 import io.masterkun.axor.commons.task.DependencyTask;
-import io.masterkun.axor.commons.util.Tuple2;
 import io.masterkun.axor.runtime.EventDispatcher;
 import io.masterkun.axor.runtime.MsgType;
 import io.masterkun.stateeasy.concurrent.EventPromise;
@@ -27,14 +27,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class Cluster {
-    private static final Map<Tuple2<String, String>, Cluster> cache = new ConcurrentHashMap<>();
+    private static final Map<SystemCacheKey, Cluster> cache = new ConcurrentHashMap<>();
     private final String name;
     private final ActorSystem system;
     private final ActorRef<MembershipMessage> actor;
     private final Pubsub<ClusterEvent> clusterEventPubsub;
     private final Map<String, Pubsub<?>> pubsubs = new ConcurrentHashMap<>();
     private final MembershipConfig config;
-    private final MembershipListener listener = new ClusterMembershipListener();
     private final EventPromise<Void> joinPromise;
     private final EventPromise<Void> leavePromise;
     private volatile LocalMemberState localMemberState = LocalMemberState.NONE;
@@ -51,7 +50,8 @@ public class Cluster {
         this.actor = system.start(ctx ->
                         new MembershipActor(ctx, this.config, splitBrainResolver),
                 "membership", dispatcher);
-        this.clusterEventPubsub = Pubsub.create(system, MsgType.of(ClusterEvent.class), false);
+        this.clusterEventPubsub = Pubsub.get("__ClusterEvent_" + name,
+                MsgType.of(ClusterEvent.class), false, system);
         this.joinPromise = dispatcher.newPromise();
         this.leavePromise = dispatcher.newPromise();
         this.system.shutdownHooks()
@@ -61,7 +61,7 @@ public class Cluster {
                         return leave().toCompletableFuture();
                     }
                 });
-        addListener(listener);
+        addListener(new ClusterMembershipListener());
         if (this.config.join().autoJoin()) {
             join();
         }
@@ -72,7 +72,7 @@ public class Cluster {
     }
 
     public static Cluster get(String name, ActorSystem system) {
-        return cache.compute(Tuple2.of(system.name(), name), (k, v) -> {
+        return cache.compute(new SystemCacheKey(name, system), (k, v) -> {
             String key = "axor.cluster." + name;
             if (!system.config().hasPath(key)) {
                 throw new IllegalArgumentException("No config for cluster " + name);

@@ -103,8 +103,11 @@ public class ActorSystemImpl implements ActorSystem, HasMeter {
         this.streamServer = streamServer;
         this.publishAddress = publishAddress;
         this.eventExecutorGroup = eventExecutorGroup;
-        this.deadLetterPubsub = Pubsub.create(this, MsgType.of(DeadLetter.class), false);
-        this.systemEventPubsub = Pubsub.create(this, MsgType.of(SystemEvent.class), false);
+        this.shutdownHooks.register(new RootShutdownTask());
+        this.deadLetterPubsub = Pubsub.get("__DeadLetter", MsgType.of(DeadLetter.class),
+                false, this);
+        this.systemEventPubsub = Pubsub.get("__SystemEvent", MsgType.of(SystemEvent.class),
+                false, this);
         var address = ActorAddress.create(this.name, publishAddress, NoSenderActorRef.ACTOR_NAME);
         var executor = eventExecutorGroup.nextDispatcher();
         var serde = NoSenderActorRef.SERDE;
@@ -134,7 +137,6 @@ public class ActorSystemImpl implements ActorSystem, HasMeter {
                 }
             }, "_sys_DeadLetterListener"));
         }
-        shutdownHooks.register(new RootShutdownTask());
     }
 
     private <T> Serde<T> getSerde(MsgType<T> type) {
