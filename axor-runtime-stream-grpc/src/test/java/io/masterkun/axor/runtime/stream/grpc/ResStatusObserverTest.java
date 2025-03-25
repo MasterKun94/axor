@@ -6,7 +6,7 @@ import io.masterkun.axor.runtime.StatusCode;
 import io.masterkun.axor.runtime.StreamChannel;
 import io.masterkun.axor.runtime.StreamDefinition;
 import io.masterkun.axor.runtime.stream.grpc.GrpcRuntime.ResStatusObserver;
-import io.masterkun.axor.runtime.stream.grpc.proto.KActorProto;
+import io.masterkun.axor.runtime.stream.grpc.proto.AxorProto;
 import org.junit.Test;
 
 import static org.mockito.Mockito.any;
@@ -29,7 +29,7 @@ public class ResStatusObserverTest {
         ResStatusObserver resStatusObserver = new ResStatusObserver(remoteDefinition,
                 selfDefinition, observer, executor);
 
-        KActorProto.ResStatus resStatus = KActorProto.ResStatus.newBuilder()
+        AxorProto.ResStatus resStatus = AxorProto.ResStatus.newBuilder()
                 .setCode(StatusCode.COMPLETE.code)
                 .setMessage("Complete")
                 .build();
@@ -49,7 +49,7 @@ public class ResStatusObserverTest {
         ResStatusObserver resStatusObserver = new ResStatusObserver(remoteDefinition,
                 selfDefinition, observer, executor);
 
-        KActorProto.ResStatus resStatus = KActorProto.ResStatus.newBuilder()
+        AxorProto.ResStatus resStatus = AxorProto.ResStatus.newBuilder()
                 .setCode(StatusCode.SYSTEM_ERROR.code)
                 .setMessage("Error")
                 .build();
@@ -70,7 +70,7 @@ public class ResStatusObserverTest {
         ResStatusObserver resStatusObserver = new ResStatusObserver(remoteDefinition,
                 selfDefinition, observer, executor);
 
-        KActorProto.ResStatus resStatus = KActorProto.ResStatus.newBuilder()
+        AxorProto.ResStatus resStatus = AxorProto.ResStatus.newBuilder()
                 .setCode(StatusCode.COMPLETE.code)
                 .setMessage("Complete")
                 .build();

@@ -10,7 +10,7 @@ import io.masterkun.axor.runtime.SerdeRegistry;
 import io.masterkun.axor.runtime.Status;
 import io.masterkun.axor.runtime.StatusCode;
 import io.masterkun.axor.runtime.Unsafe;
-import io.masterkun.axor.runtime.stream.grpc.proto.KActorProto;
+import io.masterkun.axor.runtime.stream.grpc.proto.AxorProto;
 import org.jetbrains.annotations.VisibleForTesting;
 
 import java.io.IOException;
@@ -22,7 +22,7 @@ public class StreamUtils {
     static final Metadata.Key<Integer> STATUS_KEY = Metadata.Key.of("CODE-bin",
             new IntBinaryMarshaller());
     @VisibleForTesting
-    static final KActorProto.ResStatus COMPLETE_STATUS = KActorProto.ResStatus.newBuilder()
+    static final AxorProto.ResStatus COMPLETE_STATUS = AxorProto.ResStatus.newBuilder()
             .setCode(StatusCode.COMPLETE.code)
             .build();
 
@@ -83,7 +83,7 @@ public class StreamUtils {
         };
     }
 
-    public static Status fromProto(KActorProto.ResStatus resStatus) {
+    public static Status fromProto(AxorProto.ResStatus resStatus) {
         return !resStatus.getMessage().isEmpty() ?
                 resStatus.getCode() == StatusCode.COMPLETE.code ?
                         StatusCode.COMPLETE.toStatus() :
@@ -91,11 +91,11 @@ public class StreamUtils {
                 new Status(resStatus.getCode(), null);
     }
 
-    public static KActorProto.ResStatus toProto(Status status) {
+    public static AxorProto.ResStatus toProto(Status status) {
         if (status.code() == StatusCode.COMPLETE.code) {
             return COMPLETE_STATUS;
         }
-        KActorProto.ResStatus.Builder builder = KActorProto.ResStatus.newBuilder()
+        AxorProto.ResStatus.Builder builder = AxorProto.ResStatus.newBuilder()
                 .setCode(status.code());
         if (status.cause() != null) {
             builder.setMessage(RuntimeUtil.toSimpleString(status.cause()));
@@ -103,8 +103,8 @@ public class StreamUtils {
         return builder.build();
     }
 
-    public static KActorProto.ActorAddress actorAddressToProto(ActorAddress address) {
-        return KActorProto.ActorAddress.newBuilder()
+    public static AxorProto.ActorAddress actorAddressToProto(ActorAddress address) {
+        return AxorProto.ActorAddress.newBuilder()
                 .setSystem(address.system())
                 .setHost(address.host())
                 .setPort(address.port())
@@ -112,14 +112,14 @@ public class StreamUtils {
                 .build();
     }
 
-    public static ActorAddress protoToActorAddress(KActorProto.ActorAddress proto) {
+    public static ActorAddress protoToActorAddress(AxorProto.ActorAddress proto) {
         return ActorAddress.create(proto.getSystem(), proto.getHost(), proto.getPort(),
                 proto.getName());
     }
 
-    public static KActorProto.MsgType msgTypeToProto(MsgType<?> msgType, SerdeRegistry registry) {
+    public static AxorProto.MsgType msgTypeToProto(MsgType<?> msgType, SerdeRegistry registry) {
         int id = registry.findIdByType(msgType);
-        KActorProto.MsgType.Builder builder = KActorProto.MsgType.newBuilder();
+        AxorProto.MsgType.Builder builder = AxorProto.MsgType.newBuilder();
         if (id != -1) {
             builder.setIdType(id);
         } else {
@@ -131,7 +131,7 @@ public class StreamUtils {
         return builder.build();
     }
 
-    public static MsgType<?> protoToMsgType(KActorProto.MsgType msgType, SerdeRegistry registry) {
+    public static MsgType<?> protoToMsgType(AxorProto.MsgType msgType, SerdeRegistry registry) {
         if (msgType.hasIdType()) {
             return registry.getTypeById(msgType.getIdType());
         }

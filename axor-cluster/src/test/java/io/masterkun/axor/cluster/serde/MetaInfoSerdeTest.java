@@ -5,7 +5,7 @@ import io.masterkun.axor.cluster.membership.MetaKey;
 import io.masterkun.axor.runtime.MsgType;
 import io.masterkun.axor.runtime.StatusCode;
 import io.masterkun.axor.runtime.impl.BuiltinSerde;
-import io.masterkun.axor.runtime.stream.grpc.proto.KActorProto.ActorAddress;
+import io.masterkun.axor.runtime.stream.grpc.proto.AxorProto.ActorAddress;
 import io.masterkun.axor.testkit.SerdeTestKit;
 import org.junit.Test;
 

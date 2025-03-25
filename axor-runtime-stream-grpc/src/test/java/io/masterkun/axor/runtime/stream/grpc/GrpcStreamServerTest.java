@@ -12,7 +12,7 @@ import io.masterkun.axor.runtime.StreamDefinition;
 import io.masterkun.axor.runtime.StreamInChannel;
 import io.masterkun.axor.runtime.StreamOutChannel;
 import io.masterkun.axor.runtime.impl.DefaultEventDispatcher;
-import io.masterkun.axor.runtime.stream.grpc.proto.KActorProto.ActorAddress;
+import io.masterkun.axor.runtime.stream.grpc.proto.AxorProto.ActorAddress;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;

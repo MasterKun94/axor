@@ -19,7 +19,7 @@
 syntax = "proto3";
 
 option java_package = "io.masterkun.axor.runtime.stream.grpc.proto";
-option java_outer_classname = "KActorProto";
+option java_outer_classname = "AxorProto";
 
 package axor;
 

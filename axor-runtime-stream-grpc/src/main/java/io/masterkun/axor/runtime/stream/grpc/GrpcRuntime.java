@@ -30,7 +30,7 @@ import io.masterkun.axor.runtime.StreamAddress;
 import io.masterkun.axor.runtime.StreamChannel;
 import io.masterkun.axor.runtime.StreamDefinition;
 import io.masterkun.axor.runtime.StreamInChannel;
-import io.masterkun.axor.runtime.stream.grpc.proto.KActorProto.ResStatus;
+import io.masterkun.axor.runtime.stream.grpc.proto.AxorProto.ResStatus;
 import org.jetbrains.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,7 +44,7 @@ import static io.masterkun.axor.runtime.stream.grpc.StreamUtils.toStatusExceptio
 public class GrpcRuntime {
     private static final Logger LOG = LoggerFactory.getLogger(GrpcRuntime.class);
     private static final ThreadLocal<Metadata> METADATA_TL = new ThreadLocal<>();
-    private static final String SERVICE_PREFIX = "_KActor_";
+    private static final String SERVICE_PREFIX = "_Axor_";
     private static final String METHOD_NAME = "call";
     private static final io.grpc.Status HEADER_NOT_FOUND = io.grpc.Status.INVALID_ARGUMENT
             .withDescription("HEADER not found");
