@@ -1,8 +1,10 @@
 package io.masterkun.axor.api.impl;
 
 import io.masterkun.axor.api.ActorRef;
+import io.masterkun.axor.api.ActorRefRich;
 import io.masterkun.axor.api.ActorSystem;
 import io.masterkun.axor.api.Signal;
+import io.masterkun.axor.runtime.EventDispatcher;
 
 public class ActorUnsafe {
     public static boolean isStopped(ActorRef<?> ref) {
@@ -47,5 +49,9 @@ public class ActorUnsafe {
 
     public static void replaceCache(ActorSystem system, ActorRef<?> actor) {
         ((ActorSystemImpl) system).replaceCache(actor);
+    }
+
+    public static EventDispatcher getDispatcher(ActorRef<?> ref) {
+        return ((ActorRefRich<?>) ref).getStreamManager().getExecutor();
     }
 }

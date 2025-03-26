@@ -216,6 +216,25 @@ public class LocalActorSystemTest {
 
     }
 
+    @Test
+    public void testCreateChild() throws Exception {
+        var subscriber1 = testKit.mock(system.address("SystemEventSubscriberForTestChild"),
+                SystemEvent.class);
+        system.systemEvents().subscribe(subscriber1);
+        var mock = testKit.mock(system.address("testCreateChild"), String.class);
+        ActorRef<String> actor = system.start(HasChildActor::new, "hasChild");
+        actor.tell("Hello", mock);
+        ActorRef<?> child = system.get(system.address("child"));
+        mock.expectReceive("Hello", child);
+        mock.expectNoMsg();
+        system.stop(actor).toFuture().syncUninterruptibly();
+        subscriber1.expectReceive(new SystemEvent.ActorStarted(actor));
+        subscriber1.expectReceive(new SystemEvent.ActorStarted(child));
+        subscriber1.expectReceive(new SystemEvent.ActorStopped(child));
+        subscriber1.expectReceive(new SystemEvent.ActorStopped(actor));
+        subscriber1.expectNoMsg();
+    }
+
     private static abstract class StringActor extends Actor<String> {
 
         protected StringActor(ActorContext<String> context) {
@@ -308,6 +327,30 @@ public class LocalActorSystemTest {
         @Override
         public void onRestart() {
             throw new RuntimeException("Testing: FailureOnReStart");
+        }
+    }
+
+    public static class HasChildActor extends StringActor {
+        private ActorRef<String> child;
+
+        protected HasChildActor(ActorContext<String> context) {
+            super(context);
+        }
+
+        @Override
+        public void onStart() {
+            child = context().startChild(SimpleReply::new, "child");
+            Assert.assertSame(context().dispatcher(), ActorUnsafe.getDispatcher(child));
+        }
+
+        @Override
+        public void onReceive(String s) {
+            child.tell(s, sender());
+        }
+
+        @Override
+        public void preStop() {
+            Assert.assertTrue(ActorUnsafe.isStopped(child));
         }
     }
 }
