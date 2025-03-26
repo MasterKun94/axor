@@ -80,6 +80,9 @@ public abstract class Actor<T> {
     public abstract void onReceive(T t);
 
     public void onSignal(Signal signal) {
+        if (signal == InternalSignals.POISON_PILL) {
+            context().stop();
+        }
     }
 
     /**

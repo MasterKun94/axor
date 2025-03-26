@@ -31,6 +31,7 @@ import io.masterkun.axor.runtime.SerdeRegistry;
 import io.masterkun.axor.runtime.StreamDefinition;
 import io.masterkun.axor.runtime.StreamServer;
 import io.masterkun.axor.runtime.StreamServerBuilderProvider;
+import io.masterkun.stateeasy.concurrent.EventPromise;
 import io.masterkun.stateeasy.concurrent.EventStage;
 import io.masterkun.stateeasy.concurrent.Try;
 import io.micrometer.core.instrument.Gauge;
@@ -251,7 +252,10 @@ public class ActorSystemImpl implements ActorSystem, HasMeter {
                 LOG.debug("Stopping actor {}", actor);
             }
             localActorCache.remove(localActorRef.address().name());
-            return localActorRef.stop();
+            EventPromise<Void> promise = localActorRef.getActor()
+                    .context().dispatcher().newPromise();
+            localActorRef.stop(promise);
+            return promise;
         } else {
             var ex = new IllegalArgumentException("ActorRef is not a LocalActorRef");
             return EventStage.failed(ex, getDispatcherGroup().nextDispatcher());

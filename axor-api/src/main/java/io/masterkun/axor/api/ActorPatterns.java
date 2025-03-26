@@ -54,17 +54,17 @@ public class ActorPatterns {
             super(context);
             this.promise = promise;
             this.resType = resType;
-            context.executor().timeout(promise, timeout.toMillis(), TimeUnit.MILLISECONDS);
+            context.dispatcher().timeout(promise, timeout.toMillis(), TimeUnit.MILLISECONDS);
             promise.addListener(new EventStageListener<>() {
                 @Override
                 public void success(RES res) {
-                    assert context.executor().inExecutor();
+                    assert context.dispatcher().inExecutor();
                     context.stop();
                 }
 
                 @Override
                 public void failure(Throwable throwable) {
-                    assert context.executor().inExecutor();
+                    assert context.dispatcher().inExecutor();
                     context.stop();
                 }
             });

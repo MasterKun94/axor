@@ -6,8 +6,10 @@ import io.masterkun.axor.api.ActorCreator;
 import io.masterkun.axor.api.ActorRef;
 import io.masterkun.axor.api.ActorRefRich;
 import io.masterkun.axor.api.ActorSystem;
+import io.masterkun.axor.api.InternalSignals;
 import io.masterkun.axor.api.Signal;
 import io.masterkun.axor.api.SystemEvent;
+import io.masterkun.axor.api.SystemEvent.ActorStopped;
 import io.masterkun.axor.config.ActorConfig;
 import io.masterkun.axor.exception.ActorException;
 import io.masterkun.axor.runtime.EventDispatcher;
@@ -18,7 +20,9 @@ import io.masterkun.axor.runtime.StreamInChannel;
 import io.masterkun.axor.runtime.StreamManager;
 import io.masterkun.axor.runtime.StreamManager.MsgHandler;
 import io.masterkun.axor.runtime.StreamOutChannel;
+import io.masterkun.stateeasy.concurrent.EventPromise;
 import io.masterkun.stateeasy.concurrent.EventStage;
+import io.masterkun.stateeasy.concurrent.Try;
 import org.jetbrains.annotations.ApiStatus.Internal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,6 +57,7 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
     private final Actor<T> actor;
     private final Closeable unregisterHook;
     private final BiConsumer<ActorRef<?>, T> tellAction;
+    private Map<ActorAddress, ActorRef<?>> children;
     private List<Runnable> stopRunners;
     private Map<ActorAddress, WatcherHolder> watchers;
     private boolean stopped;
@@ -117,7 +122,7 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
                 try {
                     switch (actor.failureStrategy(e)) {
                         case RESTART -> internalRestart();
-                        case STOP -> stop();
+                        case STOP -> stop(EventPromise.noop(executor));
                         case RESUME -> {
                         }
                         default -> throw new IllegalArgumentException("unknown failure strategy");
@@ -197,7 +202,7 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
         if (LOG.isDebugEnabled()) {
             switch (event) {
                 case SystemEvent.ActorStarted(var a) -> LOG.debug("{} started", a);
-                case SystemEvent.ActorStopped(var a) -> LOG.debug("{} stopped", a);
+                case ActorStopped(var a) -> LOG.debug("{} stopped", a);
                 case SystemEvent.ActorRestarted(var a) -> LOG.debug("{} restarted", a);
                 default -> {
                 }
@@ -262,7 +267,7 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
             }
             stopRunners = null;
         }
-        systemEvent(new SystemEvent.ActorStopped(this));
+        systemEvent(new ActorStopped(this));
         if (watchers != null) {
             for (WatcherHolder holder : watchers.values()) {
                 try {
@@ -282,16 +287,29 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
     }
 
     @Internal
-    EventStage<Void> stop() {
+    void stop(EventPromise<Void> promise) {
         if (!executor.inExecutor()) {
-            return EventStage.runAsync(this::internalStop, executor);
+            executor.execute(() -> stop(promise));
+            return;
         }
-        try {
+        EventStage<Void> stage = EventStage.succeed(null, executor);
+        if (children != null) {
+            for (ActorRef<?> child : children.values()) {
+                stage = stage.flatTransform(t -> {
+                    if (t.isFailure()) {
+                        LOG.error("Unexpected error while stop child", t.cause());
+                    }
+                    return actor.context().system().stop(child);
+                }, executor);
+            }
+        }
+        stage.transform(t -> {
+            if (t.isFailure()) {
+                LOG.error("Unexpected error while stop child", t.cause());
+            }
             internalStop();
-            return EventStage.succeed(null, executor);
-        } catch (Throwable e) {
-            return EventStage.failed(e, executor);
-        }
+            return Try.success((Void) null);
+        }, executor).addListener(promise);
     }
 
     @Internal
@@ -308,6 +326,13 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
     public void signal(Signal signal) {
         if (executor.inExecutor()) {
             try {
+                if (signal == InternalSignals.POISON_PILL) {
+                    stop(EventPromise.noop(executor));
+                    return;
+                }
+                if (children != null && signal instanceof ActorStopped(var stoppedActor)) {
+                    children.remove(stoppedActor.address(), stoppedActor);
+                }
                 actor.onSignal(signal);
             } catch (Throwable e) {
                 systemErrorEvent(SystemEvent.ActorAction.ON_SIGNAL, e);
@@ -331,7 +356,7 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
                            List<Class<? extends SystemEvent>> watchEvents) {
         if (executor.inExecutor()) {
             if (isStopped()) {
-                maybeSignalWatcher(new SystemEvent.ActorStopped(this), watcher.address(),
+                maybeSignalWatcher(new ActorStopped(this), watcher.address(),
                         new WatcherHolder(watcher, watchEvents, () -> {
                         }));
                 return;
@@ -366,6 +391,15 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
         } else {
             executor.execute(() -> removeWatcher(watcher));
         }
+    }
+
+    @Internal
+    void addChild(ActorRef<?> child) {
+        if (children == null) {
+            children = new HashMap<>();
+        }
+        children.put(child.address(), child);
+        addWatcher(child, List.of(ActorStopped.class));
     }
 
     @Internal

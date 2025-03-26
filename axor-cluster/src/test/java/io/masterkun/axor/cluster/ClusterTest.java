@@ -16,9 +16,6 @@ public class ClusterTest {
     private static ActorSystem system1;
     private static ActorSystem system2;
     private static ActorSystem system3;
-    private static Cluster cluster1;
-    private static Cluster cluster2;
-    private static Cluster cluster3;
     private static MockActorRef<ClusterEvent> listener1;
     private static MockActorRef<ClusterEvent> listener2;
     private static MockActorRef<ClusterEvent> listener3;
@@ -29,16 +26,17 @@ public class ClusterTest {
         system1 = createActorSystem("test", 21001);
         system2 = createActorSystem("test", 21002);
         system3 = createActorSystem("test", 21003);
-        cluster1 = Cluster.get("ClusterTest", system1);
+        Cluster cluster1 = Cluster.get("ClusterTest", system1);
         listener1 = testkit.mock(system1.address("listener"), ClusterEvent.class);
         cluster1.clusterEvents().subscribe(listener1);
-        cluster2 = Cluster.get("ClusterTest", system2);
+        Cluster cluster2 = Cluster.get("ClusterTest", system2);
         listener2 = testkit.mock(system2.address("listener"), ClusterEvent.class);
         cluster2.clusterEvents().subscribe(listener2);
-        cluster3 = Cluster.get("ClusterTest", system3);
+        Cluster cluster3 = Cluster.get("ClusterTest", system3);
         listener3 = testkit.mock(system3.address("listener"), ClusterEvent.class);
         cluster3.clusterEvents().subscribe(listener3);
     }
+
 
     @AfterClass
     public static void leaveNode() {

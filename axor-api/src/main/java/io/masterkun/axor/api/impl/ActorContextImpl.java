@@ -1,6 +1,7 @@
 package io.masterkun.axor.api.impl;
 
 import io.masterkun.axor.api.ActorContext;
+import io.masterkun.axor.api.ActorCreator;
 import io.masterkun.axor.api.ActorRef;
 import io.masterkun.axor.api.ActorRefRich;
 import io.masterkun.axor.api.ActorSystem;
@@ -41,8 +42,19 @@ class ActorContextImpl<T> implements ActorContext<T> {
     }
 
     @Override
-    public EventDispatcher executor() {
+    public EventDispatcher dispatcher() {
         return executor;
+    }
+
+    @Override
+    public <P> ActorRef<P> startChild(ActorCreator<P> creator, String name) {
+        ActorRef<P> child = system.start(creator, name, executor);
+        if (executor.inExecutor()) {
+            self.addChild(child);
+        } else {
+            executor.execute(() -> self.addChild(child));
+        }
+        return child;
     }
 
     @Override

@@ -27,8 +27,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class Cluster {
-    private static final Map<SystemCacheKey, Cluster> cache = new ConcurrentHashMap<>();
     public static final String DEFAULT_NAME = "default-cluster";
+    private static final Map<SystemCacheKey, Cluster> cache = new ConcurrentHashMap<>();
     private final String name;
     private final ActorSystem system;
     private final ActorRef<MembershipMessage> actor;

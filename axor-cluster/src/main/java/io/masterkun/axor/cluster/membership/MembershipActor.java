@@ -145,7 +145,7 @@ public class MembershipActor extends AbstractActor<MembershipMessage> {
                 memberManager.internalIncAndGetClock()
         );
         memberManager.gossipEvent(Gossip.of(eventSupplier.get(), selfUid));
-        tmpScheduledFuture = context().executor().scheduleWithFixedDelay(
+        tmpScheduledFuture = context().dispatcher().scheduleWithFixedDelay(
                 () -> {
                     var gossip = Gossip.of(eventSupplier.get(), selfUid, true);
                     seeds.forEach(actor -> actor.tell(gossip, self()));
@@ -193,7 +193,7 @@ public class MembershipActor extends AbstractActor<MembershipMessage> {
                 (m, e) -> m.put(e.uid(), e),
                 LongObjectMap::putAll);
         long timeout = System.currentTimeMillis() + config.leave().timeout().toMillis();
-        tmpScheduledFuture = context().executor().scheduleWithFixedDelay(() -> {
+        tmpScheduledFuture = context().dispatcher().scheduleWithFixedDelay(() -> {
             if (System.currentTimeMillis() > timeout) {
                 context().self().tell(MembershipMessage.FORCE_LEAVE, self());
                 return;

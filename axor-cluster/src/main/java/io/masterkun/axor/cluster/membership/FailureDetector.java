@@ -85,7 +85,7 @@ final class FailureDetectorImpl implements FailureDetector {
         memberManager.addListener(new MemberManager.Listener() {
             @Override
             public void onMemberStateChange(Member member, MemberState from, MemberState to) {
-                assert context.executor().inExecutor();
+                assert context.dispatcher().inExecutor();
                 long uid = member.uid();
                 if (from.SERVABLE) {
                     if (!to.SERVABLE) {
@@ -107,7 +107,7 @@ final class FailureDetectorImpl implements FailureDetector {
                 holder.member = to;
             }
         }, false);
-        var executor = context.executor();
+        var executor = context.dispatcher();
         this.scheduleList.add(executor.scheduleWithFixedDelay(this::scheduleCheck,
                 checkIntervalMillis, checkIntervalMillis, TimeUnit.MILLISECONDS));
         this.scheduleList.add(executor.scheduleWithFixedDelay(this::schedulePing,
@@ -170,7 +170,7 @@ final class FailureDetectorImpl implements FailureDetector {
     }
 
     private void schedulePing() {
-        assert context.executor().inExecutor();
+        assert context.dispatcher().inExecutor();
         if (servableMemberUidList.isEmpty()) {
             return;
         }
@@ -199,7 +199,7 @@ final class FailureDetectorImpl implements FailureDetector {
                 LOG.warn("Unexpected suspected future for uid: {}", uid);
                 holder.suspectedFuture.cancel(false);
             }
-            holder.suspectedFuture = context.executor().schedule(() -> {
+            holder.suspectedFuture = context.dispatcher().schedule(() -> {
                 if (holder.status != MemberState.UP) {
                     return;
                 }
