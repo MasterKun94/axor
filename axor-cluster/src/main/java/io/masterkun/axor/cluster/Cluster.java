@@ -48,21 +48,21 @@ public class Cluster {
         }
         var splitBrainResolver = new DefaultSplitBrainResolver(2, 2);
         EventDispatcher dispatcher = system.getDispatcherGroup().nextDispatcher();
-        this.actor = system.start(ctx ->
-                        new MembershipActor(ctx, this.config, splitBrainResolver),
-                "membership", dispatcher);
+        this.actor = system.start(ctx -> new MembershipActor(ctx,
+                this.config, splitBrainResolver), "membership", dispatcher);
         this.clusterEventPubsub = Pubsub.get("__ClusterEvent_" + name,
                 MsgType.of(ClusterEvent.class), false, system);
         this.joinPromise = dispatcher.newPromise();
         this.leavePromise = dispatcher.newPromise();
-        this.system.shutdownHooks()
-                .register(new DependencyTask("cluster-" + name, "root") {
-                    @Override
-                    public CompletableFuture<Void> run() {
-                        return leave().toCompletableFuture();
-                    }
-                });
+        this.system.shutdownHooks().register(new DependencyTask("cluster-" + name, "root") {
+            @Override
+            public CompletableFuture<Void> run() {
+                return leave().toCompletableFuture();
+            }
+        });
         addListener(new ClusterMembershipListener());
+        updateMetaInfo(BuiltinMetaKeys.SELF_DATACENTER.upsert(this.config.datacenter()),
+                BuiltinMetaKeys.SELF_ROLES.upsert(this.config.roles()));
         if (this.config.join().autoJoin()) {
             join();
         }
@@ -118,8 +118,8 @@ public class Cluster {
             if (v.msgType().equals(msgType)) {
                 return v;
             }
-            throw new IllegalArgumentException("MsgType mismatch, expected: " + v.msgType() +
-                    ", actual: " + msgType);
+            throw new IllegalArgumentException("MsgType mismatch, expected: " + v.msgType() + ", " +
+                    "actual: " + msgType);
         });
     }
 

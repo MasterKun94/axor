@@ -15,10 +15,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
+import java.util.List;
 
 public class MembershipActorTest {
 
     private static final MembershipConfig config = new MembershipConfig(
+            "default",
+            List.of("test"),
             new JoinConfig(
                     false,
                     Duration.ofSeconds(10),

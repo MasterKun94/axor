@@ -23,7 +23,7 @@ public class Behaviors {
      */
     @SuppressWarnings("unchecked")
     public static <T> Behavior<T> same() {
-        return (Behavior<T>) BehaviorInternal.SAME;
+        return (Behavior<T>) InternalBehavior.SAME;
     }
 
     /**
@@ -36,7 +36,7 @@ public class Behaviors {
      */
     @SuppressWarnings("unchecked")
     public static <T> Behavior<T> stop() {
-        return (Behavior<T>) BehaviorInternal.STOP;
+        return (Behavior<T>) InternalBehavior.STOP;
     }
 
     /**
@@ -49,7 +49,7 @@ public class Behaviors {
      */
     @SuppressWarnings("unchecked")
     public static <T> Behavior<T> unhandled() {
-        return (Behavior<T>) BehaviorInternal.UNHANDLED;
+        return (Behavior<T>) InternalBehavior.UNHANDLED;
     }
 
     /**
@@ -82,5 +82,98 @@ public class Behaviors {
      */
     public static <T> Behavior<T> receiveMessage(Function<T, Behavior<T>> handler) {
         return (ctx, msg) -> handler.apply(msg);
+    }
+
+    /**
+     * Creates a behavior that processes both messages and signals using the provided handlers.
+     *
+     * <p>This method takes two {@code BiFunction}s: one for handling messages and another for
+     * handling signals. The message handler is applied to the current {@code ActorContext} and the
+     * received message, and it returns a new or updated behavior for the actor. The signal handler
+     * is applied to the current {@code ActorContext} and the received signal, and it also returns a
+     * new or updated behavior for the actor.
+     *
+     * @param <T>           the type of messages this actor can handle
+     * @param msgHandler    a {@code BiFunction} that takes the current {@code ActorContext<T>} and
+     *                      the received message, and returns a new or updated {@code Behavior<T>}
+     * @param signalHandler a {@code BiFunction} that takes the current {@code ActorContext<T>} and
+     *                      the received signal, and returns a new or updated {@code Behavior<T>}
+     * @return a {@code Behavior<T>} that represents the behavior defined by the provided message
+     * and signal handlers
+     */
+    public static <T> Behavior<T> receive(BiFunction<ActorContext<T>, T, Behavior<T>> msgHandler,
+                                          BiFunction<ActorContext<T>, Signal, Behavior<T>> signalHandler) {
+        return new Behavior<>() {
+            @Override
+            public Behavior<T> onReceive(ActorContext<T> context, T message) {
+                return msgHandler.apply(context, message);
+            }
+
+            @Override
+            public Behavior<T> onSignal(ActorContext<T> context, Signal signal) {
+                return signalHandler.apply(context, signal);
+            }
+        };
+    }
+
+    /**
+     * Creates a behavior that processes messages and signals using the provided handlers.
+     *
+     * <p>This method takes two functions: one for handling messages and another for handling
+     * signals. The message handler is applied to the received message, and it returns a new or
+     * updated behavior for the actor. The signal handler is applied to the received signal, and it
+     * also returns a new or updated behavior for the actor.
+     *
+     * @param <T>           the type of messages this actor can handle
+     * @param msgHandler    a {@code Function} that takes the received message and returns a new or
+     *                      updated {@code Behavior<T>}
+     * @param signalHandler a {@code Function} that takes the received signal and returns a new or
+     *                      updated {@code Behavior<T>}
+     * @return a {@code Behavior<T>} that represents the behavior defined by the provided message
+     * and signal handlers
+     */
+    public static <T> Behavior<T> receive(Function<T, Behavior<T>> msgHandler, Function<Signal,
+            Behavior<T>> signalHandler) {
+        return new Behavior<>() {
+            @Override
+            public Behavior<T> onReceive(ActorContext<T> context, T message) {
+                return msgHandler.apply(message);
+            }
+
+            @Override
+            public Behavior<T> onSignal(ActorContext<T> context, Signal signal) {
+                return signalHandler.apply(signal);
+            }
+        };
+    }
+
+    public static <T> Behavior<T> composite(Behavior<T> msgBehavior, Behavior<T> signalBehavior) {
+        if (msgBehavior instanceof CompositeBehavior<T> c) {
+            msgBehavior = c.msgBehavior;
+        } else if (msgBehavior instanceof InternalBehavior && msgBehavior != InternalBehavior.SAME) {
+            throw new UnsupportedOperationException("CompositeBehavior does not support " +
+                    "InternalBehavior." + msgBehavior);
+        }
+        if (signalBehavior instanceof CompositeBehavior<T> c) {
+            signalBehavior = c.signalBehavior;
+        } else if (msgBehavior instanceof InternalBehavior && msgBehavior != InternalBehavior.SAME) {
+            throw new UnsupportedOperationException("CompositeBehavior does not support " +
+                    "InternalBehavior." + msgBehavior);
+        }
+        return new CompositeBehavior<>(msgBehavior, signalBehavior);
+    }
+
+    record CompositeBehavior<T>(Behavior<T> msgBehavior, Behavior<T> signalBehavior)
+            implements Behavior<T> {
+
+        @Override
+        public Behavior<T> onReceive(ActorContext<T> context, T message) {
+            return msgBehavior.onReceive(context, message);
+        }
+
+        @Override
+        public Behavior<T> onSignal(ActorContext<T> context, Signal signal) {
+            return signalBehavior.onSignal(context, signal);
+        }
     }
 }

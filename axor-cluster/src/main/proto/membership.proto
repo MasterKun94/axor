@@ -24,21 +24,21 @@ message SubscribedTopics {
   map<string, TopicDesc> topic = 1;
 }
 
-message Singleton {
-  string name = 1;
-  string managerName = 2;
-}
-
 message Singletons {
-  repeated Singleton elems = 1;
+  repeated string elems = 1;
 }
 
 message SingletonManagerMessage {
-  message LeaderAck {
+  message Ack {
     axor.ActorAddress address = 1;
   }
-  message LeaderStatus {
-    Singleton singleton = 1;
+  message Status {
+    string singleton = 1;
+  }
+
+  oneof msg {
+    Ack ack = 1;
+    Status status = 2;
   }
 }
 

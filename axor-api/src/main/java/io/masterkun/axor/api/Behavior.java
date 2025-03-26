@@ -21,4 +21,8 @@ public interface Behavior<T> {
      * @return the new or updated behavior of the actor after processing the message
      */
     Behavior<T> onReceive(ActorContext<T> context, T message);
+
+    default Behavior<T> onSignal(ActorContext<T> context, Signal signal) {
+        return Behaviors.same();
+    }
 }

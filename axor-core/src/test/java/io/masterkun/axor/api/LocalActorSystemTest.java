@@ -213,7 +213,6 @@ public class LocalActorSystemTest {
         system.stop(actor);
         Assert.assertEquals(new SystemEvent.ActorStopped(actor), future.get(100,
                 TimeUnit.MILLISECONDS));
-
     }
 
     @Test

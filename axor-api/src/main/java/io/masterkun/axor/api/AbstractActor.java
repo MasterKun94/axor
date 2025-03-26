@@ -1,13 +1,12 @@
 package io.masterkun.axor.api;
 
 /**
- * Abstract base class for actors that provides a more structured way to define actor behavior. This
- * class extends the {@code Actor<T>} class and introduces the concept of behaviors, which are
- * encapsulated in the {@code Behavior<T>} interface. The behavior can be changed dynamically based
- * on the messages received by the actor.
+ * Abstract base class for actors, providing a framework for defining the behavior and lifecycle of
+ * an actor. This class extends {@link Actor} and introduces additional methods and mechanisms to
+ * manage the actor's state and message handling.
  *
- * <p>Subclasses must implement the {@code initialBehavior()} method to provide the initial
- * behavior of the actor. The {@code preStart()} method can be overridden to perform any
+ * <p>Subclasses must implement the {@link #initialBehavior()} method to define the initial
+ * behavior of the actor. The {@link #preStart()} method can be overridden to perform any
  * initialization tasks before the actor starts processing messages.
  *
  * @param <T> the type of messages that this actor can handle
@@ -39,28 +38,59 @@ public abstract class AbstractActor<T> extends Actor<T> {
     }
 
     /**
-     * Defines the initial behavior of the actor.
+     * Defines the initial behavior of the actor. This method must be implemented by concrete
+     * subclasses to provide the starting behavior for the actor when it is first started.
      *
-     * <p>This method must be implemented by subclasses to provide the starting behavior of the
-     * actor. The returned {@code Behavior<T>} object encapsulates the logic for handling messages
-     * and can be dynamically changed based on the messages received.
+     * <p>The initial behavior determines how the actor will handle its first messages and can be
+     * changed over time as the actor transitions through different states or modes of operation.
      *
-     * @return the initial {@code Behavior<T>} that defines how the actor should handle messages
+     * @return the initial {@code Behavior<T>} that defines how the actor should handle incoming
+     * messages
      */
     protected abstract Behavior<T> initialBehavior();
 
     @Override
-    public void onReceive(T t) {
+    public final void onReceive(T t) {
         Behavior<T> ret = behavior.onReceive(context(), t);
-        switch (BehaviorInternal.getTag(ret)) {
+        tryUpdateBehavior(ret, t);
+    }
+
+    @Override
+    public final void onSignal(Signal signal) {
+        Behavior<T> ret = behavior.onSignal(context(), signal);
+        tryUpdateBehavior(ret, signal);
+    }
+
+    private void tryUpdateBehavior(Behavior<T> ret, Object obj) {
+        switch (InternalBehavior.getTag(ret)) {
             case SAME -> {
+            }
+            case COMPOSITE -> {
+                var composite = (Behaviors.CompositeBehavior<T>) ret;
+                Behavior<T> msgBehavior = composite.msgBehavior();
+                Behavior<T> signalBehavior = composite.signalBehavior();
+                if (msgBehavior == InternalBehavior.SAME) {
+                    if (signalBehavior == InternalBehavior.SAME) {
+                        return;
+                    }
+                    behavior = Behaviors.composite(behavior, signalBehavior);
+                } else if (signalBehavior == InternalBehavior.SAME) {
+                    behavior = Behaviors.composite(msgBehavior, behavior);
+                }
             }
             case MESSAGE_HANDLE -> behavior = ret;
             case STOP -> context().stop();
-            case UNHANDLED -> context().system().getLogger()
-                    .warn("{} receive unhandled message: {}", context().self(), t);
+            case UNHANDLED -> {
+                if (obj instanceof Signal) {
+                    context().system().getLogger()
+                            .warn("{} receive unhandled signal: {}", context().self(), obj);
+                } else {
+                    context().system().getLogger()
+                            .warn("{} receive unhandled message: {}", context().self(), obj);
+                }
+            }
             default ->
-                    throw new IllegalStateException("Unknown Behavior: " + BehaviorInternal.getTag(ret));
+                    throw new IllegalStateException("Unknown Behavior: " + InternalBehavior.getTag(ret));
         }
     }
 }
