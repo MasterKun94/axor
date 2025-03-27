@@ -39,6 +39,7 @@ build/
 
 # IntelliJ project files
 .idea
+!.idea/icon.png
 .tmp
 out
 gen
