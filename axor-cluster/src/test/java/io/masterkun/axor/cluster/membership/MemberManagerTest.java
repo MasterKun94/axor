@@ -33,7 +33,7 @@ public class MemberManagerTest {
             ActorAddress.create("test@localhost:123/node2"),
             Gossip.class
     );
-    private static Member member2 = new Member(2, MetaInfo.EMPTY, node2);
+    private static final Member member2 = new Member(2, MetaInfo.EMPTY, node2);
     private static final MockActorRef<Gossip> node3 = testKit.mock(
             ActorAddress.create("test@localhost:123/node3"),
             Gossip.class

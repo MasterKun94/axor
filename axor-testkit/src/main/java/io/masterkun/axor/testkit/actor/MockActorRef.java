@@ -47,9 +47,27 @@ public class MockActorRef<T> extends ForwardingActorRef<T> {
     }
 
     @Override
+    public void tell(T value) {
+        queue.add(new MsgAndSender(value, ActorRef.noSender()));
+        super.tell(value);
+    }
+
+    @Override
+    public void tellInline(T value, ActorRef<?> sender) {
+        queue.add(new MsgAndSender(value, sender));
+        super.tellInline(value, sender);
+    }
+
+    @Override
     public void signal(Signal signal) {
         signals.add(signal);
         super.signal(signal);
+    }
+
+    @Override
+    public void signalInline(Signal signal) {
+        signals.add(signal);
+        super.signalInline(signal);
     }
 
     public void combineWith(ActorRef<T> combine) {

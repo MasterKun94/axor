@@ -26,6 +26,10 @@ public non-sealed abstract class ActorRefRich<T> implements ActorRef<T> {
 
     protected abstract void cleanup();
 
+    public void tellInline(T value, ActorRef<?> sender) {
+        tell(value, sender);
+    }
+
     public String displayName() {
         if (name == null) {
             var address = address();

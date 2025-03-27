@@ -54,4 +54,18 @@ public class ActorUnsafe {
     public static EventDispatcher getDispatcher(ActorRef<?> ref) {
         return ((ActorRefRich<?>) ref).getStreamManager().getExecutor();
     }
+
+    public static <T> void tellInline(ActorRef<T> ref, T msg, ActorRef<?> sender) {
+        ((ActorRefRich<T>) ref).tellInline(msg, sender);
+    }
+
+    public static void signalInline(ActorRef<?> ref, Signal signal) {
+        if (ref instanceof LocalActorRef<?> l) {
+            l.signalInline(signal);
+        } else if (ref instanceof ForwardingActorRef<?> f) {
+            f.signalInline(signal);
+        } else {
+            throw new IllegalArgumentException("Not a LocalActorRef");
+        }
+    }
 }

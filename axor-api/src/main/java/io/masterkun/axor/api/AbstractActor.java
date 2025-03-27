@@ -19,7 +19,7 @@ public abstract class AbstractActor<T> extends Actor<T> {
     }
 
     @Override
-    public void onStart() {
+    public final void onStart() {
         preStart();
         behavior = initialBehavior();
     }

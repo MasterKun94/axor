@@ -53,10 +53,9 @@ public class MembershipActorTest {
 
     private static void start(int port, Logger log) {
         ActorSystem system = createActorSystem("test", port);
-        ActorRef<MembershipMessage> actor = system.start(
-                actorContext ->
-                        new MembershipActor(actorContext, config, new DefaultSplitBrainResolver(2
-                                , 2)),
+        ActorRef<MembershipMessage> actor = system.start(actorContext ->
+                        new MembershipActor(actorContext, config,
+                                new DefaultSplitBrainResolver(2, 2)),
                 "membership"
         );
         actor.tell(new MembershipMessage.AddListener(new MembershipListener() {

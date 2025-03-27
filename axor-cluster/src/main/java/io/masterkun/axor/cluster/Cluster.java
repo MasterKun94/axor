@@ -87,6 +87,10 @@ public class Cluster {
         return name;
     }
 
+    public long uid() {
+        throw new UnsupportedOperationException();
+    }
+
     public ActorSystem system() {
         return system;
     }
@@ -136,8 +140,7 @@ public class Cluster {
         actor.tell(MembershipMessage.addListener(listener, false));
     }
 
-    @Internal
-    void updateMetaInfo(MetaKey.Action... actions) {
+    public void updateMetaInfo(MetaKey.Action... actions) {
         actor.tell(MembershipMessage.updateMetaInfo(actions));
     }
 

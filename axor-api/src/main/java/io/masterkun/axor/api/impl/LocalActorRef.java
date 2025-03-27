@@ -319,26 +319,50 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
 
     @Override
     public void tell(T value, ActorRef<?> sender) {
-        executor.execute(() -> tellAction.accept(sender, value));
+        executor.execute(() -> doTell(value, sender));
     }
+
+    @Override
+    public void tellInline(T value, ActorRef<?> sender) {
+        if (executor.inExecutor()) {
+            doTell(value, sender);
+        } else {
+            tell(value, sender);
+        }
+    }
+
+    void doTell(T value, ActorRef<?> sender) {
+        assert executor.inExecutor();
+        tellAction.accept(sender, value);
+    }
+
 
     @Internal
     public void signal(Signal signal) {
+        executor.execute(() -> doSignal(signal));
+    }
+
+    public void signalInline(Signal signal) {
         if (executor.inExecutor()) {
-            try {
-                if (signal == InternalSignals.POISON_PILL) {
-                    stop(EventPromise.noop(executor));
-                    return;
-                }
-                if (children != null && signal instanceof ActorStopped(var stoppedActor)) {
-                    children.remove(stoppedActor.address(), stoppedActor);
-                }
-                actor.onSignal(signal);
-            } catch (Throwable e) {
-                systemErrorEvent(SystemEvent.ActorAction.ON_SIGNAL, e);
-            }
+            doSignal(signal);
         } else {
-            executor.execute(() -> signal(signal));
+            signal(signal);
+        }
+    }
+
+    void doSignal(Signal signal) {
+        assert executor.inExecutor();
+        try {
+            if (signal == InternalSignals.POISON_PILL) {
+                stop(EventPromise.noop(executor));
+                return;
+            }
+            if (children != null && signal instanceof ActorStopped(var stoppedActor)) {
+                children.remove(stoppedActor.address(), stoppedActor);
+            }
+            actor.onSignal(signal);
+        } catch (Throwable e) {
+            systemErrorEvent(SystemEvent.ActorAction.ON_SIGNAL, e);
         }
     }
 
