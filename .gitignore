@@ -38,7 +38,8 @@ build/
 .DS_Store
 
 # IntelliJ project files
-.idea
+.idea/*
+!.idea/vcs.xml
 !.idea/icon.png
 .tmp
 out
