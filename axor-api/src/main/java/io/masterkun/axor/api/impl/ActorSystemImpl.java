@@ -105,9 +105,9 @@ public class ActorSystemImpl implements ActorSystem, HasMeter {
         this.publishAddress = publishAddress;
         this.eventExecutorGroup = eventExecutorGroup;
         this.shutdownHooks.register(new RootShutdownTask());
-        this.deadLetterPubsub = Pubsub.get("__DeadLetter", MsgType.of(DeadLetter.class),
+        this.deadLetterPubsub = Pubsub.get("sys/DeadLetter", MsgType.of(DeadLetter.class),
                 false, this);
-        this.systemEventPubsub = Pubsub.get("__SystemEvent", MsgType.of(SystemEvent.class),
+        this.systemEventPubsub = Pubsub.get("sys/SystemEvent", MsgType.of(SystemEvent.class),
                 false, this);
         var address = ActorAddress.create(this.name, publishAddress, NoSenderActorRef.ACTOR_NAME);
         var executor = eventExecutorGroup.nextDispatcher();
@@ -136,7 +136,7 @@ public class ActorSystemImpl implements ActorSystem, HasMeter {
                 public MsgType<DeadLetter> msgType() {
                     return MsgType.of(DeadLetter.class);
                 }
-            }, "_sys_DeadLetterListener"));
+            }, "sys/DeadLetterListener"));
         }
     }
 
@@ -228,13 +228,28 @@ public class ActorSystemImpl implements ActorSystem, HasMeter {
         }
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public <T> ActorRef<T> start(ActorCreator<T> creator, String name, EventDispatcher dispatcher) {
+        return start(creator, name, dispatcher, false);
+    }
+
+    @Override
+    public <T> ActorRef<T> getOrStart(ActorCreator<T> creator, String name,
+                                      EventDispatcher dispatcher) {
+        return start(creator, name, dispatcher, true);
+    }
+
+    @SuppressWarnings("unchecked")
+    public <T> ActorRef<T> start(ActorCreator<T> creator, String name, EventDispatcher dispatcher
+            , boolean cacheGet) {
         checkClosed();
         ActorRef<?> ret = localActorCache.compute(name, (k, v) -> {
             if (v != null) {
-                throw new IllegalStateException("Actor already started: " + name);
+                if (cacheGet) {
+                    return v;
+                } else {
+                    throw new IllegalArgumentException("Actor already started: " + name);
+                }
             }
             var address = ActorAddress.create(this.name, publishAddress, k);
             if (LOG.isDebugEnabled()) {

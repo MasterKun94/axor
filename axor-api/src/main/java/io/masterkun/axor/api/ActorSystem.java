@@ -169,6 +169,12 @@ public interface ActorSystem {
      */
     <T> ActorRef<T> start(ActorCreator<T> creator, String name, EventDispatcher dispatcher);
 
+    default <T> ActorRef<T> getOrStart(ActorCreator<T> creator, String name) {
+        return getOrStart(creator, name, getDispatcherGroup().nextDispatcher());
+    }
+
+    <T> ActorRef<T> getOrStart(ActorCreator<T> creator, String name, EventDispatcher dispatcher);
+
     /**
      * Stops the specified actor.
      *

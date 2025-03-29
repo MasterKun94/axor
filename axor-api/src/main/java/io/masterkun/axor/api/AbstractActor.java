@@ -1,5 +1,7 @@
 package io.masterkun.axor.api;
 
+import io.masterkun.axor.api.impl.ActorUnsafe;
+
 /**
  * Abstract base class for actors, providing a framework for defining the behavior and lifecycle of
  * an actor. This class extends {@link Actor} and introduces additional methods and mechanisms to
@@ -62,23 +64,35 @@ public abstract class AbstractActor<T> extends Actor<T> {
     }
 
     private void tryUpdateBehavior(Behavior<T> ret, Object obj) {
-        switch (InternalBehavior.getTag(ret)) {
+        switch (BehaviorType.getTag(ret)) {
             case SAME -> {
             }
+            case MESSAGE_HANDLE -> behavior = ret;
             case COMPOSITE -> {
                 var composite = (Behaviors.CompositeBehavior<T>) ret;
                 Behavior<T> msgBehavior = composite.msgBehavior();
                 Behavior<T> signalBehavior = composite.signalBehavior();
-                if (msgBehavior == InternalBehavior.SAME) {
-                    if (signalBehavior == InternalBehavior.SAME) {
+                if (BehaviorType.SAME.isMatch(msgBehavior)) {
+                    if (BehaviorType.SAME.isMatch(signalBehavior)) {
                         return;
                     }
                     behavior = Behaviors.composite(behavior, signalBehavior);
-                } else if (signalBehavior == InternalBehavior.SAME) {
+                } else if (BehaviorType.SAME.isMatch(signalBehavior)) {
                     behavior = Behaviors.composite(msgBehavior, behavior);
                 }
             }
-            case MESSAGE_HANDLE -> behavior = ret;
+            case CONSUME_BUFFER -> {
+                var consumeBuffer = (Behaviors.ConsumeBufferBehavior<T>) ret;
+                tryUpdateBehavior(consumeBuffer.behavior(), obj);
+                for (var msgOrSignal : consumeBuffer.buffers()) {
+                    switch (msgOrSignal) {
+                        case Behaviors.MsgHolder<T>(var msg, var sender) ->
+                                ActorUnsafe.tellInline(self(), msg, sender);
+                        case Behaviors.SignalHolder<?>(Signal signal) ->
+                                ActorUnsafe.signalInline(self(), signal);
+                    }
+                }
+            }
             case STOP -> context().stop();
             case UNHANDLED -> {
                 if (obj instanceof Signal) {
@@ -90,7 +104,7 @@ public abstract class AbstractActor<T> extends Actor<T> {
                 }
             }
             default ->
-                    throw new IllegalStateException("Unknown Behavior: " + InternalBehavior.getTag(ret));
+                    throw new IllegalStateException("Unknown Behavior: " + BehaviorType.getTag(ret));
         }
     }
 }

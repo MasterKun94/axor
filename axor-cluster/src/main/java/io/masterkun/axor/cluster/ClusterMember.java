@@ -14,11 +14,23 @@ public record ClusterMember(long uid, String system, Address address, MetaInfo m
                 member.metaInfo());
     }
 
+    public ClusterMember withMetaInfo(MetaInfo metaInfo) {
+        return new ClusterMember(uid, system, address, metaInfo);
+    }
+
     public String selfDatacenter() {
         return metaInfo.get(BuiltinMetaKeys.SELF_DATACENTER);
     }
 
     public List<String> selfRoles() {
         return metaInfo.get(BuiltinMetaKeys.SELF_ROLES);
+    }
+
+    @Override
+    public String toString() {
+        return "ClusterMember[" +
+                "uid=" + uid +
+                ", address=" + system + "@" + address +
+                ']';
     }
 }

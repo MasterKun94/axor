@@ -1,6 +1,7 @@
 package io.masterkun.axor.api;
 
 import io.masterkun.axor.api.impl.LocalPubsub;
+import io.masterkun.axor.runtime.EventDispatcher;
 import io.masterkun.axor.runtime.MsgType;
 
 /**
@@ -75,4 +76,12 @@ public interface Pubsub<T> extends EventStream<T> {
      * @param sender the {@code ActorRef} representing the sender of the message
      */
     void sendToOne(T msg, ActorRef<?> sender);
+
+    /**
+     * Provides an {@link EventDispatcher} for managing and executing tasks, handling timeouts, and
+     * checking if the current thread is within the executor.
+     *
+     * @return the {@link EventDispatcher} associated with this pubsub instance
+     */
+    EventDispatcher dispatcher();
 }

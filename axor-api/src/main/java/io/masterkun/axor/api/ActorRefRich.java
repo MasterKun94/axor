@@ -33,7 +33,7 @@ public non-sealed abstract class ActorRefRich<T> implements ActorRef<T> {
     public String displayName() {
         if (name == null) {
             var address = address();
-            name = (isLocal() ? (address.system() + "." + address.name()) : address.toString());
+            name = (isLocal() ? (address.system() + "@:/" + address.name()) : address.toString());
         }
         return name;
     }

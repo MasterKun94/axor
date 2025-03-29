@@ -28,13 +28,13 @@ public class ClusterTest {
         system3 = createActorSystem("test", 21003);
         Cluster cluster1 = Cluster.get("ClusterTest", system1);
         listener1 = testkit.mock(system1.address("listener"), ClusterEvent.class);
-        cluster1.clusterEvents().subscribe(listener1);
+        cluster1.addListener(listener1);
         Cluster cluster2 = Cluster.get("ClusterTest", system2);
         listener2 = testkit.mock(system2.address("listener"), ClusterEvent.class);
-        cluster2.clusterEvents().subscribe(listener2);
+        cluster2.addListener(listener2);
         Cluster cluster3 = Cluster.get("ClusterTest", system3);
         listener3 = testkit.mock(system3.address("listener"), ClusterEvent.class);
-        cluster3.clusterEvents().subscribe(listener3);
+        cluster3.addListener(listener3);
     }
 
 

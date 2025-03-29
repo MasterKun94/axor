@@ -1,17 +1,17 @@
 package io.masterkun.axor.cluster;
 
 import com.typesafe.config.Config;
+import io.masterkun.axor.api.Actor;
+import io.masterkun.axor.api.ActorContext;
 import io.masterkun.axor.api.ActorRef;
 import io.masterkun.axor.api.ActorSystem;
-import io.masterkun.axor.api.EventStream;
 import io.masterkun.axor.api.Pubsub;
 import io.masterkun.axor.api.SystemCacheKey;
 import io.masterkun.axor.cluster.config.MembershipConfig;
 import io.masterkun.axor.cluster.membership.DefaultSplitBrainResolver;
-import io.masterkun.axor.cluster.membership.Member;
+import io.masterkun.axor.cluster.membership.MemberIdGenerator;
 import io.masterkun.axor.cluster.membership.MembershipActor;
 import io.masterkun.axor.cluster.membership.MembershipCommand;
-import io.masterkun.axor.cluster.membership.MembershipListener;
 import io.masterkun.axor.cluster.membership.MembershipMessage;
 import io.masterkun.axor.cluster.membership.MetaKey;
 import io.masterkun.axor.commons.config.ConfigMapper;
@@ -20,7 +20,6 @@ import io.masterkun.axor.runtime.EventDispatcher;
 import io.masterkun.axor.runtime.MsgType;
 import io.masterkun.stateeasy.concurrent.EventPromise;
 import io.masterkun.stateeasy.concurrent.EventStage;
-import org.jetbrains.annotations.ApiStatus.Internal;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -29,10 +28,10 @@ import java.util.concurrent.ConcurrentHashMap;
 public class Cluster {
     public static final String DEFAULT_NAME = "default-cluster";
     private static final Map<SystemCacheKey, Cluster> cache = new ConcurrentHashMap<>();
+    private final long uid;
     private final String name;
     private final ActorSystem system;
     private final ActorRef<MembershipMessage> actor;
-    private final Pubsub<ClusterEvent> clusterEventPubsub;
     private final Map<String, Pubsub<?>> pubsubs = new ConcurrentHashMap<>();
     private final MembershipConfig config;
     private final EventPromise<Void> joinPromise;
@@ -48,10 +47,10 @@ public class Cluster {
         }
         var splitBrainResolver = new DefaultSplitBrainResolver(2, 2);
         EventDispatcher dispatcher = system.getDispatcherGroup().nextDispatcher();
-        this.actor = system.start(ctx -> new MembershipActor(ctx,
-                this.config, splitBrainResolver), "membership", dispatcher);
-        this.clusterEventPubsub = Pubsub.get("__ClusterEvent_" + name,
-                MsgType.of(ClusterEvent.class), false, system);
+        String memberActorName = "cluster/" + name + "/membership";
+        this.uid = MemberIdGenerator.create(system.address(memberActorName)).nextId();
+        this.actor = system.start(ctx -> new MembershipActor(uid,
+                ctx, this.config, splitBrainResolver), memberActorName, dispatcher);
         this.joinPromise = dispatcher.newPromise();
         this.leavePromise = dispatcher.newPromise();
         this.system.shutdownHooks().register(new DependencyTask("cluster-" + name, "root") {
@@ -60,7 +59,7 @@ public class Cluster {
                 return leave().toCompletableFuture();
             }
         });
-        addListener(new ClusterMembershipListener());
+        system.start(ClusterMembershipListener::new, "cluster/" + name + "/listener");
         updateMetaInfo(BuiltinMetaKeys.SELF_DATACENTER.upsert(this.config.datacenter()),
                 BuiltinMetaKeys.SELF_ROLES.upsert(this.config.roles()));
         if (this.config.join().autoJoin()) {
@@ -73,7 +72,7 @@ public class Cluster {
     }
 
     public static Cluster get(String name, ActorSystem system) {
-        return cache.compute(new SystemCacheKey(name, system), (k, v) -> {
+        return cache.computeIfAbsent(new SystemCacheKey(name, system), k -> {
             String key = "axor.cluster." + name;
             if (!system.config().hasPath(key)) {
                 throw new IllegalArgumentException("No config for cluster " + name);
@@ -88,7 +87,7 @@ public class Cluster {
     }
 
     public long uid() {
-        throw new UnsupportedOperationException();
+        return uid;
     }
 
     public ActorSystem system() {
@@ -97,10 +96,6 @@ public class Cluster {
 
     public ActorRef<MembershipCommand> manager() {
         return actor.cast(MsgType.of(MembershipCommand.class));
-    }
-
-    public EventStream<ClusterEvent> clusterEvents() {
-        return clusterEventPubsub;
     }
 
     public EventStage<Void> join() {
@@ -135,47 +130,58 @@ public class Cluster {
         return config;
     }
 
-    @Internal
-    void addListener(MembershipListener listener) {
+    public void addListener(ActorRef<ClusterEvent> listener) {
         actor.tell(MembershipMessage.addListener(listener, false));
+    }
+
+    public void removeListener(ActorRef<ClusterEvent> listener) {
+        actor.tell(MembershipMessage.removeListener(listener));
     }
 
     public void updateMetaInfo(MetaKey.Action... actions) {
         actor.tell(MembershipMessage.updateMetaInfo(actions));
     }
 
-    private class ClusterMembershipListener implements MembershipListener {
+    private class ClusterMembershipListener extends Actor<ClusterEvent> {
+
+        protected ClusterMembershipListener(ActorContext<ClusterEvent> context) {
+            super(context);
+        }
+
         @Override
-        public void onLocalStateChange(LocalMemberState current) {
-            if (!joinPromise.isDone()) {
-                if (current == LocalMemberState.UP || current == LocalMemberState.WEAKLY_UP) {
-                    joinPromise.success(null);
-                } else if (current == LocalMemberState.LEFT) {
-                    joinPromise.failure(new RuntimeException("member left"));
+        public void onStart() {
+            Cluster.this.addListener(self());
+            super.onStart();
+        }
+
+        @Override
+        public void onReceive(ClusterEvent clusterEvent) {
+            if (clusterEvent instanceof ClusterEvent.LocalStateChange(var current)) {
+                if (!joinPromise.isDone()) {
+                    if (current == LocalMemberState.UP || current == LocalMemberState.WEAKLY_UP) {
+                        joinPromise.success(null);
+                    } else if (current == LocalMemberState.LEFT) {
+                        joinPromise.failure(new RuntimeException("member left"));
+                    }
                 }
+                localMemberState = current;
+            } else if (clusterEvent instanceof ClusterEvent.LocalMemberStopped) {
+                leavePromise.success(null);
+                context().stop();
             }
-            localMemberState = current;
-            var event = new ClusterEvent.LocalStateChange(current);
-            clusterEventPubsub.publishToAll(event, ActorRef.noSender());
         }
 
         @Override
-        public void onLocalMemberStopped() {
-            leavePromise.success(null);
+        public void preStop() {
+            if (!leavePromise.isDone()) {
+                Cluster.this.removeListener(self());
+            }
+            super.preStop();
         }
 
         @Override
-        public void onMemberStateChange(Member member, MemberState from, MemberState to) {
-            var clusterMember = ClusterMember.of(member);
-            var event = new ClusterEvent.MemberStateChanged(clusterMember, to, from);
-            clusterEventPubsub.publishToAll(event, ActorRef.noSender());
-        }
-
-        @Override
-        public void onMemberUpdate(Member from, Member to) {
-            var clusterMember = ClusterMember.of(to);
-            var event = new ClusterEvent.MemberMetaInfoChanged(clusterMember, from.metaInfo());
-            clusterEventPubsub.publishToAll(event, ActorRef.noSender());
+        public MsgType<ClusterEvent> msgType() {
+            return MsgType.of(ClusterEvent.class);
         }
     }
 }

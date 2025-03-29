@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 /**
  * A concrete implementation of {@link AbstractActorRef} that represents a local actor reference.
@@ -51,16 +52,19 @@ import java.util.function.BiConsumer;
  * @param <T> the type of messages that this actor can handle
  */
 final class LocalActorRef<T> extends AbstractActorRef<T> {
+    public static final int RUNNING_STATE = 0;
+    public static final int STOPPING_STATE = 1;
+    public static final int STOPPED_STATE = 2;
     private final Logger LOG = LoggerFactory.getLogger(LocalActorRef.class);
-
     private final EventDispatcher executor;
     private final Actor<T> actor;
     private final Closeable unregisterHook;
-    private final BiConsumer<ActorRef<?>, T> tellAction;
+    private final BiConsumer<T, ActorRef<?>> tellAction;
+    private final Consumer<Signal> signalAction;
     private Map<ActorAddress, ActorRef<?>> children;
     private List<Runnable> stopRunners;
     private Map<ActorAddress, WatcherHolder> watchers;
-    private boolean stopped;
+    private byte state = RUNNING_STATE;
 
     LocalActorRef(ActorAddress address, ActorSystem system, EventDispatcher executor,
                   ActorCreator<T> actorCreator, ActorConfig config) {
@@ -108,49 +112,33 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
                 };
             }
         };
-        BiConsumer<ActorRef<?>, T> tellAction = (sender1, msg) -> {
-            ActorContextImpl<T> context = (ActorContextImpl<T>) actor.context();
-            if (stopped) {
-                context.deadLetter(msg);
-                return;
-            }
-            try {
-                context.sender(sender1);
-                actor.onReceive(msg);
-            } catch (Throwable e) {
-                systemErrorEvent(SystemEvent.ActorAction.ON_RECEIVE, e);
-                try {
-                    switch (actor.failureStrategy(e)) {
-                        case RESTART -> internalRestart();
-                        case STOP -> stop(EventPromise.noop(executor));
-                        case RESUME -> {
-                        }
-                        default -> throw new IllegalArgumentException("unknown failure strategy");
-                    }
-                } catch (Throwable ex) {
-                    actor.context().system().systemFailure(ex);
-                }
-            } finally {
-                context.sender(ActorRef.noSender());
-            }
-        };
         if (config.logger().mdcEnabled()) {
             Map<String, String> ctxMap = new HashMap<>(3);
             ctxMap.put("system", system.name());
             ctxMap.put("actor", ActorSystem.hasMultiInstance() ?
                     LocalActorRef.this.address().toString() :
                     LocalActorRef.this.displayName());
-            this.tellAction = (sender, msg) -> {
+            this.tellAction = (msg, sender) -> {
                 MDCAdapter mdc = MDC.getMDCAdapter();
                 mdc.setContextMap(ctxMap);
                 try {
-                    tellAction.accept(sender, msg);
+                    doTell(msg, sender);
+                } finally {
+                    mdc.setContextMap(null);
+                }
+            };
+            this.signalAction = signal -> {
+                MDCAdapter mdc = MDC.getMDCAdapter();
+                mdc.setContextMap(ctxMap);
+                try {
+                    doSignal(signal);
                 } finally {
                     mdc.setContextMap(null);
                 }
             };
         } else {
-            this.tellAction = tellAction;
+            this.tellAction = this::doTell;
+            this.signalAction = this::doSignal;
         }
 
         var definition = new StreamDefinition<>(address.streamAddress(),
@@ -176,7 +164,7 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
 
             @Override
             public void handle(T msg) {
-                LocalActorRef.this.tellAction.accept(sender, msg);
+                LocalActorRef.this.tellAction.accept(msg, sender);
             }
         });
         initialize(serde, manager);
@@ -188,7 +176,7 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
                 systemEvent(new SystemEvent.ActorStarted(this));
             } catch (Throwable e) {
                 systemErrorEvent(SystemEvent.ActorAction.ON_START, e);
-                internalStop();
+                doStop(EventPromise.noop(executor));
             }
         });
     }
@@ -230,67 +218,29 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
         }
     }
 
-    private void internalRestart() {
+    private void doRestart() {
         assert executor.inExecutor();
         try {
             actor.onRestart();
             systemEvent(new SystemEvent.ActorRestarted(this));
         } catch (Exception ex) {
             systemErrorEvent(SystemEvent.ActorAction.ON_RESTART, ex);
-            internalStop();
+            doStop(EventPromise.noop(executor));
         }
     }
 
-    private void internalStop() {
+    private void doStop(EventPromise<Void> promise) {
         assert executor.inExecutor();
-        if (isStopped()) {
+        if (state != RUNNING_STATE) {
+            LOG.warn("Stop already invoked");
+            promise.failure(new RuntimeException("stop already invoked"));
             return;
         }
+        state = STOPPING_STATE;
         try {
             actor.preStop();
         } catch (Exception e) {
             systemErrorEvent(SystemEvent.ActorAction.ON_PRE_STOP, e);
-        }
-        try {
-            unregisterHook.close();
-            cleanup();
-        } catch (Throwable e) {
-            LOG.error("{} unexpected error on stopping", this, e);
-        }
-        if (stopRunners != null) {
-            for (Runnable runnable : stopRunners) {
-                try {
-                    runnable.run();
-                } catch (Throwable e) {
-                    LOG.error("Stop runner throw unexpected error: " + e);
-                }
-            }
-            stopRunners = null;
-        }
-        systemEvent(new ActorStopped(this));
-        if (watchers != null) {
-            for (WatcherHolder holder : watchers.values()) {
-                try {
-                    holder.release();
-                } catch (Throwable e) {
-                    LOG.error("Release throw unexpected error: " + e);
-                }
-            }
-            watchers = null;
-        }
-        try {
-            stopped = true;
-            actor.postStop();
-        } catch (Throwable e) {
-            systemErrorEvent(SystemEvent.ActorAction.ON_POST_STOP, e);
-        }
-    }
-
-    @Internal
-    void stop(EventPromise<Void> promise) {
-        if (!executor.inExecutor()) {
-            executor.execute(() -> stop(promise));
-            return;
         }
         EventStage<Void> stage = EventStage.succeed(null, executor);
         if (children != null) {
@@ -307,9 +257,50 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
             if (t.isFailure()) {
                 LOG.error("Unexpected error while stop child", t.cause());
             }
-            internalStop();
+            try {
+                unregisterHook.close();
+                cleanup();
+            } catch (Throwable e) {
+                LOG.error("{} unexpected error on stopping", this, e);
+            }
+            if (stopRunners != null) {
+                for (Runnable runnable : stopRunners) {
+                    try {
+                        runnable.run();
+                    } catch (Throwable e) {
+                        LOG.error("Stop runner throw unexpected error: " + e);
+                    }
+                }
+                stopRunners = null;
+            }
+            systemEvent(new ActorStopped(this));
+            if (watchers != null) {
+                for (WatcherHolder holder : watchers.values()) {
+                    try {
+                        holder.release();
+                    } catch (Throwable e) {
+                        LOG.error("Release throw unexpected error: " + e);
+                    }
+                }
+                watchers = null;
+            }
+            try {
+                state = STOPPED_STATE;
+                actor.postStop();
+            } catch (Throwable e) {
+                systemErrorEvent(SystemEvent.ActorAction.ON_POST_STOP, e);
+            }
             return Try.success((Void) null);
         }, executor).addListener(promise);
+    }
+
+    @Internal
+    void stop(EventPromise<Void> promise) {
+        if (!executor.inExecutor()) {
+            executor.execute(() -> doStop(promise));
+            return;
+        }
+        doStop(promise);
     }
 
     @Internal
@@ -319,39 +310,65 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
 
     @Override
     public void tell(T value, ActorRef<?> sender) {
-        executor.execute(() -> doTell(value, sender));
+        executor.execute(() -> tellAction.accept(value, sender));
     }
 
     @Override
     public void tellInline(T value, ActorRef<?> sender) {
         if (executor.inExecutor()) {
-            doTell(value, sender);
+            tellAction.accept(value, sender);
         } else {
             tell(value, sender);
         }
     }
 
-    void doTell(T value, ActorRef<?> sender) {
+    private void doTell(T msg, ActorRef<?> sender1) {
         assert executor.inExecutor();
-        tellAction.accept(sender, value);
+        ActorContextImpl<T> context = (ActorContextImpl<T>) actor.context();
+        if (state != RUNNING_STATE) {
+            context.deadLetter(msg);
+            return;
+        }
+        try {
+            context.sender(sender1);
+            actor.onReceive(msg);
+        } catch (Throwable e) {
+            systemErrorEvent(SystemEvent.ActorAction.ON_RECEIVE, e);
+            try {
+                switch (actor.failureStrategy(e)) {
+                    case RESTART -> doRestart();
+                    case STOP -> stop(EventPromise.noop(executor));
+                    case RESUME -> {
+                    }
+                    case SYSTEM_ERROR -> context.system().systemFailure(e);
+                    default -> throw new IllegalArgumentException("unknown failure strategy");
+                }
+            } catch (Throwable ex) {
+                actor.context().system().systemFailure(ex);
+            }
+        } finally {
+            context.sender(ActorRef.noSender());
+        }
     }
-
 
     @Internal
     public void signal(Signal signal) {
-        executor.execute(() -> doSignal(signal));
+        executor.execute(() -> signalAction.accept(signal));
     }
 
     public void signalInline(Signal signal) {
         if (executor.inExecutor()) {
-            doSignal(signal);
+            signalAction.accept(signal);
         } else {
             signal(signal);
         }
     }
 
-    void doSignal(Signal signal) {
+    private void doSignal(Signal signal) {
         assert executor.inExecutor();
+        if (state != RUNNING_STATE) {
+            LOG.warn("Ignore signal because actor not running");
+        }
         try {
             if (signal == InternalSignals.POISON_PILL) {
                 stop(EventPromise.noop(executor));
@@ -371,15 +388,15 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
         return true;
     }
 
-    public boolean isStopped() {
-        return stopped;
+    public int getState() {
+        return state;
     }
 
     @Override
     public void addWatcher(ActorRef<?> watcher,
                            List<Class<? extends SystemEvent>> watchEvents) {
         if (executor.inExecutor()) {
-            if (isStopped()) {
+            if (state == STOPPED_STATE) {
                 maybeSignalWatcher(new ActorStopped(this), watcher.address(),
                         new WatcherHolder(watcher, watchEvents, () -> {
                         }));

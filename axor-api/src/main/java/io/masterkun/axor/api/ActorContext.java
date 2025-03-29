@@ -2,6 +2,7 @@ package io.masterkun.axor.api;
 
 import io.masterkun.axor.api.impl.ActorSystemImpl;
 import io.masterkun.axor.runtime.EventDispatcher;
+import io.masterkun.axor.runtime.MsgType;
 
 import java.util.List;
 
@@ -20,6 +21,19 @@ public interface ActorContext<T> {
      * {@code ActorRef.noSender()} if there is no sender (e.g., in case of a system message)
      */
     ActorRef<?> sender();
+
+    /**
+     * Returns the {@code ActorRef} of the sender that sent the current message to this actor, with
+     * a checked type.
+     *
+     * @param <P>         the type parameter representing the message type of the sender
+     * @param checkedType the {@code MsgType<P>} to check and cast the sender's message type
+     * @return the {@code ActorRef<P>} representing the sender of the current message, or a special
+     * {@code ActorRef.noSender()} if there is no sender (e.g., in case of a system message)
+     * @throws IllegalArgumentException if the checked type is not supported by the sender's message
+     *                                  type
+     */
+    <P> ActorRef<P> sender(MsgType<P> checkedType);
 
     /**
      * Returns the {@code ActorRef} for the current actor, which can be used to send messages to
@@ -51,7 +65,9 @@ public interface ActorContext<T> {
      * <p>
      * The child actor and parent actor share the same thread, ensuring thread safety when modifying
      * the same data. The child actor's lifecycle is managed within the parent actor, and if the
-     * parent actor stops, the child actor will also stop.
+     * parent actor stops, the child actor will also stop. During the stopping process, the parent
+     * actor will first call the {@code preStop()} method, then stop its child actors, and finally
+     * continue with the rest of the stopping process after all child actors have stopped.
      *
      * @param <P>     the type of messages that the child actor can handle
      * @param creator the {@code ActorCreator<P>} used to create the new actor instance

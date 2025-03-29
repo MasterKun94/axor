@@ -6,6 +6,7 @@ import io.masterkun.axor.commons.collection.IntObjectHashMap;
 import io.masterkun.axor.commons.collection.IntObjectMap;
 import io.masterkun.axor.runtime.impl.BuiltinSerde;
 import io.masterkun.axor.runtime.impl.BuiltinSerdeFactory;
+import io.masterkun.axor.runtime.impl.NoopSerdeFactory;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.Comparator;
@@ -106,6 +107,9 @@ public class SerdeRegistry {
     }
 
     public Optional<SerdeFactory> findFactory(String name) {
+        if (name.equals("noop")) {
+            return Optional.of(new NoopSerdeFactory(this));
+        }
         return factories.stream()
                 .filter(f -> f.getImpl().equals(name))
                 .findFirst();

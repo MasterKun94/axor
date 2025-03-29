@@ -349,6 +349,11 @@ public class LocalActorSystemTest {
 
         @Override
         public void preStop() {
+            Assert.assertFalse(ActorUnsafe.isStopped(child));
+        }
+
+        @Override
+        public void postStop() {
             Assert.assertTrue(ActorUnsafe.isStopped(child));
         }
     }

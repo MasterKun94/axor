@@ -6,6 +6,8 @@ import io.masterkun.axor.api.ActorContext;
 import io.masterkun.axor.api.ActorRef;
 import io.masterkun.axor.api.Behavior;
 import io.masterkun.axor.api.Behaviors;
+import io.masterkun.axor.cluster.ClusterEvent;
+import io.masterkun.axor.cluster.ClusterMember;
 import io.masterkun.axor.cluster.LocalMemberState;
 import io.masterkun.axor.cluster.MemberState;
 import io.masterkun.axor.cluster.config.MembershipConfig;
@@ -19,7 +21,9 @@ import org.slf4j.LoggerFactory;
 
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -31,20 +35,18 @@ public class MembershipActor extends AbstractActor<MembershipMessage> {
     private final MemberManager memberManager;
     private final FailureDetector failureDetector;
     private final SplitBrainResolver splitBrainResolver;
-    private final List<MembershipListener> listeners = new ArrayList<>();
+    private final Map<ActorAddress, MembershipListener> listeners = new HashMap<>();
     private MetaInfo selfMetaInfo = MetaInfo.EMPTY;
     private LocalMemberState localMemberState = LocalMemberState.NONE;
     private ScheduledFuture<?> tmpScheduledFuture;
 
-    public MembershipActor(ActorContext<MembershipMessage> context,
+    public MembershipActor(long uid,
+                           ActorContext<MembershipMessage> context,
                            MembershipConfig config,
                            SplitBrainResolver splitBrainResolver) {
         super(context);
         this.config = config;
-        this.memberManager = new MemberManager(
-                MemberIdGenerator.create(context.self().address()).nextId(),
-                self(),
-                config.memberManage(),
+        this.memberManager = new MemberManager(uid, self(), config.memberManage(),
                 context.system()::systemFailure);
         this.failureDetector = FailureDetector.create(
                 config.failureDetect(), memberManager, context);
@@ -60,7 +62,7 @@ public class MembershipActor extends AbstractActor<MembershipMessage> {
     @Override
     public void postStop() {
         LOG.info("Local member stopped");
-        for (MembershipListener listener : listeners) {
+        for (MembershipListener listener : listeners.values()) {
             listener.onLocalMemberStopped();
         }
         listeners.clear();
@@ -70,7 +72,7 @@ public class MembershipActor extends AbstractActor<MembershipMessage> {
         if (localMemberState != state) {
             this.localMemberState = state;
             LOG.info("Local member state change to: {}", localMemberState);
-            for (MembershipListener listener : listeners) {
+            for (MembershipListener listener : listeners.values()) {
                 listener.onLocalStateChange(state);
             }
         }
@@ -78,14 +80,17 @@ public class MembershipActor extends AbstractActor<MembershipMessage> {
 
     private Behavior<MembershipMessage> commonBehavior(MembershipMessage msg) {
         if (msg instanceof MembershipMessage.AddListener(var listener, var inc)) {
-            listeners.add(listener);
-            memberManager.addListener(listener, inc);
-            listener.onLocalStateChange(localMemberState);
+            ActorMembershipListener theListener = new ActorMembershipListener(listener);
+            listeners.put(listener.address(), theListener);
+            memberManager.addListener(theListener, inc);
+            theListener.onLocalStateChange(localMemberState);
             return Behaviors.same();
         }
         if (msg instanceof MembershipMessage.RemoveListener(var listener)) {
-            listeners.remove(listener);
-            memberManager.removeListener(listener);
+            MembershipListener removed = listeners.remove(listener.address());
+            if (removed != null) {
+                memberManager.removeListener(removed);
+            }
             return Behaviors.same();
         }
         if (msg instanceof MembershipMessage.UpdateMetaInfo(List<MetaKey.Action> actions)) {
@@ -252,5 +257,33 @@ public class MembershipActor extends AbstractActor<MembershipMessage> {
     @Override
     public MsgType<MembershipMessage> msgType() {
         return MsgType.of(MembershipMessage.class);
+    }
+
+    private static class ActorMembershipListener implements MembershipListener {
+        private final ActorRef<ClusterEvent> ref;
+
+        private ActorMembershipListener(ActorRef<ClusterEvent> ref) {
+            this.ref = ref;
+        }
+
+        @Override
+        public void onLocalStateChange(LocalMemberState currentState) {
+            ref.tell(new ClusterEvent.LocalStateChange(currentState));
+        }
+
+        @Override
+        public void onLocalMemberStopped() {
+            ref.tell(new ClusterEvent.LocalMemberStopped());
+        }
+
+        @Override
+        public void onMemberStateChange(Member member, MemberState from, MemberState to) {
+            ref.tell(new ClusterEvent.MemberStateChanged(ClusterMember.of(member), from, to));
+        }
+
+        @Override
+        public void onMemberUpdate(Member from, Member to) {
+            ref.tell(new ClusterEvent.MemberMetaInfoChanged(ClusterMember.of(to), from.metaInfo()));
+        }
     }
 }

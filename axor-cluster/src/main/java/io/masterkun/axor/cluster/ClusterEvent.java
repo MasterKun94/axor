@@ -11,6 +11,9 @@ public sealed interface ClusterEvent {
     record LocalStateChange(LocalMemberState state) implements ClusterEvent {
     }
 
+    record LocalMemberStopped() implements ClusterEvent {
+    }
+
     record MemberStateChanged(ClusterMember member,
                               MemberState state,
                               MemberState previousState) implements MemberEvent {

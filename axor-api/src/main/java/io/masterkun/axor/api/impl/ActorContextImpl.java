@@ -7,6 +7,7 @@ import io.masterkun.axor.api.ActorRefRich;
 import io.masterkun.axor.api.ActorSystem;
 import io.masterkun.axor.api.SystemEvent;
 import io.masterkun.axor.runtime.EventDispatcher;
+import io.masterkun.axor.runtime.MsgType;
 
 import java.util.List;
 
@@ -25,6 +26,11 @@ class ActorContextImpl<T> implements ActorContext<T> {
     @Override
     public ActorRef<?> sender() {
         return sender;
+    }
+
+    @Override
+    public <P> ActorRef<P> sender(MsgType<P> checkedType) {
+        return sender.cast(checkedType);
     }
 
     public void sender(ActorRef<?> sender) {
@@ -65,5 +71,9 @@ class ActorContextImpl<T> implements ActorContext<T> {
     @Override
     public void unwatch(ActorRef<?> target) {
         ((ActorRefRich<?>) target).removeWatcher(self);
+    }
+
+    public int state() {
+        return self.getState();
     }
 }

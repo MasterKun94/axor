@@ -1,5 +1,10 @@
 package io.masterkun.axor.api;
 
+import org.slf4j.Logger;
+import org.slf4j.event.Level;
+
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -23,7 +28,7 @@ public class Behaviors {
      */
     @SuppressWarnings("unchecked")
     public static <T> Behavior<T> same() {
-        return (Behavior<T>) InternalBehavior.SAME;
+        return new InternalBehavior<>(BehaviorType.SAME);
     }
 
     /**
@@ -36,7 +41,7 @@ public class Behaviors {
      */
     @SuppressWarnings("unchecked")
     public static <T> Behavior<T> stop() {
-        return (Behavior<T>) InternalBehavior.STOP;
+        return new InternalBehavior<>(BehaviorType.STOP);
     }
 
     /**
@@ -49,7 +54,7 @@ public class Behaviors {
      */
     @SuppressWarnings("unchecked")
     public static <T> Behavior<T> unhandled() {
-        return (Behavior<T>) InternalBehavior.UNHANDLED;
+        return new InternalBehavior<>(BehaviorType.UNHANDLED);
     }
 
     /**
@@ -147,24 +152,107 @@ public class Behaviors {
         };
     }
 
+    /**
+     * Wraps the given behavior with logging functionality. This method creates a new behavior that
+     * logs each message and signal received by the actor before delegating to the original
+     * behavior.
+     *
+     * @param <T>      the type of messages this actor can handle
+     * @param behavior the original behavior to wrap with logging
+     * @param log      the logger to use for logging
+     * @param level    the logging level at which to log the messages and signals
+     * @return a new {@code Behavior<T>} that logs messages and signals before delegating to the
+     * original behavior
+     */
+    public static <T> Behavior<T> log(Behavior<T> behavior, Logger log, Level level) {
+        return new Behavior<>() {
+            @Override
+            public Behavior<T> onReceive(ActorContext<T> context, T message) {
+                log.atLevel(level).log("Receive message: [{}] from sender: [{}]",
+                        MessageUtils.loggable(message), context.sender());
+                return behavior.onReceive(context, message);
+            }
+
+            @Override
+            public Behavior<T> onSignal(ActorContext<T> context, Signal signal) {
+                log.atLevel(level).log("Receive signal: [{}]", signal);
+                return behavior.onSignal(context, signal);
+            }
+        };
+    }
+
+    /**
+     * Creates a composite behavior that combines two behaviors: one for handling messages and
+     * another for handling signals.
+     *
+     * <p>If either of the provided behaviors is already a {@code CompositeBehavior}, it will be
+     * unwrapped, and only the inner message or signal behavior will be used. If any of the provided
+     * behaviors is an instance of {@code InternalBehavior} other than {@code SAME}, an
+     * {@code UnsupportedOperationException} will be thrown.
+     *
+     * @param <T>            the type of messages this actor can handle
+     * @param msgBehavior    the behavior to use for handling messages
+     * @param signalBehavior the behavior to use for handling signals
+     * @return a new {@code Behavior<T>} that represents the composite behavior
+     * @throws UnsupportedOperationException if either of the provided behaviors is an unsupported
+     *                                       {@code InternalBehavior}
+     */
     public static <T> Behavior<T> composite(Behavior<T> msgBehavior, Behavior<T> signalBehavior) {
         if (msgBehavior instanceof CompositeBehavior<T> c) {
-            msgBehavior = c.msgBehavior;
-        } else if (msgBehavior instanceof InternalBehavior && msgBehavior != InternalBehavior.SAME) {
-            throw new UnsupportedOperationException("CompositeBehavior does not support " +
-                    "InternalBehavior." + msgBehavior);
+            return composite(c.msgBehavior, signalBehavior);
         }
         if (signalBehavior instanceof CompositeBehavior<T> c) {
-            signalBehavior = c.signalBehavior;
-        } else if (msgBehavior instanceof InternalBehavior && msgBehavior != InternalBehavior.SAME) {
+            return composite(msgBehavior, c.signalBehavior);
+        }
+        if (msgBehavior instanceof InternalBehavior<T>(var type) && type != BehaviorType.SAME) {
             throw new UnsupportedOperationException("CompositeBehavior does not support " +
-                    "InternalBehavior." + msgBehavior);
+                    msgBehavior);
+        }
+        if (signalBehavior instanceof InternalBehavior<T>(var type) && type != BehaviorType.SAME) {
+            throw new UnsupportedOperationException("CompositeBehavior does not support " +
+                    signalBehavior);
         }
         return new CompositeBehavior<>(msgBehavior, signalBehavior);
     }
 
-    record CompositeBehavior<T>(Behavior<T> msgBehavior, Behavior<T> signalBehavior)
-            implements Behavior<T> {
+    /**
+     * Creates a new instance of {@code ConsumeBuffer} with the specified starting behavior.
+     *
+     * <p>The {@code ConsumeBuffer} is used to buffer messages and signals, which can later be
+     * converted into a behavior that will process these buffered items.
+     *
+     * @param <T>           the type of messages this actor can handle
+     * @param startBehavior the initial behavior for the actor before any messages or signals are
+     *                      added
+     * @return a new instance of {@code ConsumeBuffer<T>} initialized with the given starting
+     * behavior
+     */
+    public static <T> ConsumeBuffer<T> consumeBuffer(Behavior<T> startBehavior) {
+        return new ConsumeBuffer<>(startBehavior);
+    }
+
+    sealed interface MsgOrSignal<T> {
+    }
+
+    interface SpecialBehavior<T> extends Behavior<T> {
+        @Override
+        default Behavior<T> onReceive(ActorContext<T> context, T message) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        default Behavior<T> onSignal(ActorContext<T> context, Signal signal) {
+            throw new UnsupportedOperationException();
+        }
+
+        BehaviorType type();
+    }
+
+    record InternalBehavior<T>(BehaviorType type) implements SpecialBehavior<T> {
+    }
+
+    record CompositeBehavior<T>(Behavior<T> msgBehavior,
+                                Behavior<T> signalBehavior) implements Behavior<T> {
 
         @Override
         public Behavior<T> onReceive(ActorContext<T> context, T message) {
@@ -175,5 +263,49 @@ public class Behaviors {
         public Behavior<T> onSignal(ActorContext<T> context, Signal signal) {
             return signalBehavior.onSignal(context, signal);
         }
+    }
+
+    /**
+     * A utility class for constructing a buffer of messages and signals to be consumed by an actor.
+     * This class allows you to add messages and signals to a buffer, which can then be converted
+     * into a behavior that will process these buffered items.
+     *
+     * @param <T> the type of messages this actor can handle
+     */
+    public static class ConsumeBuffer<T> {
+        private final Behavior<T> behavior;
+        private final List<MsgOrSignal<T>> buffers = new ArrayList<>();
+
+        public ConsumeBuffer(Behavior<T> behavior) {
+            this.behavior = behavior;
+        }
+
+        public ConsumeBuffer<T> addMsg(T msg, ActorRef<?> sender) {
+            buffers.add(new MsgHolder<>(msg, sender));
+            return this;
+        }
+
+        public ConsumeBuffer<T> addSignal(Signal signal) {
+            buffers.add(new SignalHolder<>(signal));
+            return this;
+        }
+
+        public Behavior<T> toBehavior() {
+            return new ConsumeBufferBehavior<>(behavior, buffers);
+        }
+    }
+
+    record ConsumeBufferBehavior<T>(Behavior<T> behavior,
+                                    List<MsgOrSignal<T>> buffers) implements SpecialBehavior<T> {
+        @Override
+        public BehaviorType type() {
+            return BehaviorType.CONSUME_BUFFER;
+        }
+    }
+
+    record MsgHolder<T>(T msg, ActorRef<?> sender) implements MsgOrSignal<T> {
+    }
+
+    record SignalHolder<T>(Signal signal) implements MsgOrSignal<T> {
     }
 }

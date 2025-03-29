@@ -10,5 +10,6 @@ package io.masterkun.axor.api;
 public enum FailureStrategy {
     RESTART,
     STOP,
-    RESUME
+    RESUME,
+    SYSTEM_ERROR
 }

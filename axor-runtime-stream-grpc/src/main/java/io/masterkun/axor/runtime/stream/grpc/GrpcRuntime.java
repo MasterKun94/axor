@@ -44,7 +44,7 @@ import static io.masterkun.axor.runtime.stream.grpc.StreamUtils.toStatusExceptio
 public class GrpcRuntime {
     private static final Logger LOG = LoggerFactory.getLogger(GrpcRuntime.class);
     private static final ThreadLocal<Metadata> METADATA_TL = new ThreadLocal<>();
-    private static final String SERVICE_PREFIX = "_Axor_";
+    private static final String SERVICE_PREFIX = "_AXOR_";
     private static final String METHOD_NAME = "call";
     private static final io.grpc.Status HEADER_NOT_FOUND = io.grpc.Status.INVALID_ARGUMENT
             .withDescription("HEADER not found");

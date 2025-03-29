@@ -1,11 +1,15 @@
 package io.masterkun.axor.cluster;
 
+import io.masterkun.axor.api.Actor;
 import io.masterkun.axor.api.ActorAddress;
+import io.masterkun.axor.api.ActorContext;
 import io.masterkun.axor.api.ActorRef;
 import io.masterkun.axor.api.Pubsub;
-import io.masterkun.axor.cluster.membership.Member;
-import io.masterkun.axor.cluster.membership.MembershipListener;
+import io.masterkun.axor.cluster.ClusterEvent.LocalMemberStopped;
+import io.masterkun.axor.cluster.ClusterEvent.MemberMetaInfoChanged;
+import io.masterkun.axor.cluster.ClusterEvent.MemberStateChanged;
 import io.masterkun.axor.cluster.proto.MembershipProto;
+import io.masterkun.axor.runtime.EventDispatcher;
 import io.masterkun.axor.runtime.MsgType;
 import io.masterkun.axor.runtime.SerdeRegistry;
 import io.masterkun.axor.runtime.stream.grpc.StreamUtils;
@@ -52,32 +56,16 @@ public class ClusterPubsub<T> implements Pubsub<T> {
         this.defaultTopicDesc = TopicDesc.newBuilder()
                 .setMsgType(msgTypeToProto(msgType, cluster.system().getSerdeRegistry()))
                 .build();
-        this.internalPubsub = Pubsub.get("__ClusterPubsub__" + topic, msgType, false,
+        String name = "cluster/pubsub/" + topic;
+        this.internalPubsub = Pubsub.get(name, msgType, false,
                 cluster.system());
-        cluster.addListener(new MembershipListener() {
-            @Override
-            public void onMemberUpdate(Member from, Member to) {
-                if (SUBSCRIBED_TOPIC.metaEquals(from.metaInfo(), to.metaInfo())) {
-                    return;
-                }
-                updateSubscriber(from, to);
-            }
-
-            @Override
-            public void onMemberStateChange(Member member, MemberState from, MemberState to) {
-                if (from.ALIVE) {
-                    if (to.ALIVE) {
-                        return;
-                    }
-                    updateSubscriber(member, null);
-                } else if (to.ALIVE) {
-                    updateSubscriber(null, member);
-                }
-            }
-        });
+        String listenerName = name + "/listener";
+        ActorRef<ClusterEvent> listener = cluster.system()
+                .start(ClusterPubsubListener::new, listenerName, internalPubsub.dispatcher());
+        cluster.addListener(listener);
     }
 
-    private List<ActorAddress> getAvailableSubscribers(Member member) {
+    private List<ActorAddress> getAvailableSubscribers(ClusterMember member) {
         if (member == null) {
             return Collections.emptyList();
         }
@@ -98,8 +86,7 @@ public class ClusterPubsub<T> implements Pubsub<T> {
         return desc.getSubscriberList().stream()
                 .map(subscriber -> {
                     if (subscriber.hasName()) {
-                        var addr = member.actor().address();
-                        return ActorAddress.create(addr.system(), addr.address(),
+                        return ActorAddress.create(member.system(), member.address(),
                                 subscriber.getName());
                     } else {
                         return StreamUtils.protoToActorAddress(subscriber.getAddress());
@@ -108,7 +95,7 @@ public class ClusterPubsub<T> implements Pubsub<T> {
                 .collect(Collectors.toList());
     }
 
-    private void updateSubscriber(Member memberToRemove, Member memberToAdd) {
+    private void updateSubscriber(ClusterMember memberToRemove, ClusterMember memberToAdd) {
         try {
             var removeList = getAvailableSubscribers(memberToRemove);
             var addList = getAvailableSubscribers(memberToAdd);
@@ -147,6 +134,11 @@ public class ClusterPubsub<T> implements Pubsub<T> {
     @Override
     public void sendToOne(T msg, ActorRef<?> sender) {
         internalPubsub.sendToOne(msg, sender);
+    }
+
+    @Override
+    public EventDispatcher dispatcher() {
+        return internalPubsub.dispatcher();
     }
 
     @Override
@@ -211,5 +203,43 @@ public class ClusterPubsub<T> implements Pubsub<T> {
                 "topic=" + topic + ", " +
                 "msgType=" + msgType.name() +
                 "]";
+    }
+
+    private class ClusterPubsubListener extends Actor<ClusterEvent> {
+
+        protected ClusterPubsubListener(ActorContext<ClusterEvent> context) {
+            super(context);
+        }
+
+        @Override
+        public void onStart() {
+            cluster.addListener(self());
+        }
+
+        @Override
+        public void onReceive(ClusterEvent event) {
+            if (event instanceof MemberMetaInfoChanged(var member, var prev)) {
+                if (SUBSCRIBED_TOPIC.metaEquals(member.metaInfo(), prev)) {
+                    return;
+                }
+                updateSubscriber(member.withMetaInfo(prev), member);
+            } else if (event instanceof MemberStateChanged(var member, var from, var to)) {
+                if (from.ALIVE) {
+                    if (to.ALIVE) {
+                        return;
+                    }
+                    updateSubscriber(member, null);
+                } else if (to.ALIVE) {
+                    updateSubscriber(null, member);
+                }
+            } else if (event instanceof LocalMemberStopped) {
+                context().stop();
+            }
+        }
+
+        @Override
+        public MsgType<ClusterEvent> msgType() {
+            return MsgType.of(ClusterEvent.class);
+        }
     }
 }

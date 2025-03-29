@@ -50,6 +50,21 @@ public abstract class Actor<T> {
     }
 
     /**
+     * Returns the {@code ActorRef} of the sender that sent the current message to this actor, with
+     * a checked type.
+     *
+     * @param <P>         the type parameter representing the message type of the sender
+     * @param checkedType the {@code MsgType<P>} to check and cast the sender's message type
+     * @return the {@code ActorRef<P>} representing the sender of the current message, or a special
+     * {@code ActorRef.noSender()} if there is no sender (e.g., in case of a system message)
+     * @throws IllegalArgumentException if the checked type is not supported by the sender's message
+     *                                  type
+     */
+    public <P> ActorRef<P> sender(MsgType<P> checkedType) {
+        return context.sender(checkedType);
+    }
+
+    /**
      * Called when the actor is started. This method can be overridden to perform initialization
      * tasks that need to be executed when the actor is first created and before it begins
      * processing messages.
@@ -79,10 +94,16 @@ public abstract class Actor<T> {
      */
     public abstract void onReceive(T t);
 
+    /**
+     * Handles a signal received by the actor.
+     *
+     * <p>This method is called when the actor receives a {@code Signal}. It can be overridden to
+     * provide custom handling for signals, such as performing specific actions or updating the
+     * actor's state.
+     *
+     * @param signal the signal received by the actor
+     */
     public void onSignal(Signal signal) {
-        if (signal == InternalSignals.POISON_PILL) {
-            context().stop();
-        }
     }
 
     /**
@@ -96,7 +117,12 @@ public abstract class Actor<T> {
     }
 
     /**
-     * Called after the actor has been stopped.
+     * Called after the actor is stopped. This method can be overridden to perform any necessary
+     * finalization tasks that need to be executed after the actor has been terminated.
+     *
+     * <p>This is a good place to release any remaining resources, log final messages, or perform
+     * any other cleanup that should occur after the actor has stopped processing messages. The
+     * default implementation does nothing.
      */
     public void postStop() {
     }
@@ -109,6 +135,9 @@ public abstract class Actor<T> {
      * the failure
      */
     public FailureStrategy failureStrategy(Throwable throwable) {
+        if (throwable instanceof AssertionError) {
+            return FailureStrategy.SYSTEM_ERROR;
+        }
         return FailureStrategy.RESTART;
     }
 

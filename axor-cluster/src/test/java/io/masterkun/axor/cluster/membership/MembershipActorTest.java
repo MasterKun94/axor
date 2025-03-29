@@ -2,47 +2,22 @@ package io.masterkun.axor.cluster.membership;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import io.masterkun.axor.api.Actor;
+import io.masterkun.axor.api.ActorContext;
 import io.masterkun.axor.api.ActorRef;
 import io.masterkun.axor.api.ActorSystem;
-import io.masterkun.axor.cluster.LocalMemberState;
-import io.masterkun.axor.cluster.MemberState;
-import io.masterkun.axor.cluster.config.FailureDetectConfig;
-import io.masterkun.axor.cluster.config.JoinConfig;
-import io.masterkun.axor.cluster.config.LeaveConfig;
-import io.masterkun.axor.cluster.config.MemberManageConfig;
-import io.masterkun.axor.cluster.config.MembershipConfig;
+import io.masterkun.axor.api.Pubsub;
+import io.masterkun.axor.cluster.Cluster;
+import io.masterkun.axor.cluster.ClusterEvent;
+import io.masterkun.axor.cluster.singleton.SingletonSystem;
+import io.masterkun.axor.runtime.MsgType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Duration;
-import java.util.List;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 public class MembershipActorTest {
-
-    private static final MembershipConfig config = new MembershipConfig(
-            "default",
-            List.of("test"),
-            new JoinConfig(
-                    false,
-                    Duration.ofSeconds(10),
-                    "//localhost:10001"),
-            new LeaveConfig(
-                    Duration.ofSeconds(5),
-                    Duration.ofSeconds(30)),
-            new MemberManageConfig(
-                    0.8,
-                    10
-            ),
-            new FailureDetectConfig(
-                    true,
-                    Duration.ofSeconds(5),
-                    Duration.ofSeconds(20),
-                    Duration.ofSeconds(5),
-                    Duration.ofSeconds(30),
-                    Duration.ofSeconds(60),
-                    Duration.ofSeconds(120)
-            )
-    );
 
     private static ActorSystem createActorSystem(String name, int port) {
         Config config =
@@ -53,28 +28,15 @@ public class MembershipActorTest {
 
     private static void start(int port, Logger log) {
         ActorSystem system = createActorSystem("test", port);
-        ActorRef<MembershipMessage> actor = system.start(actorContext ->
-                        new MembershipActor(actorContext, config,
-                                new DefaultSplitBrainResolver(2, 2)),
-                "membership"
-        );
-        actor.tell(new MembershipMessage.AddListener(new MembershipListener() {
-            @Override
-            public void onLocalStateChange(LocalMemberState currentState) {
-                log.info("onLocalStateChange({})", currentState);
-            }
-
-            @Override
-            public void onMemberStateChange(Member member, MemberState from, MemberState to) {
-                log.info("onMemberStateChange(member={}, from={}, to={})", member, from, to);
-            }
-
-            @Override
-            public void onMemberUpdate(Member from, Member to) {
-                log.info("onMemberUpdate(from={}, to={})", from, to);
-            }
-        }, false));
-        actor.tell(MembershipMessage.JOIN);
+        Cluster cluster = Cluster.get("MembershipActorTest", system);
+        cluster.addListener(system.start(ClusterEventListener::new, "cluster_listener"));
+        system.start(ClusterSubscriber::new, "ClusterSubscriber");
+        SingletonSystem singletonSystem = SingletonSystem.get(cluster);
+        ActorRef<String> proxy = singletonSystem.getOrStart(ClusterPublisher::new,
+                MsgType.of(String.class), "ClusterPublisher");
+        system.getDispatcherGroup().nextDispatcher().scheduleAtFixedRate(() -> {
+            proxy.tell("Test");
+        }, 5, 5, TimeUnit.SECONDS);
     }
 
     public static class Node1 {
@@ -94,6 +56,91 @@ public class MembershipActorTest {
     public static class Node3 {
         public static void main(String[] args) {
             start(10003, LoggerFactory.getLogger(Node3.class));
+        }
+    }
+
+    private static class ClusterEventListener extends Actor<ClusterEvent> {
+        private static final Logger log = LoggerFactory.getLogger(ClusterEventListener.class);
+
+        protected ClusterEventListener(ActorContext<ClusterEvent> context) {
+            super(context);
+        }
+
+        @Override
+        public void onReceive(ClusterEvent clusterEvent) {
+            log.debug("Receive event: [{}]", clusterEvent);
+        }
+
+        @Override
+        public MsgType<ClusterEvent> msgType() {
+            return MsgType.of(ClusterEvent.class);
+        }
+    }
+
+    private static class ClusterPublisher extends Actor<String> {
+        private static final Logger log = LoggerFactory.getLogger(ClusterPublisher.class);
+        private Pubsub<String> pubsub;
+        private ScheduledFuture<?> s;
+
+        protected ClusterPublisher(ActorContext<String> context) {
+            super(context);
+        }
+
+        @Override
+        public void onStart() {
+            pubsub = Cluster.get("MembershipActorTest", context().system())
+                    .pubsub("SingletonPubsub", MsgType.of(String.class));
+            s = context().dispatcher().scheduleAtFixedRate(() -> {
+                pubsub.publishToAll("Hello", self());
+            }, 1, 1, TimeUnit.SECONDS);
+        }
+
+        @Override
+        public void onReceive(String s) {
+            log.info("Receive {} from [{}]", s, sender());
+        }
+
+        @Override
+        public void preStop() {
+            s.cancel(true);
+        }
+
+        @Override
+        public MsgType<String> msgType() {
+            return MsgType.of(String.class);
+        }
+    }
+
+    private static class ClusterSubscriber extends Actor<String> {
+        private static final Logger log = LoggerFactory.getLogger(ClusterSubscriber.class);
+
+        protected ClusterSubscriber(ActorContext<String> context) {
+            super(context);
+        }
+
+        @Override
+        public void onStart() {
+            Cluster.get("MembershipActorTest", context().system())
+                    .pubsub("SingletonPubsub", MsgType.of(String.class))
+                    .subscribe(self());
+        }
+
+        @Override
+        public void onReceive(String s) {
+            log.info("Receive {} from [{}]", s, sender());
+            sender(MsgType.of(String.class)).tell("Hi", sender());
+        }
+
+        @Override
+        public void preStop() {
+            Cluster.get("MembershipActorTest", context().system())
+                    .pubsub("SingletonPubsub", MsgType.of(String.class))
+                    .unsubscribe(self());
+        }
+
+        @Override
+        public MsgType<String> msgType() {
+            return MsgType.of(String.class);
         }
     }
 }

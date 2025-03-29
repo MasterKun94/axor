@@ -89,11 +89,11 @@ final class FailureDetectorImpl implements FailureDetector {
                 long uid = member.uid();
                 if (from.SERVABLE) {
                     if (!to.SERVABLE) {
-                        LOG.warn("Member {} not servable", member);
+                        LOG.warn("{} not servable", member);
                         servableMemberUidList.remove(uid);
                     }
                 } else if (to.SERVABLE) {
-                    LOG.info("Member {} become servable", member);
+                    LOG.info("{} become servable", member);
                     servableMemberUidList.add(uid);
                 }
                 var holder = getHolder(uid);

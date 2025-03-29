@@ -1,5 +1,6 @@
 package io.masterkun.axor.api.impl;
 
+import io.masterkun.axor.api.ActorContext;
 import io.masterkun.axor.api.ActorRef;
 import io.masterkun.axor.api.ActorRefRich;
 import io.masterkun.axor.api.ActorSystem;
@@ -9,7 +10,7 @@ import io.masterkun.axor.runtime.EventDispatcher;
 public class ActorUnsafe {
     public static boolean isStopped(ActorRef<?> ref) {
         if (ref instanceof LocalActorRef<?> l) {
-            return l.isStopped();
+            return l.getState() == LocalActorRef.STOPPED_STATE;
         } else if (ref instanceof ForwardingActorRef<?> f) {
             return isStopped(f.getDelegate());
         } else {
@@ -55,6 +56,10 @@ public class ActorUnsafe {
         return ((ActorRefRich<?>) ref).getStreamManager().getExecutor();
     }
 
+    public static <T> void tellInline(ActorRef<T> ref, T msg) {
+        tellInline(ref, msg, ActorRef.noSender());
+    }
+
     public static <T> void tellInline(ActorRef<T> ref, T msg, ActorRef<?> sender) {
         ((ActorRefRich<T>) ref).tellInline(msg, sender);
     }
@@ -67,5 +72,9 @@ public class ActorUnsafe {
         } else {
             throw new IllegalArgumentException("Not a LocalActorRef");
         }
+    }
+
+    public static boolean isStopInvoked(ActorContext<?> context) {
+        return ((ActorContextImpl<?>) context).state() != LocalActorRef.RUNNING_STATE;
     }
 }

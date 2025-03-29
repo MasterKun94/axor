@@ -131,7 +131,7 @@ public class LocalPubsub<T> implements Pubsub<T> {
         }
         for (Iterator<ActorRef<? super T>> iterator = sendList.iterator(); iterator.hasNext(); ) {
             ActorRef<? super T> actorRef = iterator.next();
-            if (actorRef instanceof LocalActorRef<? super T> l && l.isStopped()) {
+            if (actorRef instanceof LocalActorRef<? super T> l && ActorUnsafe.isStopped(l)) {
                 iterator.remove();
                 LOG.warn("{} already stopped", actorRef);
                 continue;
@@ -153,6 +153,11 @@ public class LocalPubsub<T> implements Pubsub<T> {
         } else {
             executor.execute(() -> doSendToOne(msg, sender));
         }
+    }
+
+    @Override
+    public EventDispatcher dispatcher() {
+        return executor;
     }
 
     private void doSendToOne(T msg, ActorRef<?> sender) {

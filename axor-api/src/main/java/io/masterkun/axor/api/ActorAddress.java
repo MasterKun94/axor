@@ -7,7 +7,7 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 
 public final class ActorAddress {
-    private static final Pattern PATTERN = Pattern.compile("^[_a-zA-Z][_a-zA-Z0-9]*$");
+    private static final Pattern PATTERN = Pattern.compile("^[_a-zA-Z][_/a-zA-Z0-9]*$");
     private final StreamAddress streamAddress;
 
     private ActorAddress(StreamAddress streamAddress) {

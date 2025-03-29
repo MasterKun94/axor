@@ -25,20 +25,16 @@ message SubscribedTopics {
 }
 
 message Singletons {
-  repeated string elems = 1;
+  map<string, bool> states = 1;
 }
 
 message SingletonManagerMessage {
-  message Ack {
-    axor.ActorAddress address = 1;
+  enum Type {
+    NONE = 0;
+    INSTANCE_READY = 1;
+    INSTANCE_ACK = 2;
   }
-  message Status {
-    string singleton = 1;
-  }
-
-  oneof msg {
-    Ack ack = 1;
-    Status status = 2;
-  }
+  Type type = 1;
+  int64 uid = 2;
 }
 
