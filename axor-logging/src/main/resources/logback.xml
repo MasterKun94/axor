@@ -8,7 +8,7 @@
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
             <level>INFO</level>
         </filter>
-        <filter class="io.masterkun.axor.testkit.LogBackFilter"/>
+        <filter class="io.masterkun.axor.logging.LogBackFilter"/>
         <encoder>
             <pattern>
                 ts="%d{ISO8601}" level=%-5level th=%thread logger=%logger actor=%X{actor} msg="%msg"%n

@@ -18,6 +18,9 @@
         <module>axor-runtime-stream-grpc</module>
         <module>axor-core</module>
         <module>axor-cluster</module>
+        <module>axor-examples</module>
+        <module>axor-logging</module>
+        <module>axor-logging-log4j2</module>
     </modules>
 
     <repositories>
@@ -52,6 +55,7 @@
         <grpc.version>1.68.1</grpc.version>
         <slf4j.version>2.0.7</slf4j.version>
         <log4j2.version>2.20.0</log4j2.version>
+        <logback.verion>1.5.18</logback.verion>
         <junit.version>4.13.2</junit.version>
         <mockito.version>5.14.2</mockito.version>
     </properties>
@@ -99,9 +103,25 @@
                 <version>${project.version}</version>
             </dependency>
             <dependency>
+                <groupId>io.masterkun.axor</groupId>
+                <artifactId>axor-logging</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.masterkun.axor</groupId>
+                <artifactId>axor-logging-log4j2</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
                 <groupId>io.masterkun.commons</groupId>
                 <artifactId>stateeasy-persistence</artifactId>
                 <version>${stateeasy.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>ch.qos.logback</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -168,7 +188,11 @@
                 <artifactId>jctools-core</artifactId>
                 <version>${jctools.version}</version>
             </dependency>
-
+            <dependency>
+                <groupId>ch.qos.logback</groupId>
+                <artifactId>logback-classic</artifactId>
+                <version>${logback.verion}</version>
+            </dependency>
             <dependency>
                 <groupId>org.apache.logging.log4j</groupId>
                 <artifactId>log4j-bom</artifactId>

@@ -1,4 +1,4 @@
-package io.masterkun.axor.testkit;
+package io.masterkun.axor.logging;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.spi.ILoggingEvent;

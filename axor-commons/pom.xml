@@ -11,6 +11,30 @@
 
     <artifactId>axor-commons</artifactId>
 
+    <profiles>
+        <profile>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <id>logging-default</id>
+            <dependencies>
+                <dependency>
+                    <groupId>io.masterkun.axor</groupId>
+                    <artifactId>axor-logging</artifactId>
+                </dependency>
+            </dependencies>
+        </profile>
+        <profile>
+            <id>logging-log4j2</id>
+            <dependencies>
+                <dependency>
+                    <groupId>io.masterkun.axor</groupId>
+                    <artifactId>axor-logging-log4j2</artifactId>
+                </dependency>
+            </dependencies>
+        </profile>
+    </profiles>
+
     <dependencies>
         <dependency>
             <groupId>com.typesafe</groupId>
