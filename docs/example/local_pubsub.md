@@ -9,10 +9,9 @@
 ## 1. 导入必要的包
 
 ```java
-import io.masterkun.axor.api.*;
-import io.masterkun.axor.runtime.MsgType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import io.axor.runtime.MsgType;
+
 ```
 
 ## 2. 创建 Subscriber
@@ -88,10 +87,10 @@ public static void main(String[] args) throws Exception {
 当运行上述代码时，控制台将显示类似以下的日志输出：
 
 ```plain text
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._02_LocalPubsubExample$Subscriber actor=example@:/Subscriber1 msg="Receive: Message Publish To All : 0 from ActorRef[no_sender@:/no_sender]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._02_LocalPubsubExample$Subscriber actor=example@:/Subscriber2 msg="Receive: Message Publish To All : 0 from ActorRef[no_sender@:/no_sender]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._02_LocalPubsubExample$Subscriber actor=example@:/Subscriber3 msg="Receive: Message Publish To All : 0 from ActorRef[no_sender@:/no_sender]"
+ts="..." level=INFO  th="..." logger=io.axor.example._02_LocalPubsubExample$Subscriber actor=example@:/Subscriber1 msg="Receive: Message Publish To All : 0 from ActorRef[no_sender@:/no_sender]"
+ts="..." level=INFO  th="..." logger=io.axor.example._02_LocalPubsubExample$Subscriber actor=example@:/Subscriber2 msg="Receive: Message Publish To All : 0 from ActorRef[no_sender@:/no_sender]"
+ts="..." level=INFO  th="..." logger=io.axor.example._02_LocalPubsubExample$Subscriber actor=example@:/Subscriber3 msg="Receive: Message Publish To All : 0 from ActorRef[no_sender@:/no_sender]"
 ...
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._02_LocalPubsubExample$Subscriber actor=example@:/Subscriber1 msg="Receive: Message Send To One : 0 from ActorRef[no_sender@:/no_sender]"
+ts="..." level=INFO  th="..." logger=io.axor.example._02_LocalPubsubExample$Subscriber actor=example@:/Subscriber1 msg="Receive: Message Send To One : 0 from ActorRef[no_sender@:/no_sender]"
 ...
 ```

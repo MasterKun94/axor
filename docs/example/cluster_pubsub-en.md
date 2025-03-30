@@ -10,9 +10,7 @@ facilitating communication between these actors.
 
 ```java
 import com.typesafe.config.Config;
-import io.masterkun.axor.api.*;
-import io.masterkun.axor.cluster.*;
-import io.masterkun.axor.runtime.MsgType;
+import io.axor.runtime.MsgType;
 
 import static com.typesafe.config.ConfigFactory.load;
 import static com.typesafe.config.ConfigFactory.parseString;
@@ -181,15 +179,15 @@ public static class Node3 {
 When running the above code, the console will display log output similar to the following:
 
 ```plain text
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._05_ClusterPubsubExample$Subscriber actor=example@:/subscriber msg="Receive: SendToOneMessage[id=4, content=153e3d82-ade3-45e1-bd49-92467f9caec8] from ActorRef[example@localhost:1101/publisher]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._05_ClusterPubsubExample$Subscriber actor=example@:/subscriber msg="Receive: PublishMessage[id=0, content=267e951a-cb9c-4e36-8950-7b8610b958ac] from ActorRef[example@localhost:1101/publisher]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._05_ClusterPubsubExample$Subscriber actor=example@:/subscriber msg="Receive: SendToOneMessage[id=2, content=3420da9e-d4e5-4a70-bdac-62769d54d484] from ActorRef[example@localhost:1102/publisher]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._05_ClusterPubsubExample$Subscriber actor=example@:/subscriber msg="Receive: SendToOneMessage[id=0, content=4435d6f3-222a-4f57-9e0b-79a06fc7e103] from ActorRef[example@:/publisher]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._05_ClusterPubsubExample$Subscriber actor=example@:/subscriber msg="Receive: PublishMessage[id=0, content=dc5b97e0-85b3-44c5-a45e-100a7980715f] from ActorRef[example@localhost:1102/publisher]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._05_ClusterPubsubExample$Subscriber actor=example@:/subscriber msg="Receive: SendToOneMessage[id=7, content=2e9d9b82-5def-4665-be83-14617cb7c4f1] from ActorRef[example@localhost:1101/publisher]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._05_ClusterPubsubExample$Subscriber actor=example@:/subscriber msg="Receive: SendToOneMessage[id=5, content=9f1a5073-8324-4edf-a47b-61726b415e30] from ActorRef[example@localhost:1102/publisher]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._05_ClusterPubsubExample$Subscriber actor=example@:/subscriber msg="Receive: SendToOneMessage[id=3, content=6a7aa2f6-af6f-42d2-b525-9c12daa214e7] from ActorRef[example@:/publisher]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._05_ClusterPubsubExample$Subscriber actor=example@:/subscriber msg="Receive: PublishMessage[id=0, content=d5454d56-161d-4ad7-832a-39a7585d5761] from ActorRef[example@:/publisher]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._05_ClusterPubsubExample$Subscriber actor=example@:/subscriber msg="Receive: PublishMessage[id=1, content=605990dc-ac40-44d5-89e8-0330af7bcecd] from ActorRef[example@localhost:1101/publisher]"
+ts="..." level=INFO  th="..." logger=io.axor.example._05_ClusterPubsubExample$Subscriber actor=example@:/subscriber msg="Receive: SendToOneMessage[id=4, content=153e3d82-ade3-45e1-bd49-92467f9caec8] from ActorRef[example@localhost:1101/publisher]"
+ts="..." level=INFO  th="..." logger=io.axor.example._05_ClusterPubsubExample$Subscriber actor=example@:/subscriber msg="Receive: PublishMessage[id=0, content=267e951a-cb9c-4e36-8950-7b8610b958ac] from ActorRef[example@localhost:1101/publisher]"
+ts="..." level=INFO  th="..." logger=io.axor.example._05_ClusterPubsubExample$Subscriber actor=example@:/subscriber msg="Receive: SendToOneMessage[id=2, content=3420da9e-d4e5-4a70-bdac-62769d54d484] from ActorRef[example@localhost:1102/publisher]"
+ts="..." level=INFO  th="..." logger=io.axor.example._05_ClusterPubsubExample$Subscriber actor=example@:/subscriber msg="Receive: SendToOneMessage[id=0, content=4435d6f3-222a-4f57-9e0b-79a06fc7e103] from ActorRef[example@:/publisher]"
+ts="..." level=INFO  th="..." logger=io.axor.example._05_ClusterPubsubExample$Subscriber actor=example@:/subscriber msg="Receive: PublishMessage[id=0, content=dc5b97e0-85b3-44c5-a45e-100a7980715f] from ActorRef[example@localhost:1102/publisher]"
+ts="..." level=INFO  th="..." logger=io.axor.example._05_ClusterPubsubExample$Subscriber actor=example@:/subscriber msg="Receive: SendToOneMessage[id=7, content=2e9d9b82-5def-4665-be83-14617cb7c4f1] from ActorRef[example@localhost:1101/publisher]"
+ts="..." level=INFO  th="..." logger=io.axor.example._05_ClusterPubsubExample$Subscriber actor=example@:/subscriber msg="Receive: SendToOneMessage[id=5, content=9f1a5073-8324-4edf-a47b-61726b415e30] from ActorRef[example@localhost:1102/publisher]"
+ts="..." level=INFO  th="..." logger=io.axor.example._05_ClusterPubsubExample$Subscriber actor=example@:/subscriber msg="Receive: SendToOneMessage[id=3, content=6a7aa2f6-af6f-42d2-b525-9c12daa214e7] from ActorRef[example@:/publisher]"
+ts="..." level=INFO  th="..." logger=io.axor.example._05_ClusterPubsubExample$Subscriber actor=example@:/subscriber msg="Receive: PublishMessage[id=0, content=d5454d56-161d-4ad7-832a-39a7585d5761] from ActorRef[example@:/publisher]"
+ts="..." level=INFO  th="..." logger=io.axor.example._05_ClusterPubsubExample$Subscriber actor=example@:/subscriber msg="Receive: PublishMessage[id=1, content=605990dc-ac40-44d5-89e8-0330af7bcecd] from ActorRef[example@localhost:1101/publisher]"
 ...
 ```

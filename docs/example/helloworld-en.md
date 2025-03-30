@@ -9,8 +9,8 @@ Actors.
 ## 1. Importing Necessary Packages
 
 ```java
-import io.masterkun.axor.api.*;
-import io.masterkun.axor.runtime.MsgType;
+
+import io.axor.runtime.MsgType;
 ```
 
 ## 2. Defining Message Types
@@ -93,8 +93,8 @@ tell(new Hello("Hello"),bot); // Sending a message to HelloWorldActor
 After execution, the log output is as follows:
 
 ```plain text
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._01_HelloWorldExample$HelloWorldActor actor=example@:/HelloWorld msg="Receive: Hello[msg=Hello] from ActorRef[example@:/HelloBot]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._01_HelloWorldExample$HelloBot actor=example@:/HelloBot msg="Receive: HelloReply[msg=Hello] from ActorRef[example@:/HelloWorld]"
+ts="..." level=INFO  th="..." logger=io.axor.example._01_HelloWorldExample$HelloWorldActor actor=example@:/HelloWorld msg="Receive: Hello[msg=Hello] from ActorRef[example@:/HelloBot]"
+ts="..." level=INFO  th="..." logger=io.axor.example._01_HelloWorldExample$HelloBot actor=example@:/HelloBot msg="Receive: HelloReply[msg=Hello] from ActorRef[example@:/HelloWorld]"
 ```
 
 ## 6. Using Ask to Get a Response
@@ -116,6 +116,6 @@ info("Receive reply: {} from {} by ask pattern",reply, actor);
 After execution, the log output is as follows:
 
 ```plain text
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._01_HelloWorldExample$HelloWorldActor actor=example@:/HelloWorld msg="Receive: Hello[msg=Greeting] from ActorRef[example@:/sys/ask-pattern_0]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._01_HelloWorldExample actor= msg="Receive reply: HelloReply[msg=Greeting] from ActorRef[example@:/HelloWorld] by ask pattern"
+ts="..." level=INFO  th="..." logger=io.axor.example._01_HelloWorldExample$HelloWorldActor actor=example@:/HelloWorld msg="Receive: Hello[msg=Greeting] from ActorRef[example@:/sys/ask-pattern_0]"
+ts="..." level=INFO  th="..." logger=io.axor.example._01_HelloWorldExample actor= msg="Receive reply: HelloReply[msg=Greeting] from ActorRef[example@:/HelloWorld] by ask pattern"
 ```

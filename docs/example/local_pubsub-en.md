@@ -11,10 +11,9 @@ subscribers.
 ## 1. Importing Necessary Packages
 
 ```java
-import io.masterkun.axor.api.*;
-import io.masterkun.axor.runtime.MsgType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import io.axor.runtime.MsgType;
+
 ```
 
 ## 2. Creating the Subscriber
@@ -92,10 +91,10 @@ public static void main(String[] args) throws Exception {
 When running the above code, the console will display log output similar to the following:
 
 ```
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._02_LocalPubsubExample$Subscriber actor=example@:/Subscriber1 msg="Receive: Message Publish To All : 0 from ActorRef[no_sender@:/no_sender]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._02_LocalPubsubExample$Subscriber actor=example@:/Subscriber2 msg="Receive: Message Publish To All : 0 from ActorRef[no_sender@:/no_sender]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._02_LocalPubsubExample$Subscriber actor=example@:/Subscriber3 msg="Receive: Message Publish To All : 0 from ActorRef[no_sender@:/no_sender]"
+ts="..." level=INFO  th="..." logger=io.axor.example._02_LocalPubsubExample$Subscriber actor=example@:/Subscriber1 msg="Receive: Message Publish To All : 0 from ActorRef[no_sender@:/no_sender]"
+ts="..." level=INFO  th="..." logger=io.axor.example._02_LocalPubsubExample$Subscriber actor=example@:/Subscriber2 msg="Receive: Message Publish To All : 0 from ActorRef[no_sender@:/no_sender]"
+ts="..." level=INFO  th="..." logger=io.axor.example._02_LocalPubsubExample$Subscriber actor=example@:/Subscriber3 msg="Receive: Message Publish To All : 0 from ActorRef[no_sender@:/no_sender]"
 ...
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._02_LocalPubsubExample$Subscriber actor=example@:/Subscriber1 msg="Receive: Message Send To One : 0 from ActorRef[no_sender@:/no_sender]"
+ts="..." level=INFO  th="..." logger=io.axor.example._02_LocalPubsubExample$Subscriber actor=example@:/Subscriber1 msg="Receive: Message Send To One : 0 from ActorRef[no_sender@:/no_sender]"
 ...
 ```

@@ -43,7 +43,7 @@ maven:
 ```xml
 
 <dependency>
-    <groupId>io.masterkun.axor</groupId>
+    <groupId>io.axor</groupId>
     <artifactId>axor-cluster</artifactId>
     <version>0.1.0-SNAPSHOT</version>
 </dependency>
@@ -51,24 +51,24 @@ maven:
 
 ### Usage Examples
 
-- [**HelloWorld Example**](docs/example/helloworld.md): Demonstrates how to use the Axor framework
+- [**HelloWorld Example**](docs/example/helloworld-en.md): Demonstrates how to use the Axor framework
   to create a simple Actor system, including defining message types, creating Actors, and
   implementing basic inter-Actor communication.
-- [**Remote Communication Example**](docs/example/remote_contact.md): Shows the remote message
+- [**Remote Communication Example**](docs/example/remote_contact-en.md): Shows the remote message
   passing process between two different systems' Actors in Axor through a server-client model,
   involving the definition of message types, Actor creation, and scheduled message sending
   mechanisms.
-- [**Local Publish-Subscribe Example**](docs/example/local_pubsub.md): Illustrates how to implement
+- [**Local Publish-Subscribe Example**](docs/example/local_pubsub-en.md): Illustrates how to implement
   a local publish-subscribe pattern using Axor, including setting up the Actor system, creating
   subscribers, and publishing messages.
-- [**Cluster Example**](docs/example/cluster_simple.md): Introduces how to build and manage a
+- [**Cluster Example**](docs/example/cluster_simple-en.md): Introduces how to build and manage a
   multi-node cluster using Axor, covering member state listening, metadata updates, and other
   functionalities. This example also demonstrates cluster discovery and management characteristics
   under the Gossip protocol.
-- [**Cluster Publish-Subscribe Example**](docs/example/cluster_pubsub.md): Explains how to implement
+- [**Cluster Publish-Subscribe Example**](docs/example/cluster_pubsub-en.md): Explains how to implement
   a publish-subscribe pattern within an Axor cluster, involving defining message types, creating
   publisher and subscriber Actors, and their communications.
-- [**Cluster Singleton Example**](docs/example/cluster_singleton.md): Provides guidance on
+- [**Cluster Singleton Example**](docs/example/cluster_singleton-en.md): Provides guidance on
   configuring and using singleton Actors in an Axor cluster environment, suitable for scenarios
   requiring uniqueness.
 

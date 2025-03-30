@@ -6,15 +6,10 @@
 
 ```java
 import com.typesafe.config.Config;
-import io.masterkun.axor.api.*;
-import io.masterkun.axor.cluster.Cluster;
-import io.masterkun.axor.cluster.singleton.SingletonSystem;
-import io.masterkun.axor.runtime.MsgType;
-import io.masterkun.axor.runtime.serde.kryo.KryoSerdeFactory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.concurrent.TimeUnit;
+import io.axor.cluster.Cluster;
+import io.axor.cluster.singleton.SingletonSystem;
+import io.axor.runtime.MsgType;
+import io.axor.runtime.serde.kryo.KryoSerdeFactory;
 
 import static com.typesafe.config.ConfigFactory.load;
 import static com.typesafe.config.ConfigFactory.parseString;
@@ -146,25 +141,25 @@ public static class Node3 {
 #### 非单例节点
 
 ```plain text
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._06_ClusterSingletonExample$HelloBot actor=example@:/HelloBot msg="Receive: HelloBack[msg=Hello] from ActorRef[example@localhost:1101/cluster/singleton/HelloSingleton/instance]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._06_ClusterSingletonExample$HelloBot actor=example@:/HelloBot msg="Receive: HelloBack[msg=Hello] from ActorRef[example@localhost:1101/cluster/singleton/HelloSingleton/instance]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._06_ClusterSingletonExample$HelloBot actor=example@:/HelloBot msg="Receive: HelloBack[msg=Hello] from ActorRef[example@localhost:1101/cluster/singleton/HelloSingleton/instance]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._06_ClusterSingletonExample$HelloBot actor=example@:/HelloBot msg="Receive: HelloBack[msg=Hello] from ActorRef[example@localhost:1101/cluster/singleton/HelloSingleton/instance]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._06_ClusterSingletonExample$HelloBot actor=example@:/HelloBot msg="Receive: HelloBack[msg=Hello] from ActorRef[example@localhost:1101/cluster/singleton/HelloSingleton/instance]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._06_ClusterSingletonExample$HelloBot actor=example@:/HelloBot msg="Receive: HelloBack[msg=Hello] from ActorRef[example@localhost:1101/cluster/singleton/HelloSingleton/instance]"
+ts="..." level=INFO  th="..." logger=io.axor.example._06_ClusterSingletonExample$HelloBot actor=example@:/HelloBot msg="Receive: HelloBack[msg=Hello] from ActorRef[example@localhost:1101/cluster/singleton/HelloSingleton/instance]"
+ts="..." level=INFO  th="..." logger=io.axor.example._06_ClusterSingletonExample$HelloBot actor=example@:/HelloBot msg="Receive: HelloBack[msg=Hello] from ActorRef[example@localhost:1101/cluster/singleton/HelloSingleton/instance]"
+ts="..." level=INFO  th="..." logger=io.axor.example._06_ClusterSingletonExample$HelloBot actor=example@:/HelloBot msg="Receive: HelloBack[msg=Hello] from ActorRef[example@localhost:1101/cluster/singleton/HelloSingleton/instance]"
+ts="..." level=INFO  th="..." logger=io.axor.example._06_ClusterSingletonExample$HelloBot actor=example@:/HelloBot msg="Receive: HelloBack[msg=Hello] from ActorRef[example@localhost:1101/cluster/singleton/HelloSingleton/instance]"
+ts="..." level=INFO  th="..." logger=io.axor.example._06_ClusterSingletonExample$HelloBot actor=example@:/HelloBot msg="Receive: HelloBack[msg=Hello] from ActorRef[example@localhost:1101/cluster/singleton/HelloSingleton/instance]"
+ts="..." level=INFO  th="..." logger=io.axor.example._06_ClusterSingletonExample$HelloBot actor=example@:/HelloBot msg="Receive: HelloBack[msg=Hello] from ActorRef[example@localhost:1101/cluster/singleton/HelloSingleton/instance]"
 ...
 ```
 
 ### 单例节点
 
 ```plain text
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._06_ClusterSingletonExample$HelloWorldActor actor=example@:/cluster/singleton/HelloSingleton/instance msg="Receive: Hello[msg=Hello] from ActorRef[example@localhost:1102/HelloBot]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._06_ClusterSingletonExample$HelloWorldActor actor=example@:/cluster/singleton/HelloSingleton/instance msg="Receive: Hello[msg=Hello] from ActorRef[example@localhost:1103/HelloBot]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._06_ClusterSingletonExample$HelloWorldActor actor=example@:/cluster/singleton/HelloSingleton/instance msg="Receive: Hello[msg=Hello] from ActorRef[example@:/HelloBot]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._06_ClusterSingletonExample$HelloBot actor=example@:/HelloBot msg="Receive: HelloBack[msg=Hello] from ActorRef[example@:/cluster/singleton/HelloSingleton/instance]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._06_ClusterSingletonExample$HelloWorldActor actor=example@:/cluster/singleton/HelloSingleton/instance msg="Receive: Hello[msg=Hello] from ActorRef[example@localhost:1102/HelloBot]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._06_ClusterSingletonExample$HelloWorldActor actor=example@:/cluster/singleton/HelloSingleton/instance msg="Receive: Hello[msg=Hello] from ActorRef[example@localhost:1103/HelloBot]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._06_ClusterSingletonExample$HelloWorldActor actor=example@:/cluster/singleton/HelloSingleton/instance msg="Receive: Hello[msg=Hello] from ActorRef[example@:/HelloBot]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._06_ClusterSingletonExample$HelloBot actor=example@:/HelloBot msg="Receive: HelloBack[msg=Hello] from ActorRef[example@:/cluster/singleton/HelloSingleton/instance]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._06_ClusterSingletonExample$HelloWorldActor actor=example@:/cluster/singleton/HelloSingleton/instance msg="Receive: Hello[msg=Hello] from ActorRef[example@localhost:1102/HelloBot]"
+ts="..." level=INFO  th="..." logger=io.axor.example._06_ClusterSingletonExample$HelloWorldActor actor=example@:/cluster/singleton/HelloSingleton/instance msg="Receive: Hello[msg=Hello] from ActorRef[example@localhost:1102/HelloBot]"
+ts="..." level=INFO  th="..." logger=io.axor.example._06_ClusterSingletonExample$HelloWorldActor actor=example@:/cluster/singleton/HelloSingleton/instance msg="Receive: Hello[msg=Hello] from ActorRef[example@localhost:1103/HelloBot]"
+ts="..." level=INFO  th="..." logger=io.axor.example._06_ClusterSingletonExample$HelloWorldActor actor=example@:/cluster/singleton/HelloSingleton/instance msg="Receive: Hello[msg=Hello] from ActorRef[example@:/HelloBot]"
+ts="..." level=INFO  th="..." logger=io.axor.example._06_ClusterSingletonExample$HelloBot actor=example@:/HelloBot msg="Receive: HelloBack[msg=Hello] from ActorRef[example@:/cluster/singleton/HelloSingleton/instance]"
+ts="..." level=INFO  th="..." logger=io.axor.example._06_ClusterSingletonExample$HelloWorldActor actor=example@:/cluster/singleton/HelloSingleton/instance msg="Receive: Hello[msg=Hello] from ActorRef[example@localhost:1102/HelloBot]"
+ts="..." level=INFO  th="..." logger=io.axor.example._06_ClusterSingletonExample$HelloWorldActor actor=example@:/cluster/singleton/HelloSingleton/instance msg="Receive: Hello[msg=Hello] from ActorRef[example@localhost:1103/HelloBot]"
+ts="..." level=INFO  th="..." logger=io.axor.example._06_ClusterSingletonExample$HelloWorldActor actor=example@:/cluster/singleton/HelloSingleton/instance msg="Receive: Hello[msg=Hello] from ActorRef[example@:/HelloBot]"
+ts="..." level=INFO  th="..." logger=io.axor.example._06_ClusterSingletonExample$HelloBot actor=example@:/HelloBot msg="Receive: HelloBack[msg=Hello] from ActorRef[example@:/cluster/singleton/HelloSingleton/instance]"
+ts="..." level=INFO  th="..." logger=io.axor.example._06_ClusterSingletonExample$HelloWorldActor actor=example@:/cluster/singleton/HelloSingleton/instance msg="Receive: Hello[msg=Hello] from ActorRef[example@localhost:1102/HelloBot]"
 ```

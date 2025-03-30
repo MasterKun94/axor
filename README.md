@@ -31,7 +31,7 @@ maven：
 ```xml
 
 <dependency>
-    <groupId>io.masterkun.axor</groupId>
+    <groupId>io.axor</groupId>
     <artifactId>axor-cluster</artifactId>
     <version>0.1.0-SNAPSHOT</version>
 </dependency>

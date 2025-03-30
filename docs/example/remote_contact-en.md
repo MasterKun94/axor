@@ -14,11 +14,11 @@ server responds with `Pong` messages.
 
 ``` java
 import com.typesafe.config.Config;
-import io.masterkun.axor.api.*;
-import io.masterkun.axor.exception.ActorNotFoundException;
-import io.masterkun.axor.exception.IllegalMsgTypeException;
-import io.masterkun.axor.runtime.MsgType;
-import io.masterkun.axor.runtime.serde.kryo.KryoSerdeFactory;
+import io.axor.api.*;
+import io.axor.exception.ActorNotFoundException;
+import io.axor.exception.IllegalMsgTypeException;
+import io.axor.runtime.MsgType;
+import io.axor.runtime.serde.kryo.KryoSerdeFactory;
 ```
 
 ## 2. Defining Message Types
@@ -141,17 +141,17 @@ When running the above code, the console will display log output similar to the 
 #### node1
 
 ```plain text
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._03_RemoteContactExample$ServerActor actor=example@:/serverActor msg="Receive: Ping[id=0] from ActorRef[example@localhost:1102/clientActor]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._03_RemoteContactExample$ServerActor actor=example@:/serverActor msg="Receive: Ping[id=1] from ActorRef[example@localhost:1102/clientActor]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._03_RemoteContactExample$ServerActor actor=example@:/serverActor msg="Receive: Ping[id=2] from ActorRef[example@localhost:1102/clientActor]"
+ts="..." level=INFO  th="..." logger=io.axor.example._03_RemoteContactExample$ServerActor actor=example@:/serverActor msg="Receive: Ping[id=0] from ActorRef[example@localhost:1102/clientActor]"
+ts="..." level=INFO  th="..." logger=io.axor.example._03_RemoteContactExample$ServerActor actor=example@:/serverActor msg="Receive: Ping[id=1] from ActorRef[example@localhost:1102/clientActor]"
+ts="..." level=INFO  th="..." logger=io.axor.example._03_RemoteContactExample$ServerActor actor=example@:/serverActor msg="Receive: Ping[id=2] from ActorRef[example@localhost:1102/clientActor]"
 ...
 ```
 
 #### node2
 
 ```plain text
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._03_RemoteContactExample$ClientActor actor=example@:/clientActor msg="Receive: Pong[id=0] from ActorRef[example@localhost:1101/serverActor]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._03_RemoteContactExample$ClientActor actor=example@:/clientActor msg="Receive: Pong[id=1] from ActorRef[example@localhost:1101/serverActor]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._03_RemoteContactExample$ClientActor actor=example@:/clientActor msg="Receive: Pong[id=2] from ActorRef[example@localhost:1101/serverActor]"
+ts="..." level=INFO  th="..." logger=io.axor.example._03_RemoteContactExample$ClientActor actor=example@:/clientActor msg="Receive: Pong[id=0] from ActorRef[example@localhost:1101/serverActor]"
+ts="..." level=INFO  th="..." logger=io.axor.example._03_RemoteContactExample$ClientActor actor=example@:/clientActor msg="Receive: Pong[id=1] from ActorRef[example@localhost:1101/serverActor]"
+ts="..." level=INFO  th="..." logger=io.axor.example._03_RemoteContactExample$ClientActor actor=example@:/clientActor msg="Receive: Pong[id=2] from ActorRef[example@localhost:1101/serverActor]"
 ...
 ```

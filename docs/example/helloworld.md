@@ -8,8 +8,8 @@
 ## 1. 导入必要的包
 
 ```java
-import io.masterkun.axor.api.*;
-import io.masterkun.axor.runtime.MsgType;
+
+import io.axor.runtime.MsgType;
 ```
 
 ## 2. 定义消息类型
@@ -90,8 +90,8 @@ tell(new Hello("Hello"),bot); // 向 HelloWorldActor 发送消息
 执行后日志输出：
 
 ```text
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._01_HelloWorldExample$HelloWorldActor actor=example@:/HelloWorld msg="Receive: Hello[msg=Hello] from ActorRef[example@:/HelloBot]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._01_HelloWorldExample$HelloBot actor=example@:/HelloBot msg="Receive: HelloReply[msg=Hello] from ActorRef[example@:/HelloWorld]"
+ts="..." level=INFO  th="..." logger=io.axor.example._01_HelloWorldExample$HelloWorldActor actor=example@:/HelloWorld msg="Receive: Hello[msg=Hello] from ActorRef[example@:/HelloBot]"
+ts="..." level=INFO  th="..." logger=io.axor.example._01_HelloWorldExample$HelloBot actor=example@:/HelloBot msg="Receive: HelloReply[msg=Hello] from ActorRef[example@:/HelloWorld]"
 ```
 
 ## 6. 使用ask获取响应
@@ -113,7 +113,7 @@ info("Receive reply: {} from {} by ask pattern",reply, actor);
 执行后日志输出：
 
 ```text
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._01_HelloWorldExample$HelloWorldActor actor=example@:/HelloWorld msg="Receive: Hello[msg=Greeting] from ActorRef[example@:/sys/ask-pattern_0]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._01_HelloWorldExample actor= msg="Receive reply: HelloReply[msg=Greeting] from ActorRef[example@:/HelloWorld] by ask pattern"
+ts="..." level=INFO  th="..." logger=io.axor.example._01_HelloWorldExample$HelloWorldActor actor=example@:/HelloWorld msg="Receive: Hello[msg=Greeting] from ActorRef[example@:/sys/ask-pattern_0]"
+ts="..." level=INFO  th="..." logger=io.axor.example._01_HelloWorldExample actor= msg="Receive reply: HelloReply[msg=Greeting] from ActorRef[example@:/HelloWorld] by ask pattern"
 ```
 

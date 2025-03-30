@@ -10,10 +10,7 @@ state and metadata through listeners.
 
 ```java
 import com.typesafe.config.Config;
-import io.masterkun.axor.api.*;
-import io.masterkun.axor.cluster.*;
-import io.masterkun.axor.cluster.ClusterEvent.*;
-import io.masterkun.axor.runtime.MsgType;
+import io.axor.runtime.MsgType;
 
 import static com.typesafe.config.ConfigFactory.load;
 import static com.typesafe.config.ConfigFactory.parseString;
@@ -145,10 +142,10 @@ public static class Node3 {
 When running the above code, the console will display log output similar to the following:
 
 ```plain text
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._04_ClusterSimpleExample$MemberListener actor=example@:/memberListener msg="ClusterMember[uid=694299120956080129, address=example@localhost:1101] meta info changed, version updated to 3"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._04_ClusterSimpleExample$MemberListener actor=example@:/memberListener msg="ClusterMember[uid=694299135824871425, address=example@localhost:1102] meta info changed, version updated to 2"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._04_ClusterSimpleExample$MemberListener actor=example@:/memberListener msg="ClusterMember[uid=694299120956080129, address=example@localhost:1101] meta info changed, custom message updated to [id: 156469909 content: "8cafeda0-ed6e-41a0-8d9a-d9c2eff0ba2a"]"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._04_ClusterSimpleExample$MemberListener actor=example@:/memberListener msg="ClusterMember[uid=694299140287594497, address=example@localhost:1103] meta info changed, version updated to 2"
-ts="..." level=INFO  th="..." logger=io.masterkun.axor.example._04_ClusterSimpleExample$MemberListener actor=example@:/memberListener msg="ClusterMember[uid=694299120956080129, address=example@localhost:1101] meta info changed, version updated to 4"...
+ts="..." level=INFO  th="..." logger=io.axor.example._04_ClusterSimpleExample$MemberListener actor=example@:/memberListener msg="ClusterMember[uid=694299120956080129, address=example@localhost:1101] meta info changed, version updated to 3"
+ts="..." level=INFO  th="..." logger=io.axor.example._04_ClusterSimpleExample$MemberListener actor=example@:/memberListener msg="ClusterMember[uid=694299135824871425, address=example@localhost:1102] meta info changed, version updated to 2"
+ts="..." level=INFO  th="..." logger=io.axor.example._04_ClusterSimpleExample$MemberListener actor=example@:/memberListener msg="ClusterMember[uid=694299120956080129, address=example@localhost:1101] meta info changed, custom message updated to [id: 156469909 content: "8cafeda0-ed6e-41a0-8d9a-d9c2eff0ba2a"]"
+ts="..." level=INFO  th="..." logger=io.axor.example._04_ClusterSimpleExample$MemberListener actor=example@:/memberListener msg="ClusterMember[uid=694299140287594497, address=example@localhost:1103] meta info changed, version updated to 2"
+ts="..." level=INFO  th="..." logger=io.axor.example._04_ClusterSimpleExample$MemberListener actor=example@:/memberListener msg="ClusterMember[uid=694299120956080129, address=example@localhost:1101] meta info changed, version updated to 4"...
 ...
 ```
