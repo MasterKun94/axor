@@ -28,7 +28,8 @@ public class StreamUtilsTest {
         metadata.put(StreamUtils.STATUS_KEY, 100);
         StatusRuntimeException statusRuntimeException =
                 new StatusRuntimeException(io.grpc.Status.INTERNAL.withDescription("Internal " +
-                        "error"), metadata);
+                                                                                   "error"),
+                        metadata);
         Status result = StreamUtils.fromStatusException(statusRuntimeException);
         assertEquals(100, result.code());
     }

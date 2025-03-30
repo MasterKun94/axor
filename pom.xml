@@ -104,6 +104,11 @@
             </dependency>
             <dependency>
                 <groupId>io.masterkun.axor</groupId>
+                <artifactId>axor-cluster</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.masterkun.axor</groupId>
                 <artifactId>axor-logging</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -275,12 +280,8 @@
                 <version>3.2.5</version>
                 <configuration>
                     <argLine>
-                        -Dio.netty.leakDetection.level=PARANOID
-                        -Djava.net.preferIPv4Stack=true
-                        -Djava.net.preferIPv6Addresses=false
-                        -XX:-RestrictContended
-                        --add-exports=java.base/jdk.internal.vm.annotation=ALL-UNNAMED
                         -javaagent:"${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar"
+                        -Daxor.cluster.meta-key.id-check=false
                     </argLine>
                 </configuration>
             </plugin>

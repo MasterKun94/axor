@@ -154,8 +154,8 @@ final class FailureDetectorImpl implements FailureDetector {
                     memberEvents.add(new MemberEvent(holder.member, MemberAction.FAIL, clock));
                 }
             } else if (memberRemoveTimeoutMillis > 0 &&
-                    (holder.status == MemberState.LEFT) &&
-                    holder.latestTs + memberRemoveTimeoutMillis < current) {
+                       (holder.status == MemberState.LEFT) &&
+                       holder.latestTs + memberRemoveTimeoutMillis < current) {
                 if (memberEvents == null) {
                     memberEvents = new ArrayList<>();
                 }

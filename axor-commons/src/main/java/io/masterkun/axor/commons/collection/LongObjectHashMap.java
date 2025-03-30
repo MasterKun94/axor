@@ -428,7 +428,7 @@ public non-sealed class LongObjectHashMap<V> implements LongObjectMap<V> {
             long key = keys[i];
             int bucket = hashIndex(key);
             if (i < bucket && (bucket <= nextFree || nextFree <= i) ||
-                    bucket <= nextFree && nextFree <= i) {
+                bucket <= nextFree && nextFree <= i) {
                 // Move the displaced entry "back" to the first available position.
                 keys[nextFree] = key;
                 values[nextFree] = value;

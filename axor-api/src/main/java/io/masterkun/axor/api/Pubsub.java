@@ -66,6 +66,19 @@ public interface Pubsub<T> extends EventStream<T> {
     void publishToAll(T msg, ActorRef<?> sender);
 
     /**
+     * Publishes the given message to all subscribed actors.
+     *
+     * <p>This method sends the specified message to all actors that are currently subscribed to
+     * the pubsub mechanism. It uses a default sender, which is typically used when there is no
+     * specific sender for the message.
+     *
+     * @param msg the message to be published, of type T
+     */
+    default void publishToAll(T msg) {
+        publishToAll(msg, ActorRef.noSender());
+    }
+
+    /**
      * Sends the given message to a specific actor.
      *
      * <p>This method targets a single actor, identified by the provided {@code ActorRef}, and
@@ -76,6 +89,19 @@ public interface Pubsub<T> extends EventStream<T> {
      * @param sender the {@code ActorRef} representing the sender of the message
      */
     void sendToOne(T msg, ActorRef<?> sender);
+
+    /**
+     * Sends the given message to a specific actor, using a default sender.
+     *
+     * <p>This method targets a single actor and sends it the specified message. The sender of the
+     * message is set to a default value, which is typically used when there is no specific sender
+     * for the message.
+     *
+     * @param msg the message to be sent, of type T
+     */
+    default void sendToOne(T msg) {
+        sendToOne(msg, ActorRef.noSender());
+    }
 
     /**
      * Provides an {@link EventDispatcher} for managing and executing tasks, handling timeouts, and

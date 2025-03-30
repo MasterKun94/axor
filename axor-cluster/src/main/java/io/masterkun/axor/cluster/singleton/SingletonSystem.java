@@ -30,7 +30,7 @@ public class SingletonSystem {
             config = ConfigFactory.empty();
         }
         SingletonConfig singletonConfig = ConfigMapper.map(config, SingletonConfig.class);
-        String proxyName = "sys/" + name + "/SingletonProxy";
+        String proxyName = "cluster/singleton/" + name + "/proxy";
         return cluster.system().getOrStart(c -> new ClusterSingletonProxy<>(
                 cluster.name(), name, singletonConfig, stopSignal, msgType, c, creator), proxyName);
     }

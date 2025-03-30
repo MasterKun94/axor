@@ -55,7 +55,7 @@ public class SerdeRegistry {
                         int id = config.getInt(type);
                         if (!BuiltinSerde.class.isAssignableFrom(clazz)) {
                             throw new IllegalArgumentException(type + " is not a builtin serde " +
-                                    "class");
+                                                               "class");
                         }
                         register(id, (BuiltinSerde<?>) clazz.getConstructor().newInstance());
                     } else {
@@ -138,7 +138,7 @@ public class SerdeRegistry {
                 .filter(f -> f.support(type))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Serde type " + type + " is not " +
-                        "supported"))
+                                                                "supported"))
                 .create(type);
     }
 

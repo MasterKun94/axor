@@ -66,8 +66,8 @@ public class MemberIdGenerator {
         }
         lastTimestamp = timestamp;
         return ((timestamp - EPOCH) << TIMESTAMP_LEFT_SHIFT) |
-                (datacenterId << DATACENTER_ID_SHIFT) |
-                (workerId << WORKER_ID_SHIFT);
+               (datacenterId << DATACENTER_ID_SHIFT) |
+               (workerId << WORKER_ID_SHIFT);
     }
 
     private long tilNextMillis(long lastTimestamp) {

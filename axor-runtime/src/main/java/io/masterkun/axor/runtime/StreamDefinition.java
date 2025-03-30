@@ -13,8 +13,8 @@ public record StreamDefinition<T>(StreamAddress address, Serde<T> serde) {
         if (o == null || getClass() != o.getClass()) return false;
         StreamDefinition<?> that = (StreamDefinition<?>) o;
         return Objects.equals(serde.getImpl(), that.serde.getImpl()) &&
-                Objects.equals(serde.getType(), that.serde.getType()) &&
-                Objects.equals(address, that.address);
+               Objects.equals(serde.getType(), that.serde.getType()) &&
+               Objects.equals(address, that.address);
     }
 
     @Override

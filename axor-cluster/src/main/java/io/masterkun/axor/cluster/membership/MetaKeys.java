@@ -14,9 +14,14 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 public class MetaKeys {
+    private static final Map<Integer, String> CACHE = new ConcurrentHashMap<>();
+    private static final boolean ID_CHECK_ENABLED = Boolean.parseBoolean(System.getProperty(
+            "axor.cluster.meta-key.id-check", "true"));
 
     public static BooleanMetaKey create(int id, String name, String description,
                                         boolean defaultValue) {
@@ -91,6 +96,13 @@ public class MetaKeys {
 
         AbstractMetaKey(int id, String name, String description, T defaultValue,
                         MetaSerde<T> serde) {
+            if (ID_CHECK_ENABLED) {
+                String used;
+                if ((used = CACHE.putIfAbsent(id, name)) != null) {
+                    throw new IllegalArgumentException("duplicate meta key " + name + ": " + id +
+                                                       ", already used by: " + used);
+                }
+            }
             this.id = id;
             this.name = name;
             this.description = description;

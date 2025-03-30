@@ -42,7 +42,7 @@ public class Registry {
                 .filter(s -> s.name().equalsIgnoreCase(name))
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("No implementation found for " + clazz +
-                        " with name " + name));
+                                                        " with name " + name));
     }
 
     @SuppressWarnings("unchecked")

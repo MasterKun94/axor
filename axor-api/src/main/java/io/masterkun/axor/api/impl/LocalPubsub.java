@@ -181,8 +181,8 @@ public class LocalPubsub<T> implements Pubsub<T> {
     @Override
     public String toString() {
         return "LocalPubsub[" +
-                "name=" + name + ", " +
-                "msgType=" + msgType.name() +
-                ']';
+               "name=" + name + ", " +
+               "msgType=" + msgType.name() +
+               ']';
     }
 }

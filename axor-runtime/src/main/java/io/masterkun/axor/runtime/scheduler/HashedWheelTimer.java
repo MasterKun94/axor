@@ -299,7 +299,7 @@ public class HashedWheelTimer implements Timer {
         this.maxPendingTimeouts = maxPendingTimeouts;
 
         if (INSTANCE_COUNTER.incrementAndGet() > INSTANCE_COUNT_LIMIT &&
-                WARNED_TOO_MANY_INSTANCES.compareAndSet(false, true)) {
+            WARNED_TOO_MANY_INSTANCES.compareAndSet(false, true)) {
             reportTooManyInstances();
         }
     }
@@ -318,8 +318,9 @@ public class HashedWheelTimer implements Timer {
         if (logger.isErrorEnabled()) {
             String resourceType = HashedWheelTimer.class.getSimpleName();
             logger.error("You are creating too many " + resourceType + " instances. " +
-                    resourceType + " is a shared resource that must be reused across the JVM, " +
-                    "so that only a few instances are created.");
+                         resourceType + " is a shared resource that must be reused across the " +
+                         "JVM, " +
+                         "so that only a few instances are created.");
         }
     }
 
@@ -376,8 +377,8 @@ public class HashedWheelTimer implements Timer {
         if (Thread.currentThread() == workerThread) {
             throw new IllegalStateException(
                     HashedWheelTimer.class.getSimpleName() +
-                            ".stop() cannot be called from " +
-                            TimerTask.class.getSimpleName());
+                    ".stop() cannot be called from " +
+                    TimerTask.class.getSimpleName());
         }
 
         if (!WORKER_STATE_UPDATER.compareAndSet(this, WORKER_STATE_STARTED,
@@ -427,9 +428,10 @@ public class HashedWheelTimer implements Timer {
         if (maxPendingTimeouts > 0 && pendingTimeoutsCount > maxPendingTimeouts) {
             pendingTimeouts.decrementAndGet();
             throw new RejectedExecutionException("Number of pending timeouts ("
-                    + pendingTimeoutsCount + ") is greater than or equal to maximum allowed " +
-                    "pending "
-                    + "timeouts (" + maxPendingTimeouts + ")");
+                                                 + pendingTimeoutsCount + ") is greater than or " +
+                                                 "equal to maximum allowed " +
+                                                 "pending "
+                                                 + "timeouts (" + maxPendingTimeouts + ")");
         }
 
         start();
@@ -548,7 +550,7 @@ public class HashedWheelTimer implements Timer {
             } catch (Throwable t) {
                 if (logger.isWarnEnabled()) {
                     logger.warn("An exception was thrown while submit " + TimerTask.class.getSimpleName()
-                            + " for execution.", t);
+                                + " for execution.", t);
                 }
             }
         }

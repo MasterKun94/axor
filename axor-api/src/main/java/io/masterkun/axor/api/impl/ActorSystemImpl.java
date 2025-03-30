@@ -98,7 +98,7 @@ public class ActorSystemImpl implements ActorSystem, HasMeter {
         Address publishAddress = actorConfig.network().publishAddress();
         if (SYSTEM_CACHE.putIfAbsent(new CacheKey(name, publishAddress), this) != null) {
             throw new IllegalArgumentException("ActorSystem key already exists: " +
-                    ActorAddress.create(name, publishAddress, ""));
+                                               ActorAddress.create(name, publishAddress, ""));
         }
         this.name = name;
         this.streamServer = streamServer;
@@ -182,8 +182,8 @@ public class ActorSystemImpl implements ActorSystem, HasMeter {
     @Override
     public boolean isLocal(ActorRef<?> actor) {
         return actor.isLocal() &&
-                actor.address().address().equals(publishAddress) &&
-                actor.address().system().equals(name);
+               actor.address().address().equals(publishAddress) &&
+               actor.address().system().equals(name);
     }
 
     @Override

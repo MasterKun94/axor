@@ -48,7 +48,7 @@ public class DependencyTaskRegistryRunner implements DependencyTaskRegistry, Asy
                 List<String> dependencyList = dependencies.get(downstream);
                 if (dependencyList == null) {
                     throw new RuntimeException("Dependency downstream " + downstream + " not " +
-                            "found");
+                                               "found");
                 }
                 dependencyList.add(taskName);
             }

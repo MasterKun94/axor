@@ -29,8 +29,8 @@ public record ClusterMember(long uid, String system, Address address, MetaInfo m
     @Override
     public String toString() {
         return "ClusterMember[" +
-                "uid=" + uid +
-                ", address=" + system + "@" + address +
-                ']';
+               "uid=" + uid +
+               ", address=" + system + "@" + address +
+               ']';
     }
 }

@@ -19,7 +19,6 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public class GrpcStreamServer extends Server implements StreamServer {
@@ -114,15 +113,21 @@ public class GrpcStreamServer extends Server implements StreamServer {
             channelPool.close();
             server.shutdown();
         }
-        return CompletableFuture.runAsync(() -> {
+        CompletableFuture<Void> f = new CompletableFuture<>();
+        Thread th = new Thread(() -> {
             try {
                 server.awaitTermination(3, TimeUnit.SECONDS);
                 server.shutdownNow();
                 LOG.info("GrpcStreamServer is terminated");
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+            } finally {
+                f.complete(null);
             }
-        }, Executors.newSingleThreadExecutor());
+        });
+        th.setDaemon(false);
+        th.start();
+        return f;
     }
 
     @Override

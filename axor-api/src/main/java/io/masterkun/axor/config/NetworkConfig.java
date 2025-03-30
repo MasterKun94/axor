@@ -25,7 +25,7 @@ public record NetworkConfig(
         if (host == null) {
             try {
                 InetAddress parsed = InetAddress.getByName(bind.host());
-                if (parsed.isAnyLocalAddress() || parsed.isLoopbackAddress()) {
+                if (parsed.isAnyLocalAddress()) {
                     host = InetAddress.getLocalHost().getHostAddress();
                 } else {
                     host = Objects.requireNonNull(bind.host());

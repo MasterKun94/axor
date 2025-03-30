@@ -118,7 +118,7 @@ public class Cluster {
                 return v;
             }
             throw new IllegalArgumentException("MsgType mismatch, expected: " + v.msgType() + ", " +
-                    "actual: " + msgType);
+                                               "actual: " + msgType);
         });
     }
 

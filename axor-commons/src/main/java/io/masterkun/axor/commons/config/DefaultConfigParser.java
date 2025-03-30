@@ -29,8 +29,8 @@ public class DefaultConfigParser implements ConfigParser {
             if (type.nullable() && !config.hasPath(key)) {
                 if (type.parentType().isPrimitive()) {
                     throw new ConfigParseException(type, "[%s] request primitive type but config " +
-                            "value " +
-                            "is null");
+                                                         "value " +
+                                                         "is null");
                 } else {
                     return null;
                 }
@@ -67,7 +67,8 @@ public class DefaultConfigParser implements ConfigParser {
             } else if (List.class.isAssignableFrom(clazz)) {
                 if (type.paramTypes().length != 1) {
                     throw new ConfigParseException(type, "[%s] is a list type, but " +
-                            type.paramTypes().length + " type parameters");
+                                                         type.paramTypes().length + " type " +
+                                                         "parameters");
                 }
                 Class<?> elemType = type.paramTypes()[0];
                 if (elemType.equals(Void.class)) {

@@ -163,7 +163,7 @@ public class MembershipActor extends AbstractActor<MembershipMessage> {
             if (msg instanceof Gossip.PushedEvents gossip) {
                 memberManager.gossipEvent(gossip);
                 if (splitBrainResolver.getLocalMemberState() == LocalMemberState.UP ||
-                        splitBrainResolver.getLocalMemberState() == LocalMemberState.WEAKLY_UP) {
+                    splitBrainResolver.getLocalMemberState() == LocalMemberState.WEAKLY_UP) {
                     return up();
                 }
                 return Behaviors.same();
@@ -219,7 +219,7 @@ public class MembershipActor extends AbstractActor<MembershipMessage> {
                     if (event.action() == MemberAction.LEAVE_ACK) {
                         map.remove(gossip.sender());
                     } else if (event.action() == MemberAction.FAIL ||
-                            event.action() == MemberAction.STRONG_SUSPECT) {
+                               event.action() == MemberAction.STRONG_SUSPECT) {
                         map.remove(event.uid());
                     } else if (event.action() == MemberAction.LEAVE) {
                         Member removed = map.remove(event.uid());

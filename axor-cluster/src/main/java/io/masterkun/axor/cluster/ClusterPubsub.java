@@ -200,9 +200,9 @@ public class ClusterPubsub<T> implements Pubsub<T> {
     @Override
     public String toString() {
         return "ClusterPubsub[" +
-                "topic=" + topic + ", " +
-                "msgType=" + msgType.name() +
-                "]";
+               "topic=" + topic + ", " +
+               "msgType=" + msgType.name() +
+               "]";
     }
 
     private class ClusterPubsubListener extends Actor<ClusterEvent> {

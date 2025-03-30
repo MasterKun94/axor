@@ -99,7 +99,7 @@ public class ReqObserverAdaptorTest {
         verify(mockReq).onError(argThat(e -> {
             StatusException check = StreamUtils.toStatusException(errorStatus);
             return e instanceof StatusException se &&
-                    se.getStatus().getCode().equals(check.getStatus().getCode());
+                   se.getStatus().getCode().equals(check.getStatus().getCode());
         }));
     }
 

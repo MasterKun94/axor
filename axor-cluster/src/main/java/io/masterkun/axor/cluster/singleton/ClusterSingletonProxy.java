@@ -83,15 +83,15 @@ class ClusterSingletonProxy<T> extends Actor<T> {
     }
 
     private String managerName() {
-        return "sys/" + name + "/SingletonManager";
+        return "cluster/singleton/" + name + "/manager";
     }
 
     private String listenerName() {
-        return "sys/" + name + "/SingletonListener";
+        return "cluster/singleton/" + name + "/listener";
     }
 
     private String instanceName() {
-        return "sys/" + name + "/SingletonInstance";
+        return "cluster/singleton/" + name + "/instance";
     }
 
     @Override
@@ -234,7 +234,7 @@ class ClusterSingletonProxy<T> extends Actor<T> {
         private void signalInstanceStarted(ClusterMember member) {
             if (realInstance != null) {
                 LOG.error("Receive instance started at [{}] but already exists instance [{}] " +
-                        "internal", member, realInstance);
+                          "internal", member, realInstance);
             }
             assert member == leaderMember;
             ActorUnsafe.signalInline(manager, StateChange.INSTANCE_STARTED);
@@ -373,10 +373,10 @@ class ClusterSingletonProxy<T> extends Actor<T> {
                 if (msg.getType() == SingletonManagerMessage.Type.INSTANCE_READY) {
                     if (leaderMember == null) {
                         LOG.warn("Receive instance ready but self detect no leader " +
-                                "member, ignore msg: {}", ProtobufUtil.toString(msg));
+                                 "member, ignore msg: {}", ProtobufUtil.toString(msg));
                     } else if (leaderMember.uid() != msg.getUid()) {
                         LOG.warn("Receive instance ready but self detect different leader " +
-                                        "member, expect: {}, ignore msg: {}", leaderMember,
+                                 "member, expect: {}, ignore msg: {}", leaderMember,
                                 ProtobufUtil.toString(msg));
                     } else {
                         tryLeaderAck(sender(MANAGER_MSG_TYPE));
@@ -488,7 +488,7 @@ class ClusterSingletonProxy<T> extends Actor<T> {
                     case LEADER_CHANGED -> {
                         // TODO split brain?
                         LOG.warn("Unexpected signal: {}, maybe a bug, current leader member is " +
-                                "{}, self state is instance prepare", signal, leaderMember);
+                                 "{}, self state is instance prepare", signal, leaderMember);
                         sc.cancel(false);
                         assert leaderMember != null;
                         tryLeaderAck(getRemoteManager(leaderMember));
@@ -496,9 +496,9 @@ class ClusterSingletonProxy<T> extends Actor<T> {
                     }
                     default -> {
                         LOG.error("Unexpected signal: {}, maybe a bug, current leader member is " +
-                                "{}", signal, leaderMember);
+                                  "{}", signal, leaderMember);
                         context().system().systemFailure(new IllegalStateException("Unexpected " +
-                                "signal: " + signal + ", maybe a bug"));
+                                                                                   "signal: " + signal + ", maybe a bug"));
                     }
                 }
                 return same();
@@ -562,9 +562,9 @@ class ClusterSingletonProxy<T> extends Actor<T> {
                     }
                     default -> {
                         LOG.error("Unexpected signal: {}, maybe a bug, current leader member is " +
-                                "{}, self state is instance ready", signal, leaderMember);
+                                  "{}, self state is instance ready", signal, leaderMember);
                         context().system().systemFailure(new IllegalStateException("Unexpected " +
-                                "signal: " + signal + ", maybe a bug"));
+                                                                                   "signal: " + signal + ", maybe a bug"));
                     }
                 }
                 return same();
@@ -593,7 +593,7 @@ class ClusterSingletonProxy<T> extends Actor<T> {
             return log(receive(msg -> {
                 if (msg.getType() == SingletonManagerMessage.Type.INSTANCE_READY) {
                     LOG.warn("Receive instance ready but self Instance is still stopping and " +
-                            "unservable, ignore msg {}", ProtobufUtil.toString(msg));
+                             "unservable, ignore msg {}", ProtobufUtil.toString(msg));
                     return same();
                 }
                 return unhandled();
@@ -620,7 +620,7 @@ class ClusterSingletonProxy<T> extends Actor<T> {
             return log(receive(msg -> {
                 if (msg.getType() == SingletonManagerMessage.Type.INSTANCE_READY) {
                     LOG.warn("Receive instance ready but self Instance is still stopping, ignore " +
-                            "msg {}", ProtobufUtil.toString(msg));
+                             "msg {}", ProtobufUtil.toString(msg));
                     return same();
                 }
                 return unhandled();

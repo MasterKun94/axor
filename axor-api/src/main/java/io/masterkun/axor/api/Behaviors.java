@@ -206,11 +206,11 @@ public class Behaviors {
         }
         if (msgBehavior instanceof InternalBehavior<T>(var type) && type != BehaviorType.SAME) {
             throw new UnsupportedOperationException("CompositeBehavior does not support " +
-                    msgBehavior);
+                                                    msgBehavior);
         }
         if (signalBehavior instanceof InternalBehavior<T>(var type) && type != BehaviorType.SAME) {
             throw new UnsupportedOperationException("CompositeBehavior does not support " +
-                    signalBehavior);
+                                                    signalBehavior);
         }
         return new CompositeBehavior<>(msgBehavior, signalBehavior);
     }

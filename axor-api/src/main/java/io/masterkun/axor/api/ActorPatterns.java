@@ -38,7 +38,7 @@ public class ActorPatterns {
         var promise = EventPromise.<RES>newPromise(dispatcher);
         var askActor = system.<RES>start(
                 c -> new AskActor<>(c, promise, resType, timeout),
-                "AskActor_" + ADDER.getAndIncrement(), dispatcher);
+                "sys/ask-pattern_" + ADDER.getAndIncrement(), dispatcher);
         actor.tell(request, askActor);
         return promise;
     }

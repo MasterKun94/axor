@@ -18,10 +18,10 @@ public record MemberEvent(Member member, MemberAction action, VectorClock clock)
     @Override
     public String toString() {
         return "MemberEvent[" +
-                "uid=" + uid() +
-                ", metaInfo=" + metaInfo() +
-                ", actor=" + actor() +
-                ", action=" + action +
-                ']';
+               "uid=" + uid() +
+               ", metaInfo=" + metaInfo() +
+               ", actor=" + actor() +
+               ", action=" + action +
+               ']';
     }
 }

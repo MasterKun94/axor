@@ -14,11 +14,11 @@ public class PlatformDependent {
             "org.jctools.queues.MpscUnboundedArrayQueue",
             "io.netty.util.internal.shaded.org.jctools.queues.MpscUnboundedArrayQueue",
             "io.grpc.netty.shaded.io.netty.util.internal.shaded.org.jctools.queues" +
-                    ".MpscUnboundedArrayQueue",
+            ".MpscUnboundedArrayQueue",
             "org.jctools.queues.atomic.MpscUnboundedAtomicArrayQueue",
             "io.netty.util.internal.shaded.org.jctools.queues.atomic.MpscUnboundedAtomicArrayQueue",
             "io.grpc.netty.shaded.io.netty.util.internal.shaded.org.jctools.queues.atomic" +
-                    ".MpscUnboundedAtomicArrayQueue"
+            ".MpscUnboundedAtomicArrayQueue"
     );
     private static volatile Class<?> enabledQueueType;
 

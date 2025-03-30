@@ -31,7 +31,7 @@ public class BuiltinSerdeFactoryProvider implements SerdeFactoryProvider {
                 Class serdeType = Class.forName(value);
                 if (!BuiltinSerde.class.isAssignableFrom(msgType)) {
                     throw new IllegalArgumentException("Serde " + serdeType + " does not " +
-                            "implement BuiltinSerde");
+                                                       "implement BuiltinSerde");
                 }
                 BuiltinSerde serde = (BuiltinSerde) serdeType.getConstructor().newInstance();
                 factory.register(msgType, serde);

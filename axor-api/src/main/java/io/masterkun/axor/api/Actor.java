@@ -65,6 +65,22 @@ public abstract class Actor<T> {
     }
 
     /**
+     * Returns the {@code ActorRef} of the sender that sent the current message to this actor, with
+     * a checked type.
+     *
+     * @param <P>         the type parameter representing the message type of the sender
+     * @param checkedType the class representing the message type to check and cast the sender's
+     *                    message type
+     * @return the {@code ActorRef<P>} representing the sender of the current message, or a special
+     * {@code ActorRef.noSender()} if there is no sender (e.g., in case of a system message)
+     * @throws IllegalArgumentException if the checked type is not supported by the sender's message
+     *                                  type
+     */
+    public <P> ActorRef<P> sender(Class<P> checkedType) {
+        return sender(MsgType.of(checkedType));
+    }
+
+    /**
      * Called when the actor is started. This method can be overridden to perform initialization
      * tasks that need to be executed when the actor is first created and before it begins
      * processing messages.

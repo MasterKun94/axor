@@ -72,9 +72,9 @@ public sealed interface Gossip extends MembershipMessage {
         @Override
         public String toString() {
             return "Ping[" +
-                    "sender=" + sender +
-                    ", clocks=" + clocks +
-                    ']';
+                   "sender=" + sender +
+                   ", clocks=" + clocks +
+                   ']';
         }
     }
 
@@ -97,9 +97,9 @@ public sealed interface Gossip extends MembershipMessage {
         @Override
         public String toString() {
             return "Pong[" +
-                    "sender=" + sender +
-                    ", pull=" + pull +
-                    ']';
+                   "sender=" + sender +
+                   ", pull=" + pull +
+                   ']';
         }
     }
 
@@ -118,9 +118,9 @@ public sealed interface Gossip extends MembershipMessage {
         @Override
         public String toString() {
             return "Gossip[events=" + events +
-                    ", sender=" + sender +
-                    ", pull=" + pull +
-                    ']';
+                   ", sender=" + sender +
+                   ", pull=" + pull +
+                   ']';
         }
     }
 }

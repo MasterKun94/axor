@@ -19,8 +19,8 @@ public record Member(long uid, MetaInfo metaInfo, ActorRef<? super Gossip> actor
     @Override
     public String toString() {
         return "Member[" +
-                "uid=" + uid +
-                ", actor=" + actor.address() +
-                ']';
+               "uid=" + uid +
+               ", actor=" + actor.address() +
+               ']';
     }
 }

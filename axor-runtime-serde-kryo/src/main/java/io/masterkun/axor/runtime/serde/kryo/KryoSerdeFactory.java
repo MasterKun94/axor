@@ -34,7 +34,7 @@ public class KryoSerdeFactory extends AbstractSerdeFactory {
         }
         if (bufferSize > maxBufferSize) {
             throw new IllegalArgumentException("bufferSize " + bufferSize + " exceeds " +
-                    "maxBufferSize " + maxBufferSize);
+                                               "maxBufferSize " + maxBufferSize);
         }
         this.bufferSize = bufferSize;
         this.maxBufferSize = maxBufferSize;
@@ -59,7 +59,7 @@ public class KryoSerdeFactory extends AbstractSerdeFactory {
         initializers.add(initializer);
     }
 
-    public KryoInstance getKryoInstance() {
+    KryoInstance getKryoInstance() {
         return KRYO.get();
     }
 
