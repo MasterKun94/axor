@@ -26,7 +26,7 @@ import static com.typesafe.config.ConfigFactory.parseString;
  */
 public class _06_ClusterSingletonExample {
 
-    private static ActorSystem startSystem(int port) {
+    private static void startNode(int port) {
         Config config = load(parseString(("""
                 axor.network.bind {
                     port = %d
@@ -36,72 +36,45 @@ public class _06_ClusterSingletonExample {
                     join.seeds = ["localhost:1101"]
                 }
                 """.formatted(port)))).resolve();
-        return ActorSystem.create("example", config);
+        ActorSystem system = ActorSystem.create("example", config);
+        system.getSerdeRegistry().getFactory(KryoSerdeFactory.class)
+                .addInitializer(kryo -> {
+                    kryo.register(Hello.class, 601);
+                    kryo.register(HelloReply.class, 602);
+                });
+        Cluster cluster = Cluster.get(system);
+        SingletonSystem singletonSystem = SingletonSystem.get(cluster);
+        ActorRef<Hello> singletonProxy = singletonSystem.getOrStart(HelloWorldActor::new,
+                MsgType.of(Hello.class), "HelloSingleton");
+        ActorRef<HelloReply> bot = system.start(HelloBot::new, "HelloBot");
+        system.getDispatcherGroup().nextDispatcher().scheduleAtFixedRate(() -> {
+            singletonProxy.tell(new Hello("Hello"), bot);
+        }, 3, 3, TimeUnit.SECONDS);
     }
 
-
     public static class Node1 {
-        public static void main(String[] args) {
-            ActorSystem system = startSystem(1101);
-            system.getSerdeRegistry().getFactory(KryoSerdeFactory.class)
-                    .addInitializer(kryo -> {
-                        kryo.register(Hello.class, 601);
-                        kryo.register(HelloBack.class, 602);
-                    });
-            Cluster cluster = Cluster.get(system);
-            SingletonSystem singletonSystem = SingletonSystem.get(cluster);
-            ActorRef<Hello> singletonProxy = singletonSystem.getOrStart(HelloWorldActor::new,
-                    MsgType.of(Hello.class), "HelloSingleton");
-            ActorRef<HelloBack> bot = system.start(HelloBot::new, "HelloBot");
-            system.getDispatcherGroup().nextDispatcher().scheduleAtFixedRate(() -> {
-                singletonProxy.tell(new Hello("Hello"), bot);
-            }, 3, 3, TimeUnit.SECONDS);
+        public static void main(String[] args) throws Exception {
+            startNode(1101);
         }
     }
 
-
     public static class Node2 {
-        public static void main(String[] args) {
-            ActorSystem system = startSystem(1102);
-            system.getSerdeRegistry().getFactory(KryoSerdeFactory.class)
-                    .addInitializer(kryo -> {
-                        kryo.register(Hello.class, 601);
-                        kryo.register(HelloBack.class, 602);
-                    });
-            Cluster cluster = Cluster.get(system);
-            SingletonSystem singletonSystem = SingletonSystem.get(cluster);
-            ActorRef<Hello> singletonProxy = singletonSystem.getOrStart(HelloWorldActor::new,
-                    MsgType.of(Hello.class), "HelloSingleton");
-            ActorRef<HelloBack> bot = system.start(HelloBot::new, "HelloBot");
-            system.getDispatcherGroup().nextDispatcher().scheduleAtFixedRate(() -> {
-                singletonProxy.tell(new Hello("Hello"), bot);
-            }, 3, 3, TimeUnit.SECONDS);
+        public static void main(String[] args) throws Exception {
+            startNode(1102);
+
         }
     }
 
     public static class Node3 {
-        public static void main(String[] args) {
-            ActorSystem system = startSystem(1103);
-            system.getSerdeRegistry().getFactory(KryoSerdeFactory.class)
-                    .addInitializer(kryo -> {
-                        kryo.register(Hello.class, 601);
-                        kryo.register(HelloBack.class, 602);
-                    });
-            Cluster cluster = Cluster.get(system);
-            SingletonSystem singletonSystem = SingletonSystem.get(cluster);
-            ActorRef<Hello> singletonProxy = singletonSystem.getOrStart(HelloWorldActor::new,
-                    MsgType.of(Hello.class), "HelloSingleton");
-            ActorRef<HelloBack> bot = system.start(HelloBot::new, "HelloBot");
-            system.getDispatcherGroup().nextDispatcher().scheduleAtFixedRate(() -> {
-                singletonProxy.tell(new Hello("Hello"), bot);
-            }, 3, 3, TimeUnit.SECONDS);
+        public static void main(String[] args) throws Exception {
+            startNode(1103);
         }
     }
 
     public record Hello(String msg) {
     }
 
-    public record HelloBack(String msg) {
+    public record HelloReply(String msg) {
     }
 
     public static class HelloWorldActor extends Actor<Hello> {
@@ -114,7 +87,7 @@ public class _06_ClusterSingletonExample {
         @Override
         public void onReceive(Hello sayHello) {
             LOG.info("Receive: {} from {}", sayHello, sender());
-            sender(HelloBack.class).tell(new HelloBack(sayHello.msg), self());
+            sender(HelloReply.class).tell(new HelloReply(sayHello.msg), self());
         }
 
         @Override
@@ -123,21 +96,21 @@ public class _06_ClusterSingletonExample {
         }
     }
 
-    public static class HelloBot extends Actor<HelloBack> {
+    public static class HelloBot extends Actor<HelloReply> {
         private static final Logger LOG = LoggerFactory.getLogger(HelloBot.class);
 
-        protected HelloBot(ActorContext<HelloBack> context) {
+        protected HelloBot(ActorContext<HelloReply> context) {
             super(context);
         }
 
         @Override
-        public void onReceive(HelloBack helloBack) {
-            LOG.info("Receive: {} from {}", helloBack, sender());
+        public void onReceive(HelloReply HelloReply) {
+            LOG.info("Receive: {} from {}", HelloReply, sender());
         }
 
         @Override
-        public MsgType<HelloBack> msgType() {
-            return MsgType.of(HelloBack.class);
+        public MsgType<HelloReply> msgType() {
+            return MsgType.of(HelloReply.class);
         }
     }
 }

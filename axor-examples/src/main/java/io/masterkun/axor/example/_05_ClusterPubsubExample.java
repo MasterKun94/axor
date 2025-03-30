@@ -25,7 +25,7 @@ import static com.typesafe.config.ConfigFactory.parseString;
  */
 public class _05_ClusterPubsubExample {
 
-    private static ActorSystem startSystem(int port) {
+    private static void startNode(int port) throws Exception {
         Config config = load(parseString(("""
                 axor.network.bind {
                     port = %d
@@ -35,7 +35,29 @@ public class _05_ClusterPubsubExample {
                     join.seeds = ["localhost:1101"]
                 }
                 """.formatted(port)))).resolve();
-        return ActorSystem.create("example", config);
+        ActorSystem system = ActorSystem.create("example", config);
+        system.getSerdeRegistry().getFactory(KryoSerdeFactory.class)
+                .addInitializer(kryo -> {
+                    kryo.register(PublishMessage.class, 501);
+                    kryo.register(SendToOneMessage.class, 502);
+                });
+        Pubsub<TopicMessage> pubsub = Cluster.get(system)
+                .pubsub("example-topic", MsgType.of(TopicMessage.class));
+        pubsub.subscribe(system.start(Subscriber::new, "subscriber"));
+        Thread.sleep(1000);
+        var publisher = system.start(Publisher::new, "publisher");
+
+        system.getDispatcherGroup().nextDispatcher().scheduleAtFixedRate(new Runnable() {
+            private int id;
+
+            @Override
+            public void run() {
+                pubsub.sendToOne(new SendToOneMessage(
+                        id++,
+                        UUID.randomUUID().toString()
+                ), publisher);
+            }
+        }, 1, 1, TimeUnit.SECONDS);
     }
 
     public sealed interface TopicMessage {
@@ -50,64 +72,22 @@ public class _05_ClusterPubsubExample {
 
     public static class Node1 {
         public static void main(String[] args) throws Exception {
-            ActorSystem system = startSystem(1101);
-            system.getSerdeRegistry().getFactory(KryoSerdeFactory.class)
-                    .addInitializer(kryo -> {
-                        kryo.register(PublishMessage.class, 501);
-                        kryo.register(SendToOneMessage.class, 502);
-                    });
-            Pubsub<TopicMessage> pubsub = Cluster.get(system)
-                    .pubsub("example-topic", MsgType.of(TopicMessage.class));
-            pubsub.subscribe(system.start(Subscriber::new, "subscriber"));
-            Thread.sleep(1000);
-            system.start(Publisher::new, "publisher");
-
-            system.getDispatcherGroup().nextDispatcher().scheduleAtFixedRate(new Runnable() {
-                private int id;
-
-                @Override
-                public void run() {
-                    pubsub.sendToOne(new SendToOneMessage(
-                            id++,
-                            UUID.randomUUID().toString()
-                    ));
-                }
-            }, 1, 1, TimeUnit.SECONDS);
+            startNode(1101);
         }
     }
 
     public static class Node2 {
         public static void main(String[] args) throws Exception {
-            ActorSystem system = startSystem(1102);
-            system.getSerdeRegistry().getFactory(KryoSerdeFactory.class)
-                    .addInitializer(kryo -> {
-                        kryo.register(PublishMessage.class, 501);
-                        kryo.register(SendToOneMessage.class, 502);
-                    });
-            Pubsub<TopicMessage> pubsub = Cluster.get(system)
-                    .pubsub("example-topic", MsgType.of(TopicMessage.class));
-            pubsub.subscribe(system.start(Subscriber::new, "subscriber"));
-            Thread.sleep(1000);
-            system.start(Publisher::new, "publisher");
+            startNode(1102);
+
         }
     }
 
     public static class Node3 {
         public static void main(String[] args) throws Exception {
-            ActorSystem system = startSystem(1103);
-            system.getSerdeRegistry().getFactory(KryoSerdeFactory.class)
-                    .addInitializer(kryo -> {
-                        kryo.register(PublishMessage.class, 501);
-                        kryo.register(SendToOneMessage.class, 502);
-                    });
-            Pubsub<TopicMessage> pubsub = Cluster.get(system)
-                    .pubsub("example-topic", MsgType.of(TopicMessage.class));
-            pubsub.subscribe(system.start(Subscriber::new, "subscriber"));
-            Thread.sleep(1000);
-            system.start(Publisher::new, "publisher");
+            startNode(1103);
         }
     }
-
 
     public static class Subscriber extends Actor<TopicMessage> {
         private static final Logger LOG = LoggerFactory.getLogger(Subscriber.class);

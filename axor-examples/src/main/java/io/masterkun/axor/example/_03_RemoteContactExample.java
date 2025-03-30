@@ -56,8 +56,8 @@ public class _03_RemoteContactExample {
                         kryo.register(Ping.class, 301);
                         kryo.register(Pong.class, 302);
                     });
-            ActorAddress address = ActorAddress.create("example@localhost:1101/serverActor");
-            system.<Pong>start(ctx -> new ClientActor(ctx, address), "clientActor");
+            ActorAddress serverAddress = ActorAddress.create("example@localhost:1101/serverActor");
+            system.<Pong>start(ctx -> new ClientActor(ctx, serverAddress), "clientActor");
         }
     }
 
@@ -70,7 +70,7 @@ public class _03_RemoteContactExample {
     public static class ClientActor extends Actor<Pong> {
         private static final Logger LOG = LoggerFactory.getLogger(ClientActor.class);
         private final ActorAddress pingAddress;
-        private int id;
+        private int id = 0;
 
         protected ClientActor(ActorContext<Pong> context, ActorAddress pingAddress) {
             super(context);

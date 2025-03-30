@@ -7,6 +7,9 @@ import io.masterkun.axor.api.ActorSystem;
 import io.masterkun.axor.api.MessageUtils;
 import io.masterkun.axor.cluster.Cluster;
 import io.masterkun.axor.cluster.ClusterEvent;
+import io.masterkun.axor.cluster.ClusterEvent.LocalStateChange;
+import io.masterkun.axor.cluster.ClusterEvent.MemberMetaInfoChanged;
+import io.masterkun.axor.cluster.ClusterEvent.MemberStateChanged;
 import io.masterkun.axor.cluster.membership.MetaKey;
 import io.masterkun.axor.cluster.membership.MetaKeys;
 import io.masterkun.axor.example.proto.ExampleProto.CustomMessage;
@@ -37,7 +40,7 @@ public class _04_ClusterSimpleExample {
             .build(CustomMessage.getDefaultInstance());
 
 
-    private static ActorSystem startSystem(int port) {
+    private static void startNode(int port) {
         Config config = load(parseString(("""
                 axor.network.bind {
                     port = %d
@@ -47,45 +50,35 @@ public class _04_ClusterSimpleExample {
                     join.seeds = ["localhost:1101"]
                 }
                 """.formatted(port)))).resolve();
-        return ActorSystem.create("example", config);
+        ActorSystem system = ActorSystem.create("example", config);
+        Cluster cluster = Cluster.get(system);
+        cluster.addListener(system.start(MemberListener::new, "memberListener"));
+        system.getDispatcherGroup().nextDispatcher().scheduleAtFixedRate(() -> {
+            cluster.updateMetaInfo(MEMBER_VERSION.update(i -> i + 1));
+        }, 3, 3, TimeUnit.SECONDS);
+        system.getDispatcherGroup().nextDispatcher().scheduleAtFixedRate(() -> {
+            cluster.updateMetaInfo(CUSTOM_META.upsert(CustomMessage.newBuilder()
+                    .setId(ThreadLocalRandom.current().nextInt())
+                    .setContent(UUID.randomUUID().toString())
+                    .build()));
+        }, 5, 5, TimeUnit.SECONDS);
     }
 
     public static class Node1 {
         public static void main(String[] args) {
-            ActorSystem system = startSystem(1101);
-            Cluster cluster = Cluster.get(system);
-            cluster.addListener(system.start(MemberListener::new, "memberListener"));
-            system.getDispatcherGroup().nextDispatcher().scheduleAtFixedRate(() -> {
-                cluster.updateMetaInfo(MEMBER_VERSION.update(i -> i + 1));
-            }, 3, 3, TimeUnit.SECONDS);
-            system.getDispatcherGroup().nextDispatcher().scheduleAtFixedRate(() -> {
-                cluster.updateMetaInfo(CUSTOM_META.upsert(CustomMessage.newBuilder()
-                        .setId(ThreadLocalRandom.current().nextInt())
-                        .setContent(UUID.randomUUID().toString())
-                        .build()));
-            }, 5, 5, TimeUnit.SECONDS);
+            startNode(1101);
         }
     }
 
     public static class Node2 {
         public static void main(String[] args) {
-            ActorSystem system = startSystem(1102);
-            Cluster cluster = Cluster.get(system);
-            cluster.addListener(system.start(MemberListener::new, "memberListener"));
-            system.getDispatcherGroup().nextDispatcher().scheduleAtFixedRate(() -> {
-                cluster.updateMetaInfo(MEMBER_VERSION.update(i -> i + 1));
-            }, 3, 3, TimeUnit.SECONDS);
+            startNode(1102);
         }
     }
 
     public static class Node3 {
         public static void main(String[] args) {
-            ActorSystem system = startSystem(1103);
-            Cluster cluster = Cluster.get(system);
-            cluster.addListener(system.start(MemberListener::new, "memberListener"));
-            system.getDispatcherGroup().nextDispatcher().scheduleAtFixedRate(() -> {
-                cluster.updateMetaInfo(MEMBER_VERSION.update(i -> i + 1));
-            }, 3, 3, TimeUnit.SECONDS);
+            startNode(1103);
         }
     }
 
@@ -98,15 +91,11 @@ public class _04_ClusterSimpleExample {
 
         @Override
         public void onReceive(ClusterEvent event) {
-            if (event instanceof ClusterEvent.LocalStateChange(var state)) {
+            if (event instanceof LocalStateChange(var state)) {
                 LOG.info("Local member state changed to: {}", state);
-            } else if (event instanceof ClusterEvent.MemberStateChanged(
-                    var member, var from, var to
-            )) {
+            } else if (event instanceof MemberStateChanged(var member, var from, var to)) {
                 LOG.info("{} state changed from {} to {}", member, from, to);
-            } else if (event instanceof ClusterEvent.MemberMetaInfoChanged(
-                    var member, var prevMeta
-            )) {
+            } else if (event instanceof MemberMetaInfoChanged(var member, var prevMeta)) {
                 int nowVersion = MEMBER_VERSION.getValue(member.metaInfo());
                 int prevVersion = MEMBER_VERSION.getValue(prevMeta);
                 CustomMessage nowMsg = CUSTOM_META.get(member.metaInfo());

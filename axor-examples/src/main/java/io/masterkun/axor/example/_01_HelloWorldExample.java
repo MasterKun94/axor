@@ -26,11 +26,11 @@ public class _01_HelloWorldExample {
         ActorSystem system = ActorSystem.create("example");
         ActorRef<Hello> actor = system.start(HelloWorldActor::new, "HelloWorld");
 
-        ActorRef<HelloBack> bot = system.start(HelloBot::new, "HelloBot");
+        ActorRef<HelloReply> bot = system.start(HelloBot::new, "HelloBot");
         actor.tell(new Hello("Hello"), bot);
 
         var reply = ActorPatterns.ask(actor, new Hello("Greeting"),
-                        MsgType.of(HelloBack.class),
+                        MsgType.of(HelloReply.class),
                         Duration.ofSeconds(1), system)
                 .toFuture()
                 .get();
@@ -42,9 +42,7 @@ public class _01_HelloWorldExample {
     public record Hello(String msg) {
     }
 
-    ;
-
-    public record HelloBack(String msg) {
+    public record HelloReply(String msg) {
     }
 
     public static class HelloWorldActor extends Actor<Hello> {
@@ -57,7 +55,7 @@ public class _01_HelloWorldExample {
         @Override
         public void onReceive(Hello sayHello) {
             LOG.info("Receive: {} from {}", sayHello, sender());
-            sender(HelloBack.class).tell(new HelloBack(sayHello.msg), self());
+            sender(HelloReply.class).tell(new HelloReply(sayHello.msg), self());
         }
 
         @Override
@@ -66,21 +64,21 @@ public class _01_HelloWorldExample {
         }
     }
 
-    public static class HelloBot extends Actor<HelloBack> {
+    public static class HelloBot extends Actor<HelloReply> {
         private static final Logger LOG = LoggerFactory.getLogger(HelloBot.class);
 
-        protected HelloBot(ActorContext<HelloBack> context) {
+        protected HelloBot(ActorContext<HelloReply> context) {
             super(context);
         }
 
         @Override
-        public void onReceive(HelloBack helloBack) {
+        public void onReceive(HelloReply helloBack) {
             LOG.info("Receive: {} from {}", helloBack, sender());
         }
 
         @Override
-        public MsgType<HelloBack> msgType() {
-            return MsgType.of(HelloBack.class);
+        public MsgType<HelloReply> msgType() {
+            return MsgType.of(HelloReply.class);
         }
     }
 }
