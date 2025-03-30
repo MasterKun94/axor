@@ -1,16 +1,18 @@
-# Axor 远程通信示例
+# Axor Remote Contact Example
 
-[完整可执行代码在这里](../../axor-examples/src/main/java/io/masterkun/axor/example/_03_RemoteContactExample.java)
+[Full executable code is here](../../axor-examples/src/main/java/io/masterkun/axor/example/_03_RemoteContactExample.java)
 
-## 简介
+## Introduction
 
-本示例展示了如何使用 Axor 框架实现两个 Actor 之间的远程通信。通过这个示例，你可以了解如何创建和配置
-Actor 系统、定义消息类型以及在不同系统中的 Actor 之间进行消息传递。我们将创建一个简单的服务器-客户端模型，其中客户端定期向服务器发送
-`Ping` 消息，服务器则回复 `Pong` 消息。
+This example demonstrates how to use the Axor framework to implement remote communication between
+two Actors. Through this example, you can learn how to create and configure Actor systems, define
+message types, and exchange messages between Actors in different systems. We will create a simple
+server-client model where the client periodically sends `Ping` messages to the server, and the
+server responds with `Pong` messages.
 
-## 1. 导入必要的包
+## 1. Importing Necessary Packages
 
-```java
+``` java
 import com.typesafe.config.Config;
 import io.masterkun.axor.api.*;
 import io.masterkun.axor.exception.ActorNotFoundException;
@@ -19,11 +21,11 @@ import io.masterkun.axor.runtime.MsgType;
 import io.masterkun.axor.runtime.serde.kryo.KryoSerdeFactory;
 ```
 
-## 2. 定义消息类型
+## 2. Defining Message Types
 
-为了在 Actors 之间传递消息，定义了两种消息类型 `Ping` 和 `Pong`。
+To pass messages between Actors, we define two message types: `Ping` and `Pong`.
 
-```java
+``` java
 public record Ping(int id) {
 }
 
@@ -31,11 +33,12 @@ public record Pong(int id) {
 }
 ```
 
-## 3. 创建 ServerActor
+## 3. Creating the ServerActor
 
-`ServerActor` 是接收 `Ping` 类型消息的 Actor，并回复 `Pong` 类型的消息给发送者。
+The `ServerActor` is an Actor that receives `Ping` type messages and replies with `Pong` type
+messages to the sender.
 
-```java
+``` java
 public static class ServerActor extends Actor<Ping> {
     private static final Logger LOG = LoggerFactory.getLogger(ServerActor.class);
 
@@ -56,11 +59,12 @@ public static class ServerActor extends Actor<Ping> {
 }
 ```
 
-## 4. 创建 ClientActor
+## 4. Creating the ClientActor
 
-`ClientActor` 是接收 `Pong` 类型消息的 Actor，并简单地记录接收到的消息。
+The `ClientActor` is an Actor that receives `Pong` type messages and simply logs the received
+messages.
 
-```java
+``` java
 public static class ClientActor extends Actor<Pong> {
     private static final Logger LOG = LoggerFactory.getLogger(ClientActor.class);
     private final ActorAddress pingAddress;
@@ -73,7 +77,7 @@ public static class ClientActor extends Actor<Pong> {
 
     @Override
     public void onStart() {
-        // 定时发送 Ping 消息
+        // Schedule periodic sending of Ping messages
         ActorRef<Ping> actor;
         try {
             actor = context().system().get(pingAddress, Ping.class);
@@ -89,7 +93,7 @@ public static class ClientActor extends Actor<Pong> {
     public void onReceive(Pong pong) {
         LOG.info("Receive: {} from {}", pong, sender());
     }
-
+    
     @Override
     public MsgType<Pong> msgType() {
         return MsgType.of(Pong.class);
@@ -97,13 +101,14 @@ public static class ClientActor extends Actor<Pong> {
 }
 ```
 
-## 5. 远程通信
+## 5. Remote Communication
 
-创建两个 Actor 系统，一个作为服务器（Node1），另一个作为客户端（Node2）。客户端定期向服务器发送 `Ping`
-消息，服务器响应 `Pong` 消息。通信使用 Kryo 进行消息序列化。
+We create two Actor systems, one as the server (Node1) and the other as the client (Node2). The
+client periodically sends `Ping` messages to the server, and the server responds with `Pong`
+messages. Communication uses Kryo for message serialization.
 
-```java
-    private static ActorSystem startSystem(int port) {
+``` java
+private static ActorSystem startSystem(int port) {
     Config config = load(parseString(("""
             axor.network.bind {
                 port = %d
@@ -129,9 +134,9 @@ public static class Node2 {
 }
 ```
 
-### 执行后日志输出
+### Log Output After Execution
 
-当运行上述代码时，控制台将显示类似以下的日志输出：
+When running the above code, the console will display log output similar to the following:
 
 #### node1
 

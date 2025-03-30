@@ -1,6 +1,9 @@
-<img alt="icon.png" height="300" src="docs/images/icon.png" width="300"/>
+<div align="center">
+<img alt="icon.png" src="docs/images/icon.png"/>
+</div>
 
 # AXOR
+[Switch Language: English](README-en.md)
 
 ## 项目简介
 
