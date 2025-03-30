@@ -1,4 +1,4 @@
-![icon.png](docs/images/icon.png)
+<img alt="icon.png" height="300" src="docs/images/icon.png" width="300"/>
 
 # AXOR 项目简介
 
