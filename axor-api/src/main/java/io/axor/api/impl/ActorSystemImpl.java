@@ -34,6 +34,7 @@ import io.axor.runtime.StreamServerBuilderProvider;
 import io.masterkun.stateeasy.concurrent.EventPromise;
 import io.masterkun.stateeasy.concurrent.EventStage;
 import io.masterkun.stateeasy.concurrent.Try;
+import io.micrometer.core.instrument.FunctionCounter;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
@@ -42,6 +43,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -64,6 +66,7 @@ public class ActorSystemImpl implements ActorSystem, HasMeter {
     private final Pubsub<SystemEvent> systemEventPubsub;
     private final DependencyTaskRegistryRunner shutdownHooks =
             new DependencyTaskRegistryRunner(true);
+    private long numDeadLetter;
     private volatile boolean closed = false;
 
     public ActorSystemImpl(String name,
@@ -125,19 +128,21 @@ public class ActorSystemImpl implements ActorSystem, HasMeter {
                 LOG.info("{} is initialized", initializer.getClass().getSimpleName());
             }
         }
-        if (actorConfig.logger().logDeadLetters()) {
-            deadLetterPubsub.subscribe(start(c -> new Actor<>(c) {
-                @Override
-                public void onReceive(DeadLetter deadLetter) {
+        boolean logDeadLetters = actorConfig.logger().logDeadLetters();
+        deadLetterPubsub.subscribe(start(c -> new Actor<>(c) {
+            @Override
+            public void onReceive(DeadLetter deadLetter) {
+                if (logDeadLetters) {
                     LOG.warn("Receive dead letter {}", deadLetter);
                 }
+                numDeadLetter++;
+            }
 
-                @Override
-                public MsgType<DeadLetter> msgType() {
-                    return MsgType.of(DeadLetter.class);
-                }
-            }, "sys/DeadLetterListener"));
-        }
+            @Override
+            public MsgType<DeadLetter> msgType() {
+                return MsgType.of(DeadLetter.class);
+            }
+        }, "sys/DeadLetterListener", deadLetterPubsub.dispatcher()));
     }
 
     public static boolean hasMultipalInstance() {
@@ -359,6 +364,9 @@ public class ActorSystemImpl implements ActorSystem, HasMeter {
 
     @Override
     public void register(MeterRegistry registry, String... tags) {
+        tags = Arrays.copyOf(tags, tags.length + 2);
+        tags[tags.length - 2] = "system_name";
+        tags[tags.length - 1] = name;
         Gauge.builder("axor.active.streams.in", remoteActorCache, c -> c.getAll()
                         .mapToInt(a -> a.getStreamManager().getActiveStreamsIn())
                         .sum())
@@ -387,6 +395,89 @@ public class ActorSystemImpl implements ActorSystem, HasMeter {
                 .tags(tags)
                 .tag("actor_type", "local")
                 .register(registry);
+        FunctionCounter.builder("axor.deadLetter", this, t -> t.numDeadLetter)
+                .description("Number of dead letter messages")
+                .tags(tags)
+                .register(registry);
+        String[] fTags = tags;
+        systemEventPubsub.subscribe(start(c -> new Actor<>(c) {
+            private long actorStarted;
+            private long actorStopped;
+            private long actorError;
+            private long actorRestarted;
+            private long streamOutOpened;
+            private long streamOutClosed;
+            private long streamInOpened;
+            private long streamInClosed;
+
+            @Override
+            public void onStart() {
+                FunctionCounter.builder("axor.systemEvent", this, t -> t.actorStarted)
+                        .description("Number of SystemEvent")
+                        .tags(fTags)
+                        .tag("event_type", "actorStarted")
+                        .register(registry);
+                FunctionCounter.builder("axor.systemEvent", this, t -> t.actorStopped)
+                        .description("Number of SystemEvent")
+                        .tags(fTags)
+                        .tag("event_type", "actorStopped")
+                        .register(registry);
+                FunctionCounter.builder("axor.systemEvent", this, t -> t.actorError)
+                        .description("Number of SystemEvent")
+                        .tags(fTags)
+                        .tag("event_type", "actorError")
+                        .register(registry);
+                FunctionCounter.builder("axor.systemEvent", this, t -> t.actorRestarted)
+                        .description("Number of SystemEvent")
+                        .tags(fTags)
+                        .tag("event_type", "actorRestarted")
+                        .register(registry);
+                FunctionCounter.builder("axor.systemEvent", this, t -> t.streamOutOpened)
+                        .description("Number of SystemEvent")
+                        .tags(fTags)
+                        .tag("event_type", "streamOutOpened")
+                        .register(registry);
+                FunctionCounter.builder("axor.systemEvent", this, t -> t.streamOutClosed)
+                        .description("Number of SystemEvent")
+                        .tags(fTags)
+                        .tag("event_type", "streamOutClosed")
+                        .register(registry);
+                FunctionCounter.builder("axor.systemEvent", this, t -> t.streamInOpened)
+                        .description("Number of SystemEvent")
+                        .tags(fTags)
+                        .tag("event_type", "streamInOpened")
+                        .register(registry);
+                FunctionCounter.builder("axor.systemEvent", this, t -> t.streamInClosed)
+                        .description("Number of SystemEvent")
+                        .tags(fTags)
+                        .tag("event_type", "streamInClosed")
+                        .register(registry);
+            }
+
+            @Override
+            public void onReceive(SystemEvent systemEvent) {
+                if (systemEvent instanceof SystemEvent.ActorEvent actorEvent) {
+                    switch (actorEvent) {
+                        case SystemEvent.ActorStarted ignored -> actorStarted++;
+                        case SystemEvent.ActorStopped ignored -> actorStopped++;
+                        case SystemEvent.ActorRestarted ignored -> actorRestarted++;
+                        case SystemEvent.ActorError ignored -> actorError++;
+                    }
+                } else if (systemEvent instanceof SystemEvent.StreamEvent streamEvent) {
+                    switch (streamEvent) {
+                        case SystemEvent.StreamOutOpened ignored -> streamOutOpened++;
+                        case SystemEvent.StreamOutClosed ignored -> streamOutClosed++;
+                        case SystemEvent.StreamInOpened ignored -> streamInOpened++;
+                        case SystemEvent.StreamInClosed ignored -> streamInClosed++;
+                    }
+                }
+            }
+
+            @Override
+            public MsgType<SystemEvent> msgType() {
+                return MsgType.of(SystemEvent.class);
+            }
+        }, "sys/SystemEventListener", systemEventPubsub.dispatcher()));
         if (eventExecutorGroup instanceof HasMeter hasMetrics) {
             hasMetrics.register(registry, tags);
         }
