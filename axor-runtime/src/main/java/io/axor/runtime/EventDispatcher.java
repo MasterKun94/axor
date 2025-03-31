@@ -19,9 +19,13 @@ public interface EventDispatcher extends SingleThreadEventExecutor {
      * of {@link DispatcherThread}
      */
     static EventDispatcher current() {
-        return Thread.currentThread() instanceof DispatcherThread ext ? ext.getOwnerExecutor() :
-                null;
+        return Thread.currentThread() instanceof DispatcherThread ext ?
+                ext.getOwnerExecutor() : null;
     }
+
+    EventContext setContext(EventContext context);
+
+    EventContext getContext();
 
     /**
      * An interface that defines a contract for threads that are associated with an
@@ -37,5 +41,27 @@ public interface EventDispatcher extends SingleThreadEventExecutor {
          */
         @Override
         EventDispatcher getOwnerExecutor();
+
+        /**
+         * Sets the given {@link EventContext} for the current thread.
+         *
+         * <p>This method checks if the current thread is an instance of
+         * {@link EventDispatcher.DispatcherThread}. If it is, the method sets the provided
+         * {@link EventContext} on the thread. If the current thread is not an instance of
+         * {@link EventDispatcher.DispatcherThread}, a {@link RuntimeException} is thrown.
+         *
+         * @param context the {@link EventContext} to set for the current thread
+         * @return the previous {@link EventContext} associated with the current thread
+         * @throws RuntimeException if the current thread is not an instance of
+         *                          {@link EventDispatcher.DispatcherThread}
+         */
+        EventContext setContext(EventContext context);
+
+        /**
+         * Retrieves the current {@link EventContext} associated with the thread.
+         *
+         * @return the current {@link EventContext} for the thread, or null if no context is set
+         */
+        EventContext getContext();
     }
 }
