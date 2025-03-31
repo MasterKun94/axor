@@ -27,6 +27,11 @@
             <artifactId>axor-testkit</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>io.axor</groupId>
+            <artifactId>axor-runtime-serde-kryo</artifactId>
+            <scope>test</scope>
+        </dependency>
 
         <dependency>
             <groupId>io.grpc</groupId>

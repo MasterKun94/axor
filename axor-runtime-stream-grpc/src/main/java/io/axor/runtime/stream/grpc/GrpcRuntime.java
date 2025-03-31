@@ -2,6 +2,7 @@ package io.axor.runtime.stream.grpc;
 
 import com.google.common.net.HostAndPort;
 import io.axor.runtime.DeadLetterHandlerFactory;
+import io.axor.runtime.EventContext;
 import io.axor.runtime.EventDispatcher;
 import io.axor.runtime.Serde;
 import io.axor.runtime.SerdeRegistry;
@@ -131,8 +132,8 @@ public class GrpcRuntime {
         ClientCall<InputStream, ResStatus> call = channel.newCall(methodDescriptor, callOpt);
         var res = new ResStatusObserver(definition, selfDefinition, observer, executor);
         var req = ClientCalls.asyncBidiStreamingCall(call, res);
-        var marshaller = Marshallers.create(definition.serde());
-        return new ReqObserverAdaptor<>(req, marshaller);
+        var marshaller = new ContextMsgMarshaller<>(definition.serde());
+        return new ReqObserverAdaptor<>(req, marshaller, executor);
     }
 
     private interface ContextCloseable extends Closeable {
@@ -143,13 +144,13 @@ public class GrpcRuntime {
     static class ResObserverAdaptor implements StreamObserver<InputStream> {
         private final EventDispatcher executor;
         private final StreamChannel.StreamObserver open;
-        private final MethodDescriptor.Marshaller<?> msgMarshaller;
+        private final ContextMsgMarshaller<?> msgMarshaller;
         private final StreamObserver<ResStatus> resObserver;
         private boolean done;
 
         public ResObserverAdaptor(EventDispatcher executor,
                                   StreamChannel.StreamObserver open,
-                                  MethodDescriptor.Marshaller<?> msgMarshaller,
+                                  ContextMsgMarshaller<?> msgMarshaller,
                                   StreamObserver<ResStatus> resObserver) {
             this.executor = executor;
             this.open = open;
@@ -167,12 +168,16 @@ public class GrpcRuntime {
         public void onNext(InputStream value) {
             assert executor.inExecutor();
             try {
-                open.onNext(msgMarshaller.parse(value));
+                ContextMsg<?> ctxMsg = msgMarshaller.parse(value);
+                executor.setContext(ctxMsg.context());
+                open.onNext(ctxMsg.msg());
             } catch (Throwable e) {
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("Message send error", e);
                 }
                 onError(e);
+            } finally {
+                executor.setContext(EventContext.INITIAL);
             }
         }
 
@@ -211,13 +216,16 @@ public class GrpcRuntime {
 
     static class ReqObserverAdaptor<T> implements StreamChannel.StreamObserver<T> {
         private final StreamObserver<InputStream> req;
-        private final MethodDescriptor.Marshaller<T> marshaller;
+        private final ContextMsgMarshaller<T> marshaller;
+        private final EventDispatcher dispatcher;
         private boolean done;
 
         public ReqObserverAdaptor(StreamObserver<InputStream> req,
-                                  MethodDescriptor.Marshaller<T> marshaller) {
+                                  ContextMsgMarshaller<T> marshaller,
+                                  EventDispatcher dispatcher) {
             this.req = req;
             this.marshaller = marshaller;
+            this.dispatcher = dispatcher;
             done = false;
         }
 
@@ -239,7 +247,7 @@ public class GrpcRuntime {
             if (done) {
                 throw new IllegalArgumentException("already completed");
             }
-            req.onNext(marshaller.stream(t));
+            req.onNext(marshaller.stream(new ContextMsg<>(dispatcher.getContext(), t)));
         }
     }
 
@@ -378,12 +386,12 @@ public class GrpcRuntime {
                 }
             }
             if (streamUnavailable) {
-                var msgMarshaller = Marshallers.create(serverStreamDef.serde());
+                var msgMarshaller = new ContextMsgMarshaller<>(serverStreamDef.serde());
                 var handler = deadLetterHandler.create(clientStreamDef, serverStreamDef);
                 return new StreamObserver<>() {
                     @Override
                     public void onNext(InputStream value) {
-                        handler.handle(msgMarshaller.parse(value));
+                        handler.handle(msgMarshaller.parse(value).msg());
                     }
 
                     @Override
@@ -410,7 +418,7 @@ public class GrpcRuntime {
             @SuppressWarnings("rawtypes")
             StreamChannel.StreamObserver open = channel.open(clientStreamDef, executor,
                     status -> resObserver.onNext(StreamUtils.toProto(status)));
-            var msgMarshaller = Marshallers.create(channel.getSelfDefinition().serde());
+            var msgMarshaller = new ContextMsgMarshaller<>(channel.getSelfDefinition().serde());
             return new ResObserverAdaptor(executor, open, msgMarshaller, resObserver);
         }
 

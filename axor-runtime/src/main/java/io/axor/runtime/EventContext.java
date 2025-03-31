@@ -18,31 +18,20 @@ public sealed interface EventContext permits EventContextInitial, EventContextIm
     EventContext INITIAL = new EventContextInitial();
 
     /**
-     * Returns the current {@link EventContext} associated with the current thread.
+     * Retrieves the current {@link EventContext} for the current thread.
      *
-     * <p>This method checks if the current thread is an instance of
-     * {@link EventDispatcher.DispatcherThread}. If it is, the method retrieves and returns the
-     * {@link EventContext} from the thread. If the current thread is not an instance of
-     * {@link EventDispatcher.DispatcherThread}, a {@link RuntimeException} is thrown.
-     *
-     * @return the current {@link EventContext} associated with the current thread
-     * @throws RuntimeException if the current thread is not an instance of
-     *                          {@link EventDispatcher.DispatcherThread}
+     * @return the current {@link EventContext} for the thread, or the initial {@link EventContext}
+     * if the current thread is not an instance of {@link EventDispatcher.DispatcherThread}
      */
     static EventContext current() {
         if (Thread.currentThread() instanceof EventDispatcher.DispatcherThread ext) {
             return ext.getContext();
         }
-        throw new RuntimeException("not in EventDispatcher");
+        return EventContext.INITIAL;
     }
 
     /**
      * Sets the given {@link EventContext} for the current thread.
-     *
-     * <p>This method checks if the current thread is an instance of
-     * {@link EventDispatcher.DispatcherThread}. If it is, the method sets the provided
-     * {@link EventContext} on the thread. If the current thread is not an instance of
-     * {@link EventDispatcher.DispatcherThread}, a {@link RuntimeException} is thrown.
      *
      * @param context the {@link EventContext} to set for the current thread
      * @return the previous {@link EventContext} associated with the current thread

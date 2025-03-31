@@ -1,16 +1,18 @@
 package io.axor.runtime.stream.grpc;
 
+import io.axor.runtime.EventDispatcher;
+import io.axor.runtime.MsgType;
 import io.axor.runtime.Status;
 import io.axor.runtime.StatusCode;
+import io.axor.runtime.impl.BuiltinSerde;
 import io.axor.runtime.stream.grpc.GrpcRuntime.ReqObserverAdaptor;
-import io.grpc.MethodDescriptor;
 import io.grpc.StatusException;
 import io.grpc.stub.StreamObserver;
-import org.apache.commons.io.IOUtils;
 import org.junit.Test;
 import org.mockito.Mockito;
 
-import java.io.ByteArrayInputStream;
+import java.io.DataInput;
+import java.io.DataOutput;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -26,23 +28,11 @@ public class ReqObserverAdaptorTest {
     @Test
     public void testOnNext() {
         StreamObserver<InputStream> mockReq = Mockito.mock(StreamObserver.class);
-        MethodDescriptor.Marshaller<String> marshaller = new MethodDescriptor.Marshaller<>() {
-            @Override
-            public InputStream stream(String value) {
-                return new ByteArrayInputStream(value.getBytes()); // Mocked for testing
-            }
+        ContextMsgMarshaller<String> marshaller =
+                new ContextMsgMarshaller<>(new StringBuiltinSerde());
 
-            @Override
-            public String parse(InputStream stream) {
-                try {
-                    return IOUtils.toString(stream); // Mocked for testing
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        };
-
-        ReqObserverAdaptor<String> adaptor = new ReqObserverAdaptor<>(mockReq, marshaller);
+        ReqObserverAdaptor<String> adaptor = new ReqObserverAdaptor<>(mockReq, marshaller,
+                Mockito.mock(EventDispatcher.class));
 
         adaptor.onNext("testValue");
 
@@ -52,19 +42,11 @@ public class ReqObserverAdaptorTest {
     @Test
     public void testOnEndWithCompleteStatus() {
         StreamObserver<InputStream> mockReq = Mockito.mock(StreamObserver.class);
-        MethodDescriptor.Marshaller<String> marshaller = new MethodDescriptor.Marshaller<>() {
-            @Override
-            public InputStream stream(String value) {
-                return null; // Mocked for testing
-            }
+        ContextMsgMarshaller<String> marshaller =
+                new ContextMsgMarshaller<>(new StringBuiltinSerde());
 
-            @Override
-            public String parse(InputStream stream) {
-                return null; // Mocked for testing
-            }
-        };
-
-        ReqObserverAdaptor<String> adaptor = new ReqObserverAdaptor<>(mockReq, marshaller);
+        ReqObserverAdaptor<String> adaptor = new ReqObserverAdaptor<>(mockReq, marshaller,
+                Mockito.mock(EventDispatcher.class));
 
         adaptor.onEnd(StatusCode.COMPLETE.toStatus());
 
@@ -74,23 +56,11 @@ public class ReqObserverAdaptorTest {
     @Test
     public void testOnEndWithErrorStatus() {
         StreamObserver<InputStream> mockReq = Mockito.mock(StreamObserver.class);
-        MethodDescriptor.Marshaller<String> marshaller = new MethodDescriptor.Marshaller<>() {
-            @Override
-            public InputStream stream(String value) {
-                return new ByteArrayInputStream(value.getBytes()); // Mocked for testing
-            }
+        ContextMsgMarshaller<String> marshaller =
+                new ContextMsgMarshaller<>(new StringBuiltinSerde());
 
-            @Override
-            public String parse(InputStream stream) {
-                try {
-                    return IOUtils.toString(stream); // Mocked for testing
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        };
-
-        ReqObserverAdaptor<String> adaptor = new ReqObserverAdaptor<>(mockReq, marshaller);
+        ReqObserverAdaptor<String> adaptor = new ReqObserverAdaptor<>(mockReq, marshaller,
+                Mockito.mock(EventDispatcher.class));
 
         Status errorStatus = StatusCode.SYSTEM_ERROR.toStatus();
 
@@ -106,19 +76,11 @@ public class ReqObserverAdaptorTest {
     @Test
     public void testOnNextAfterCompletion() {
         StreamObserver<InputStream> mockReq = Mockito.mock(StreamObserver.class);
-        MethodDescriptor.Marshaller<String> marshaller = new MethodDescriptor.Marshaller<>() {
-            @Override
-            public InputStream stream(String value) {
-                return null; // Mocked for testing
-            }
+        ContextMsgMarshaller<String> marshaller =
+                new ContextMsgMarshaller<>(new StringBuiltinSerde());
 
-            @Override
-            public String parse(InputStream stream) {
-                return null; // Mocked for testing
-            }
-        };
-
-        ReqObserverAdaptor<String> adaptor = new ReqObserverAdaptor<>(mockReq, marshaller);
+        ReqObserverAdaptor<String> adaptor = new ReqObserverAdaptor<>(mockReq, marshaller,
+                Mockito.mock(EventDispatcher.class));
 
         adaptor.onEnd(StatusCode.COMPLETE.toStatus());
 
@@ -131,5 +93,23 @@ public class ReqObserverAdaptorTest {
 
         assertTrue(exceptionThrown.get());
         verify(mockReq, never()).onNext(any(InputStream.class));
+    }
+
+    private static class StringBuiltinSerde implements BuiltinSerde<String> {
+
+        @Override
+        public MsgType<String> getType() {
+            return MsgType.of(String.class);
+        }
+
+        @Override
+        public void doSerialize(String obj, DataOutput out) throws IOException {
+            out.writeUTF(obj);
+        }
+
+        @Override
+        public String doDeserialize(DataInput in) throws IOException {
+            return in.readUTF();
+        }
     }
 }

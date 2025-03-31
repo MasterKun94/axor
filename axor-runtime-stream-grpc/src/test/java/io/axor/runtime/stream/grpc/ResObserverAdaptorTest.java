@@ -1,11 +1,11 @@
 package io.axor.runtime.stream.grpc;
 
+import io.axor.runtime.EventContext;
 import io.axor.runtime.EventDispatcher;
 import io.axor.runtime.StatusCode;
 import io.axor.runtime.StreamChannel;
 import io.axor.runtime.stream.grpc.GrpcRuntime.ResObserverAdaptor;
 import io.axor.runtime.stream.grpc.proto.AxorProto;
-import io.grpc.MethodDescriptor;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
@@ -25,13 +25,13 @@ public class ResObserverAdaptorTest {
     public void testOnNextSuccessfullyParsesAndForwardsValue() {
         EventDispatcher executor = Mockito.mock(EventDispatcher.class);
         StreamChannel.StreamObserver open = Mockito.mock(StreamChannel.StreamObserver.class);
-        MethodDescriptor.Marshaller<InputStream> msgMarshaller =
-                Mockito.mock(MethodDescriptor.Marshaller.class);
+        ContextMsgMarshaller<InputStream> msgMarshaller =
+                Mockito.mock(ContextMsgMarshaller.class);
         StreamObserver<AxorProto.ResStatus> resObserver = Mockito.mock(StreamObserver.class);
         InputStream value = Mockito.mock(InputStream.class);
 
         when(executor.inExecutor()).thenReturn(true);
-        when(msgMarshaller.parse(value)).thenReturn(value);
+        when(msgMarshaller.parse(value)).thenReturn(new ContextMsg<>(EventContext.INITIAL, value));
 
         ResObserverAdaptor adaptor = new ResObserverAdaptor(executor, open, msgMarshaller,
                 resObserver);
@@ -44,8 +44,8 @@ public class ResObserverAdaptorTest {
     public void testOnNextThrowsExceptionIfNotInExecutor() {
         EventDispatcher executor = Mockito.mock(EventDispatcher.class);
         StreamChannel.StreamObserver<?> open = Mockito.mock(StreamChannel.StreamObserver.class);
-        MethodDescriptor.Marshaller<InputStream> msgMarshaller =
-                Mockito.mock(MethodDescriptor.Marshaller.class);
+        ContextMsgMarshaller<InputStream> msgMarshaller =
+                Mockito.mock(ContextMsgMarshaller.class);
         StreamObserver<AxorProto.ResStatus> resObserver = Mockito.mock(StreamObserver.class);
         InputStream value = Mockito.mock(InputStream.class);
 
@@ -65,8 +65,8 @@ public class ResObserverAdaptorTest {
     public void testOnErrorMarksAsDoneAndCallsOnEndWithStatus() {
         EventDispatcher executor = Mockito.mock(EventDispatcher.class);
         StreamChannel.StreamObserver<?> open = Mockito.mock(StreamChannel.StreamObserver.class);
-        MethodDescriptor.Marshaller<InputStream> msgMarshaller =
-                Mockito.mock(MethodDescriptor.Marshaller.class);
+        ContextMsgMarshaller<InputStream> msgMarshaller =
+                Mockito.mock(ContextMsgMarshaller.class);
         StreamObserver<AxorProto.ResStatus> resObserver = Mockito.mock(StreamObserver.class);
         Throwable t = new StatusRuntimeException(Status.ABORTED);
 
@@ -84,8 +84,8 @@ public class ResObserverAdaptorTest {
     public void testOnErrorDoesNothingIfAlreadyDone() {
         EventDispatcher executor = Mockito.mock(EventDispatcher.class);
         StreamChannel.StreamObserver<?> open = Mockito.mock(StreamChannel.StreamObserver.class);
-        MethodDescriptor.Marshaller<InputStream> msgMarshaller =
-                Mockito.mock(MethodDescriptor.Marshaller.class);
+        ContextMsgMarshaller<InputStream> msgMarshaller =
+                Mockito.mock(ContextMsgMarshaller.class);
         StreamObserver<AxorProto.ResStatus> resObserver = Mockito.mock(StreamObserver.class);
         Throwable t = new StatusRuntimeException(Status.ABORTED);
 
@@ -104,8 +104,8 @@ public class ResObserverAdaptorTest {
     public void testOnCompletedMarksAsDoneAndCallsOnEndWithCompleteStatus() {
         EventDispatcher executor = Mockito.mock(EventDispatcher.class);
         StreamChannel.StreamObserver<?> open = Mockito.mock(StreamChannel.StreamObserver.class);
-        MethodDescriptor.Marshaller<InputStream> msgMarshaller =
-                Mockito.mock(MethodDescriptor.Marshaller.class);
+        ContextMsgMarshaller<InputStream> msgMarshaller =
+                Mockito.mock(ContextMsgMarshaller.class);
         StreamObserver<AxorProto.ResStatus> resObserver = Mockito.mock(StreamObserver.class);
 
         when(executor.inExecutor()).thenReturn(true);
@@ -122,8 +122,8 @@ public class ResObserverAdaptorTest {
     public void testOnCompletedNotThrowsExceptionIfAlreadyDone() {
         EventDispatcher executor = Mockito.mock(EventDispatcher.class);
         StreamChannel.StreamObserver<?> open = Mockito.mock(StreamChannel.StreamObserver.class);
-        MethodDescriptor.Marshaller<InputStream> msgMarshaller =
-                Mockito.mock(MethodDescriptor.Marshaller.class);
+        ContextMsgMarshaller<InputStream> msgMarshaller =
+                Mockito.mock(ContextMsgMarshaller.class);
         StreamObserver<AxorProto.ResStatus> resObserver = Mockito.mock(StreamObserver.class);
 
         when(executor.inExecutor()).thenReturn(true);

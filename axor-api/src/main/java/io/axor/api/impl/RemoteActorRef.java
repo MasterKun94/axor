@@ -5,6 +5,7 @@ import io.axor.api.ActorRef;
 import io.axor.api.ActorRefRich;
 import io.axor.api.ActorSystem;
 import io.axor.api.SystemEvent;
+import io.axor.runtime.EventContext;
 import io.axor.runtime.EventDispatcher;
 import io.axor.runtime.Serde;
 import io.axor.runtime.StreamManager;
@@ -63,7 +64,7 @@ final class RemoteActorRef<T> extends AbstractActorRef<T> {
         if (executor.inExecutor()) {
             tellAction.accept(manager, value);
         } else {
-            executor.execute(() -> tellAction.accept(manager, value));
+            EventContext.current().execute(() -> tellAction.accept(manager, value), executor);
         }
     }
 

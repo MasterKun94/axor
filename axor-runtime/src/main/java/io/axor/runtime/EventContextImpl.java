@@ -4,6 +4,9 @@ import io.axor.commons.collection.IntObjectHashMap;
 import io.axor.commons.collection.IntObjectMap;
 import org.jetbrains.annotations.Nullable;
 
+import java.nio.ByteBuffer;
+import java.util.Arrays;
+
 /**
  * An implementation of the {@link EventContext} interface that provides a mechanism for managing
  * and manipulating contextual data in an event-driven system. This class uses an internal map to
@@ -13,12 +16,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>The class supports adding, removing, and retrieving entries from the context, as well as
  * creating new scopes for the context.
  */
-final class EventContextImpl implements EventContext {
-    private final IntObjectMap<BytesHolder> map;
-
-    EventContextImpl(IntObjectMap<BytesHolder> map) {
-        this.map = map;
-    }
+record EventContextImpl(IntObjectMap<BytesHolder> map) implements EventContext {
 
     @Override
     public <T> @Nullable T get(Key<T> key) {
@@ -47,13 +45,31 @@ final class EventContextImpl implements EventContext {
 
     @Override
     public Scope openScope() {
-        EventContext prev = EventContext.set(this);
-        return () -> EventContext.set(prev);
+        if (Thread.currentThread() instanceof EventDispatcher.DispatcherThread ext) {
+            EventContext prev = ext.setContext(this);
+            return () -> ext.setContext(prev);
+        }
+        throw new RuntimeException("not in EventDispatcher");
     }
 
     record BytesHolder(byte[] b, int off, int len) {
         BytesHolder(byte[] b) {
             this(b, 0, b.length);
         }
+
+
+        @Override
+        public boolean equals(Object o) {
+            if (o == null || getClass() != o.getClass()) return false;
+            BytesHolder holder = (BytesHolder) o;
+            return Arrays.equals(b, off, len + off,
+                    holder.b, holder.off, holder.len + holder.off);
+        }
+
+        @Override
+        public int hashCode() {
+            return ByteBuffer.wrap(b, off, len).hashCode();
+        }
+
     }
 }

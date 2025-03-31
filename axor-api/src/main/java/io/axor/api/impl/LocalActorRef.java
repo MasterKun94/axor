@@ -12,6 +12,7 @@ import io.axor.api.SystemEvent;
 import io.axor.api.SystemEvent.ActorStopped;
 import io.axor.config.ActorConfig;
 import io.axor.exception.ActorException;
+import io.axor.runtime.EventContext;
 import io.axor.runtime.EventDispatcher;
 import io.axor.runtime.SerdeRegistry;
 import io.axor.runtime.Status;
@@ -310,7 +311,7 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
 
     @Override
     public void tell(T value, ActorRef<?> sender) {
-        executor.execute(() -> tellAction.accept(value, sender));
+        EventContext.current().execute(() -> tellAction.accept(value, sender), executor);
     }
 
     @Override
@@ -353,7 +354,7 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
 
     @Internal
     public void signal(Signal signal) {
-        executor.execute(() -> signalAction.accept(signal));
+        EventContext.current().execute(() -> signalAction.accept(signal), executor);
     }
 
     public void signalInline(Signal signal) {
