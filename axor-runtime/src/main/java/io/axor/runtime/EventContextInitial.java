@@ -2,7 +2,7 @@ package io.axor.runtime;
 
 import io.axor.commons.collection.IntObjectHashMap;
 import io.axor.commons.collection.IntObjectMap;
-import io.masterkun.stateeasy.concurrent.EventStage;
+import io.stateeasy.concurrent.EventStage;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.concurrent.Callable;

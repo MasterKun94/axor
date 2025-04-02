@@ -6,7 +6,7 @@ import io.axor.runtime.MsgType;
 import io.axor.runtime.StreamServer;
 import io.axor.runtime.stream.grpc.GrpcStreamServer;
 import io.grpc.ServerBuilder;
-import io.masterkun.stateeasy.concurrent.EventStage;
+import io.stateeasy.concurrent.EventStage;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;

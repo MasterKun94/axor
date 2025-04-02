@@ -18,8 +18,8 @@ import io.axor.commons.config.ConfigMapper;
 import io.axor.commons.task.DependencyTask;
 import io.axor.runtime.EventDispatcher;
 import io.axor.runtime.MsgType;
-import io.masterkun.stateeasy.concurrent.EventPromise;
-import io.masterkun.stateeasy.concurrent.EventStage;
+import io.stateeasy.concurrent.EventPromise;
+import io.stateeasy.concurrent.EventStage;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;

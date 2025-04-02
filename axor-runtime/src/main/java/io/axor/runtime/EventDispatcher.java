@@ -1,6 +1,6 @@
 package io.axor.runtime;
 
-import io.masterkun.stateeasy.concurrent.SingleThreadEventExecutor;
+import io.stateeasy.concurrent.SingleThreadEventExecutor;
 
 import java.util.concurrent.ScheduledExecutorService;
 

@@ -1,6 +1,6 @@
 package io.axor.runtime;
 
-import io.masterkun.stateeasy.concurrent.EventExecutorThread;
+import io.stateeasy.concurrent.EventExecutorThread;
 
 public class EventDispatcherThread extends EventExecutorThread implements EventDispatcher.DispatcherThread {
     private EventContext context = EventContext.INITIAL;

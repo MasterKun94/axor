@@ -3,10 +3,10 @@ package io.axor.runtime.impl;
 import io.axor.runtime.EventContext;
 import io.axor.runtime.EventDispatcher;
 import io.axor.runtime.EventDispatcherThread;
-import io.masterkun.stateeasy.concurrent.DefaultSingleThreadEventExecutor;
-import io.masterkun.stateeasy.concurrent.EventExecutorThreadFactory;
-import io.masterkun.stateeasy.concurrent.ForwardingEventExecutor;
-import io.masterkun.stateeasy.concurrent.SingleThreadEventExecutor;
+import io.stateeasy.concurrent.DefaultSingleThreadEventExecutor;
+import io.stateeasy.concurrent.EventExecutorThreadFactory;
+import io.stateeasy.concurrent.ForwardingEventExecutor;
+import io.stateeasy.concurrent.SingleThreadEventExecutor;
 
 public class DefaultEventDispatcher extends ForwardingEventExecutor implements EventDispatcher {
 

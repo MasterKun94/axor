@@ -118,7 +118,7 @@
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.masterkun.commons</groupId>
+                <groupId>io.stateeasy</groupId>
                 <artifactId>stateeasy-persistence</artifactId>
                 <version>${stateeasy.version}</version>
                 <exclusions>

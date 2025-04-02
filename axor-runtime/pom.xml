@@ -21,7 +21,7 @@
             <artifactId>config</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.masterkun.commons</groupId>
+            <groupId>io.stateeasy</groupId>
             <artifactId>stateeasy-persistence</artifactId>
         </dependency>
 

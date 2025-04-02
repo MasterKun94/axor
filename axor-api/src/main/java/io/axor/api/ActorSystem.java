@@ -11,7 +11,7 @@ import io.axor.runtime.EventDispatcherGroup;
 import io.axor.runtime.MsgType;
 import io.axor.runtime.SerdeRegistry;
 import io.axor.runtime.StreamServer;
-import io.masterkun.stateeasy.concurrent.EventStage;
+import io.stateeasy.concurrent.EventStage;
 import org.slf4j.Logger;
 
 import java.util.concurrent.CompletableFuture;

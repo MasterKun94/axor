@@ -2,9 +2,9 @@ package io.axor.api;
 
 import io.axor.runtime.EventDispatcher;
 import io.axor.runtime.MsgType;
-import io.masterkun.stateeasy.concurrent.EventPromise;
-import io.masterkun.stateeasy.concurrent.EventStage;
-import io.masterkun.stateeasy.concurrent.EventStageListener;
+import io.stateeasy.concurrent.EventPromise;
+import io.stateeasy.concurrent.EventStage;
+import io.stateeasy.concurrent.EventStageListener;
 
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;

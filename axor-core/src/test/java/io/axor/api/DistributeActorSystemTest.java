@@ -8,7 +8,7 @@ import io.axor.runtime.Status;
 import io.axor.runtime.StatusCode;
 import io.axor.testkit.actor.ActorTestKit;
 import io.axor.testkit.actor.MockActorRef;
-import io.masterkun.stateeasy.concurrent.EventStage;
+import io.stateeasy.concurrent.EventStage;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
