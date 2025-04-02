@@ -6,6 +6,8 @@ import org.jetbrains.annotations.Nullable;
 import java.io.Closeable;
 import java.util.concurrent.Callable;
 
+import static io.axor.runtime.EventContextImpl.FALLBACK_CTX_TL;
+
 /**
  * The {@code EventContext} interface represents a context for event handling, providing methods to
  * manage and manipulate the context. It is sealed to only allow specific implementations.
@@ -27,7 +29,7 @@ public sealed interface EventContext permits EventContextInitial, EventContextIm
         if (Thread.currentThread() instanceof EventDispatcher.DispatcherThread ext) {
             return ext.getContext();
         }
-        return EventContext.INITIAL;
+        return FALLBACK_CTX_TL.get();
     }
 
     /**
@@ -42,7 +44,9 @@ public sealed interface EventContext permits EventContextInitial, EventContextIm
         if (Thread.currentThread() instanceof EventDispatcher.DispatcherThread ext) {
             return ext.setContext(context);
         }
-        throw new RuntimeException("not in EventDispatcher");
+        EventContext prev = FALLBACK_CTX_TL.get();
+        FALLBACK_CTX_TL.set(context == null ? EventContext.INITIAL : context);
+        return prev;
     }
 
     /**

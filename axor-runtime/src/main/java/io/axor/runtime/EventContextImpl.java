@@ -17,6 +17,8 @@ import java.util.Arrays;
  * creating new scopes for the context.
  */
 record EventContextImpl(IntObjectMap<BytesHolder> map) implements EventContext {
+    static final ThreadLocal<EventContext> FALLBACK_CTX_TL = ThreadLocal
+            .withInitial(() -> EventContext.INITIAL);
 
     @Override
     public <T> @Nullable T get(Key<T> key) {
@@ -47,9 +49,15 @@ record EventContextImpl(IntObjectMap<BytesHolder> map) implements EventContext {
     public Scope openScope() {
         if (Thread.currentThread() instanceof EventDispatcher.DispatcherThread ext) {
             EventContext prev = ext.setContext(this);
-            return () -> ext.setContext(prev);
+            return prev == EventContext.INITIAL ?
+                    () -> ext.setContext(EventContext.INITIAL) :
+                    () -> ext.setContext(prev);
         }
-        throw new RuntimeException("not in EventDispatcher");
+        EventContext prev = FALLBACK_CTX_TL.get();
+        FALLBACK_CTX_TL.set(this);
+        return prev == EventContext.INITIAL ?
+                () -> FALLBACK_CTX_TL.set(EventContext.INITIAL) :
+                () -> FALLBACK_CTX_TL.set(prev);
     }
 
     record BytesHolder(byte[] b, int off, int len) {

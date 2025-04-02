@@ -2,6 +2,7 @@ package io.axor.api;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import io.axor.runtime.EventContext;
 import io.axor.runtime.MsgType;
 import io.axor.runtime.Status;
 import io.axor.runtime.StatusCode;
@@ -12,14 +13,30 @@ import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class DistributeActorSystemTest {
+    private static final EventContext.Key<String> key = new EventContext.Key<>(2, "test", "test",
+            new EventContext.KeyMarshaller<>() {
+                @Override
+                public String read(byte[] bytes, int off, int len) {
+                    return new String(bytes, off, len);
+                }
+
+                @Override
+                public byte[] write(String value) {
+                    return value.getBytes();
+                }
+            });
     private static ActorTestKit testKit = new ActorTestKit(Duration.ofMillis(100));
     private static ActorSystem system1;
     private static ActorSystem system2;
@@ -98,6 +115,30 @@ public class DistributeActorSystemTest {
                 null, MsgType.of(String.class),
                 StatusCode.COMPLETE.toStatus());
         Assert.assertTrue(queue.isEmpty());
+    }
+
+    @Test
+    public void testContextPropagation() throws Exception {
+        MockActorRef<String> mock = new ActorTestKit(Duration.ofMillis(1000)).
+                mock(system1.address("testContextPropagation"), MsgType.of(String.class));
+        ActorRef<String> actor1 = system1.start(s -> new ContextPropagation(s, mock),
+                "propagation1");
+        ActorRef<String> actor1Ref = system2.get(actor1.address(), MsgType.of(String.class));
+        ActorRef<String> actor2 = system2.start(s -> new ContextPropagation(s, actor1Ref),
+                "propagation2");
+        ActorRef<String> actor2Ref = system1.get(actor2.address(), MsgType.of(String.class));
+        ActorRef<String> actor3 = system1.start(s -> new ContextPropagation(s, actor2Ref),
+                "propagation3");
+        try (var scope = EventContext.INITIAL.with(key, "Test").openScope()) {
+            Assert.assertEquals("Test", EventContext.current().get(key));
+            actor3.tell("");
+        }
+        MockActorRef<String>.MsgAndSender poll = mock.poll();
+        Assert.assertEquals(poll.getSender(), actor1);
+        Assert.assertEquals(
+                Stream.of(actor3, actor2, actor1).map(a -> "," + a.address() + "=Test").collect(Collectors.joining()),
+                poll.getMsg()
+        );
     }
 
     @Test
@@ -224,6 +265,27 @@ public class DistributeActorSystemTest {
             }
             Thread.sleep(1000);
 //            stop();
+        }
+    }
+
+    public static class ContextPropagation extends Actor<String> {
+        private static final Logger LOG = LoggerFactory.getLogger(ContextPropagation.class);
+        private final ActorRef<String> sendTo;
+
+        protected ContextPropagation(ActorContext<String> context, ActorRef<String> sendTo) {
+            super(context);
+            this.sendTo = sendTo;
+        }
+
+        @Override
+        public void onReceive(String s) {
+            LOG.info("Receive {} from {}", s, sender());
+            sendTo.tell(s + "," + self().address() + "=" + EventContext.current().get(key), self());
+        }
+
+        @Override
+        public MsgType<String> msgType() {
+            return MsgType.of(String.class);
         }
     }
 }

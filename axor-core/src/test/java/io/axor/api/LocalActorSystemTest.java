@@ -3,23 +3,43 @@ package io.axor.api;
 import io.axor.api.impl.ActorUnsafe;
 import io.axor.exception.ActorNotFoundException;
 import io.axor.exception.IllegalMsgTypeException;
+import io.axor.runtime.EventContext;
 import io.axor.runtime.MsgType;
+import io.axor.runtime.TypeReference;
 import io.axor.testkit.LocalActorSystem;
 import io.axor.testkit.actor.ActorTestKit;
+import io.axor.testkit.actor.MockActorRef;
 import io.masterkun.stateeasy.concurrent.EventStage;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class LocalActorSystemTest {
     private static final ActorTestKit testKit = new ActorTestKit(Duration.ofMillis(100));
+    private static final EventContext.Key<String> key = new EventContext.Key<>(2, "test", "test",
+            new EventContext.KeyMarshaller<String>() {
+                @Override
+                public String read(byte[] bytes, int off, int len) {
+                    return new String(bytes, off, len);
+                }
+
+                @Override
+                public byte[] write(String value) {
+                    return value.getBytes();
+                }
+            });
     private static ActorSystem system;
     private static ActorRef<String> simpleReply;
 
@@ -234,6 +254,36 @@ public class LocalActorSystemTest {
         subscriber1.expectNoMsg();
     }
 
+    @Test
+    public void testContextPropagation() throws Exception {
+        MsgType<Map<ActorAddress, String>> msgType = MsgType.of(new TypeReference<>() {
+        });
+        MockActorRef<Map<ActorAddress, String>> subscriber1 = testKit.
+                mock(system.address("testContextPropagation"), msgType);
+        ActorRef<Map<ActorAddress, String>> propagation1 =
+                system.start(c -> new ContextPropagation(c, subscriber1), "propagation1");
+        ActorRef<Map<ActorAddress, String>> propagation2 =
+                system.start(c -> new ContextPropagation(c, propagation1), "propagation2");
+        ActorRef<Map<ActorAddress, String>> propagation3 =
+                system.start(c -> new ContextPropagation(c, propagation2), "propagation3");
+
+        try (var scope = EventContext.INITIAL.with(key, "Test").openScope()) {
+            Assert.assertEquals("Test", EventContext.current().get(key));
+            propagation3.tell(Collections.emptyMap());
+        }
+        MockActorRef<Map<ActorAddress, String>>.MsgAndSender poll = subscriber1.poll();
+        Assert.assertEquals(poll.getSender(), propagation1);
+        Assert.assertEquals(new HashMap<>(Map.of(
+                propagation1.address(), "Test",
+                propagation2.address(), "Test",
+                propagation3.address(), "Test"
+        )), poll.getMsg());
+    }
+
+    private void testContextDistribute() throws Exception {
+
+    }
+
     private static abstract class StringActor extends Actor<String> {
 
         protected StringActor(ActorContext<String> context) {
@@ -355,6 +405,31 @@ public class LocalActorSystemTest {
         @Override
         public void postStop() {
             Assert.assertTrue(ActorUnsafe.isStopped(child));
+        }
+    }
+
+    public static class ContextPropagation extends Actor<Map<ActorAddress, String>> {
+        private static final Logger LOG = LoggerFactory.getLogger(ContextPropagation.class);
+        private final ActorRef<Map<ActorAddress, String>> sendTo;
+
+        protected ContextPropagation(ActorContext<Map<ActorAddress, String>> context,
+                                     ActorRef<Map<ActorAddress, String>> sendTo) {
+            super(context);
+            this.sendTo = sendTo;
+        }
+
+        @Override
+        public void onReceive(Map<ActorAddress, String> s) {
+            LOG.info("Receive {} from {}", s, sender());
+            var map = new HashMap<>(s);
+            map.put(self().address(), EventContext.current().get(key));
+            sendTo.tell(map, self());
+        }
+
+        @Override
+        public MsgType<Map<ActorAddress, String>> msgType() {
+            return MsgType.of(new TypeReference<>() {
+            });
         }
     }
 }
