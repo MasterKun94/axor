@@ -1,6 +1,6 @@
 package io.axor.runtime;
 
-import io.stateeasy.concurrent.SingleThreadEventExecutor;
+import io.axor.commons.concurrent.SingleThreadEventExecutor;
 
 import java.util.concurrent.ScheduledExecutorService;
 

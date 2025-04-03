@@ -1,10 +1,10 @@
 package io.axor.api;
 
+import io.axor.commons.concurrent.EventPromise;
+import io.axor.commons.concurrent.EventStage;
+import io.axor.commons.concurrent.EventStageListener;
 import io.axor.runtime.EventDispatcher;
 import io.axor.runtime.MsgType;
-import io.stateeasy.concurrent.EventPromise;
-import io.stateeasy.concurrent.EventStage;
-import io.stateeasy.concurrent.EventStageListener;
 
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;

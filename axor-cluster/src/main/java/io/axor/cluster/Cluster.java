@@ -14,12 +14,12 @@ import io.axor.cluster.membership.MembershipActor;
 import io.axor.cluster.membership.MembershipCommand;
 import io.axor.cluster.membership.MembershipMessage;
 import io.axor.cluster.membership.MetaKey;
+import io.axor.commons.concurrent.EventPromise;
+import io.axor.commons.concurrent.EventStage;
 import io.axor.commons.config.ConfigMapper;
 import io.axor.commons.task.DependencyTask;
 import io.axor.runtime.EventDispatcher;
 import io.axor.runtime.MsgType;
-import io.stateeasy.concurrent.EventPromise;
-import io.stateeasy.concurrent.EventStage;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;

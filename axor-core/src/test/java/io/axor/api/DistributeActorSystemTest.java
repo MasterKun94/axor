@@ -2,13 +2,13 @@ package io.axor.api;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import io.axor.commons.concurrent.EventStage;
 import io.axor.runtime.EventContext;
 import io.axor.runtime.MsgType;
 import io.axor.runtime.Status;
 import io.axor.runtime.StatusCode;
 import io.axor.testkit.actor.ActorTestKit;
 import io.axor.testkit.actor.MockActorRef;
-import io.stateeasy.concurrent.EventStage;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;

@@ -2,11 +2,11 @@ package io.axor.api;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import io.axor.commons.concurrent.EventStage;
 import io.axor.runtime.MsgType;
 import io.axor.runtime.StreamServer;
 import io.axor.runtime.stream.grpc.GrpcStreamServer;
 import io.grpc.ServerBuilder;
-import io.stateeasy.concurrent.EventStage;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;

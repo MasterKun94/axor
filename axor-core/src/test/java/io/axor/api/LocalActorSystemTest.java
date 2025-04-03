@@ -1,6 +1,7 @@
 package io.axor.api;
 
 import io.axor.api.impl.ActorUnsafe;
+import io.axor.commons.concurrent.EventStage;
 import io.axor.exception.ActorNotFoundException;
 import io.axor.exception.IllegalMsgTypeException;
 import io.axor.runtime.EventContext;
@@ -9,7 +10,6 @@ import io.axor.runtime.TypeReference;
 import io.axor.testkit.LocalActorSystem;
 import io.axor.testkit.actor.ActorTestKit;
 import io.axor.testkit.actor.MockActorRef;
-import io.stateeasy.concurrent.EventStage;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;

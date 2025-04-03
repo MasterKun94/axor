@@ -42,7 +42,6 @@
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <stateeasy.version>0.1.0-SNAPSHOT</stateeasy.version>
         <typesafe.config.version>1.4.3</typesafe.config.version>
         <caffeine.version>3.1.8</caffeine.version>
         <agrona.verison>1.23.0</agrona.verison>
@@ -116,17 +115,6 @@
                 <groupId>io.axor</groupId>
                 <artifactId>axor-logging-log4j2</artifactId>
                 <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>io.stateeasy</groupId>
-                <artifactId>stateeasy-persistence</artifactId>
-                <version>${stateeasy.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>ch.qos.logback</groupId>
-                        <artifactId>*</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <dependency>

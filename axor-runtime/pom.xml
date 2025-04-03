@@ -20,10 +20,6 @@
             <groupId>com.typesafe</groupId>
             <artifactId>config</artifactId>
         </dependency>
-        <dependency>
-            <groupId>io.stateeasy</groupId>
-            <artifactId>stateeasy-persistence</artifactId>
-        </dependency>
 
         <dependency>
             <groupId>io.micrometer</groupId>

@@ -2,10 +2,10 @@ package io.axor.runtime;
 
 import io.axor.commons.collection.IntObjectHashMap;
 import io.axor.commons.collection.IntObjectMap;
+import io.axor.commons.concurrent.Try;
 import io.axor.runtime.EventContext.Key;
 import io.axor.runtime.EventContext.KeyMarshaller;
 import io.axor.runtime.impl.DefaultEventDispatcher;
-import io.stateeasy.concurrent.Try;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;

@@ -3,6 +3,7 @@ package io.axor.api;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import io.axor.api.impl.ActorSystemImpl;
+import io.axor.commons.concurrent.EventStage;
 import io.axor.commons.task.DependencyTaskRegistry;
 import io.axor.exception.ActorNotFoundException;
 import io.axor.exception.IllegalMsgTypeException;
@@ -11,7 +12,6 @@ import io.axor.runtime.EventDispatcherGroup;
 import io.axor.runtime.MsgType;
 import io.axor.runtime.SerdeRegistry;
 import io.axor.runtime.StreamServer;
-import io.stateeasy.concurrent.EventStage;
 import org.slf4j.Logger;
 
 import java.util.concurrent.CompletableFuture;

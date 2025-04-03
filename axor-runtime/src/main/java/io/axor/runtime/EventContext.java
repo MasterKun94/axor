@@ -1,6 +1,6 @@
 package io.axor.runtime;
 
-import io.stateeasy.concurrent.EventStage;
+import io.axor.commons.concurrent.EventStage;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.Closeable;
