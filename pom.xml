@@ -21,6 +21,8 @@
         <module>axor-examples</module>
         <module>axor-logging</module>
         <module>axor-logging-log4j2</module>
+        <module>axor-persistence</module>
+        <module>axor-persistence-extensions/axor-persistence-jdbc</module>
     </modules>
 
     <repositories>
@@ -44,6 +46,8 @@
 
         <typesafe.config.version>1.4.3</typesafe.config.version>
         <caffeine.version>3.1.8</caffeine.version>
+        <hikaricp.version>5.1.0</hikaricp.version>
+        <rocksdbjni.version>9.7.3</rocksdbjni.version>
         <agrona.verison>1.23.0</agrona.verison>
         <jctools.version>4.0.5</jctools.version>
         <disruptor.version>3.4.4</disruptor.version>
@@ -116,6 +120,16 @@
                 <artifactId>axor-logging-log4j2</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>io.axor</groupId>
+                <artifactId>axor-persistence</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.axor</groupId>
+                <artifactId>axor-persistence-jdbc</artifactId>
+                <version>${project.version}</version>
+            </dependency>
 
             <dependency>
                 <groupId>org.jetbrains</groupId>
@@ -140,7 +154,16 @@
                 <artifactId>caffeine</artifactId>
                 <version>${caffeine.version}</version>
             </dependency>
-
+            <dependency>
+                <groupId>com.zaxxer</groupId>
+                <artifactId>HikariCP</artifactId>
+                <version>${hikaricp.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.rocksdb</groupId>
+                <artifactId>rocksdbjni</artifactId>
+                <version>${rocksdbjni.version}</version>
+            </dependency>
             <dependency>
                 <groupId>com.lmax</groupId>
                 <artifactId>disruptor</artifactId>
