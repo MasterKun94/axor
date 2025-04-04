@@ -7,7 +7,7 @@ import java.util.function.BiFunction;
 
 public interface JdbcStoreInstance<K, V> {
     @Nullable
-    V query(K key);
+    V get(K key);
 
     void upsert(K key, @Nullable V value);
 
@@ -27,7 +27,7 @@ public interface JdbcStoreInstance<K, V> {
     @Nullable
     V getAndDelete(K key);
 
-    List<@Nullable V> queryBatch(List<K> keys);
+    List<@Nullable V> getBatch(List<K> keys);
 
     void upsertBatch(List<K> keys, List<@Nullable V> values);
 

@@ -2,6 +2,7 @@ package io.axor.persistence.jdbc;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import io.axor.runtime.Serde;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -15,41 +16,46 @@ public class JdbcStoreTest {
 
     @Test
     public void testMysql() {
-        var config = ConfigFactory.load("stateeasy-mysql.conf")
-                .withFallback(ConfigFactory.load("stateeasy-jdbc.conf"));
+        var config = ConfigFactory.parseResources("axor-persistence-jdbc-mysql.conf")
+                .withFallback(ConfigFactory.parseResources("axor-persistence-jdbc.conf"))
+                .withFallback(ConfigFactory.parseResources("axor-persistence.conf"))
+                .resolve();
+        System.out.println(config.origin());
         Testkit test = new Testkit(config);
         test.testAll();
     }
 
     @Test
     public void testPostgres() {
-        var config = ConfigFactory.load("stateeasy-postgres.conf")
-                .withFallback(ConfigFactory.load("stateeasy-jdbc.conf"));
+        var config = ConfigFactory.parseResources("axor-persistence-jdbc-postgres.conf")
+                .withFallback(ConfigFactory.parseResources("axor-persistence-jdbc.conf"))
+                .withFallback(ConfigFactory.parseResources("axor-persistence.conf"))
+                .resolve();
         Testkit test = new Testkit(config);
         test.testAll();
     }
 
     public static class Testkit {
         private final JdbcStore store;
-        private final StringMarshaller marshaller = new StringMarshaller();
+        private final Serde<String> serde = new StringSerde();
         private final JdbcStoreInstance<String, String> instance;
 
         public Testkit(Config config) {
             this.store = JdbcStore.get(config);
-            this.instance = store.getInstance("test", marshaller, marshaller, false);
+            this.instance = store.getInstance("test", serde, serde, false);
         }
 
         public void testAll() {
             instance.deleteBatch(List.of("key1"));
             instance.upsert("key1", "value1");
-            assertEquals("value1", instance.query("key1"));
+            assertEquals("value1", instance.get("key1"));
             instance.upsert("key1", "replace1");
-            assertEquals("replace1", instance.query("key1"));
+            assertEquals("replace1", instance.get("key1"));
 
             instance.delete("key1");
-            assertNull(instance.query("key1"));
+            assertNull(instance.get("key1"));
 
-            testQuery();
+            testGet();
             testUpsert();
             testUpsertFunc();
             testGetAndUpsert();
@@ -57,7 +63,7 @@ public class JdbcStoreTest {
             testUpsertAndGet();
             testDelete();
             testGetAndDelete();
-            testQueryBatch();
+            testGetBatch();
             testUpsertBatch();
             testTestUpsertBatch();
             testGetAndUpsertBatch();
@@ -67,23 +73,23 @@ public class JdbcStoreTest {
             testGetAndDeleteBatch();
         }
 
-        public void testQuery() {
-            instance.delete("testQuery");
-            assertNull(instance.query("testQuery"));
-            instance.upsert("testQuery", "testQueryValue");
-            assertEquals("testQueryValue", instance.query("testQuery"));
-            instance.delete("testQuery");
-            assertNull(instance.query("testQuery"));
+        public void testGet() {
+            instance.delete("testGet");
+            assertNull(instance.get("testGet"));
+            instance.upsert("testGet", "testGetValue");
+            assertEquals("testGetValue", instance.get("testGet"));
+            instance.delete("testGet");
+            assertNull(instance.get("testGet"));
         }
 
         public void testUpsert() {
             instance.delete("testUpsert");
             instance.upsert("testUpsert", "testUpsertValue");
-            assertEquals("testUpsertValue", instance.query("testUpsert"));
+            assertEquals("testUpsertValue", instance.get("testUpsert"));
             instance.upsert("testUpsert", "testUpsertValue2");
-            assertEquals("testUpsertValue2", instance.query("testUpsert"));
+            assertEquals("testUpsertValue2", instance.get("testUpsert"));
             instance.upsert("testUpsert", (String) null);
-            assertNull(instance.query("testUpsert"));
+            assertNull(instance.get("testUpsert"));
         }
 
         public void testUpsertFunc() {
@@ -93,31 +99,31 @@ public class JdbcStoreTest {
                 assertEquals("testUpsert", k);
                 return "testUpsertValue";
             });
-            assertEquals("testUpsertValue", instance.query("testUpsert"));
+            assertEquals("testUpsertValue", instance.get("testUpsert"));
             instance.upsert("testUpsert", (k, v) -> {
                 assertEquals("testUpsertValue", v);
                 assertEquals("testUpsert", k);
                 return "testUpsertValue2";
             });
-            assertEquals("testUpsertValue2", instance.query("testUpsert"));
+            assertEquals("testUpsertValue2", instance.get("testUpsert"));
             instance.upsert("testUpsert", (k, v) -> {
                 assertEquals("testUpsertValue2", v);
                 assertEquals("testUpsert", k);
                 return null;
             });
-            assertNull(instance.query("testUpsert"));
+            assertNull(instance.get("testUpsert"));
         }
 
         public void testGetAndUpsert() {
             instance.delete("testGetAndUpsert");
             assertNull(instance.getAndUpsert("testGetAndUpsert", "testGetAndUpsertValue"));
-            assertEquals("testGetAndUpsertValue", instance.query("testGetAndUpsert"));
+            assertEquals("testGetAndUpsertValue", instance.get("testGetAndUpsert"));
             assertEquals("testGetAndUpsertValue", instance.getAndUpsert("testGetAndUpsert",
                     "testGetAndUpsertValue2"));
-            assertEquals("testGetAndUpsertValue2", instance.query("testGetAndUpsert"));
+            assertEquals("testGetAndUpsertValue2", instance.get("testGetAndUpsert"));
             assertEquals("testGetAndUpsertValue2", instance.getAndUpsert("testGetAndUpsert",
                     (String) null));
-            assertNull(instance.query("testGetAndUpsert"));
+            assertNull(instance.get("testGetAndUpsert"));
         }
 
         public void testGetAndUpsertFunc() {
@@ -127,21 +133,21 @@ public class JdbcStoreTest {
                 assertEquals("testGetAndUpsert", k);
                 return "testGetAndUpsertValue";
             }));
-            assertEquals("testGetAndUpsertValue", instance.query("testGetAndUpsert"));
+            assertEquals("testGetAndUpsertValue", instance.get("testGetAndUpsert"));
             assertEquals("testGetAndUpsertValue", instance.getAndUpsert("testGetAndUpsert", (k,
                                                                                              v) -> {
                 assertEquals("testGetAndUpsertValue", v);
                 assertEquals("testGetAndUpsert", k);
                 return "testGetAndUpsertValue2";
             }));
-            assertEquals("testGetAndUpsertValue2", instance.query("testGetAndUpsert"));
+            assertEquals("testGetAndUpsertValue2", instance.get("testGetAndUpsert"));
             assertEquals("testGetAndUpsertValue2", instance.getAndUpsert("testGetAndUpsert", (k,
                                                                                               v) -> {
                 assertEquals("testGetAndUpsertValue2", v);
                 assertEquals("testGetAndUpsert", k);
                 return null;
             }));
-            assertNull(instance.query("testGetAndUpsert"));
+            assertNull(instance.get("testGetAndUpsert"));
         }
 
         public void testUpsertAndGet() {
@@ -152,52 +158,52 @@ public class JdbcStoreTest {
                 assertEquals("testUpsertAndGet", k);
                 return "testUpsertAndGetValue";
             }));
-            assertEquals("testUpsertAndGetValue", instance.query("testUpsertAndGet"));
+            assertEquals("testUpsertAndGetValue", instance.get("testUpsertAndGet"));
             assertEquals("testUpsertAndGetValue2", instance.upsertAndGet("testUpsertAndGet", (k,
                                                                                               v) -> {
                 assertEquals("testUpsertAndGetValue", v);
                 assertEquals("testUpsertAndGet", k);
                 return "testUpsertAndGetValue2";
             }));
-            assertEquals("testUpsertAndGetValue2", instance.query("testUpsertAndGet"));
+            assertEquals("testUpsertAndGetValue2", instance.get("testUpsertAndGet"));
             assertNull(instance.upsertAndGet("testUpsertAndGet", (k, v) -> {
                 assertEquals("testUpsertAndGetValue2", v);
                 assertEquals("testUpsertAndGet", k);
                 return null;
             }));
-            assertNull(instance.query("testUpsertAndGet"));
+            assertNull(instance.get("testUpsertAndGet"));
         }
 
         public void testDelete() {
             instance.upsert("testDelete", "testDeleteValue");
-            assertNotNull(instance.query("testDelete"));
+            assertNotNull(instance.get("testDelete"));
             instance.delete("testDelete");
-            assertNull(instance.query("testDelete"));
+            assertNull(instance.get("testDelete"));
         }
 
         public void testGetAndDelete() {
             instance.upsert("testGetAndDelete", "testGetAndDeleteValue");
-            assertNotNull(instance.query("testGetAndDelete"));
+            assertNotNull(instance.get("testGetAndDelete"));
             assertEquals("testGetAndDeleteValue", instance.getAndDelete("testGetAndDelete"));
-            assertNull(instance.query("testGetAndDelete"));
+            assertNull(instance.get("testGetAndDelete"));
         }
 
-        public void testQueryBatch() {
+        public void testGetBatch() {
             instance.deleteBatch(List.of("k1", "k2", "k3"));
             instance.upsertBatch(List.of("k1", "k2"), List.of("v1", "v2"));
-            List<String> list = instance.queryBatch(List.of("k1", "k2", "k3"));
+            List<String> list = instance.getBatch(List.of("k1", "k2", "k3"));
             assertEquals("v1", list.get(0));
             assertEquals("v2", list.get(1));
             assertNull(list.get(2));
             instance.deleteBatch(List.of("k1", "k2"));
-            list = instance.queryBatch(List.of("k1", "k2", "k3"));
+            list = instance.getBatch(List.of("k1", "k2", "k3"));
             assertNull(list.get(0));
             assertNull(list.get(1));
             assertNull(list.get(2));
         }
 
         public void testUpsertBatch() {
-            testQueryBatch();
+            testGetBatch();
         }
 
         public void testTestUpsertBatch() {
@@ -212,7 +218,7 @@ public class JdbcStoreTest {
                 }
                 throw new IllegalArgumentException();
             });
-            List<String> list = instance.queryBatch(List.of("k1", "k2", "k3"));
+            List<String> list = instance.getBatch(List.of("k1", "k2", "k3"));
             assertEquals("v1", list.get(0));
             assertEquals("v2", list.get(1));
             assertNull(list.get(2));
@@ -224,7 +230,7 @@ public class JdbcStoreTest {
                 }
                 return null;
             });
-            list = instance.queryBatch(List.of("k1", "k2", "k3"));
+            list = instance.getBatch(List.of("k1", "k2", "k3"));
             assertNull(list.get(0));
             assertNull(list.get(1));
             assertNull(list.get(2));
@@ -236,14 +242,14 @@ public class JdbcStoreTest {
             ));
             assertNull(list.get(0));
             assertNull(list.get(1));
-            list = instance.queryBatch(List.of("k1", "k2", "k3"));
+            list = instance.getBatch(List.of("k1", "k2", "k3"));
             assertEquals("v1", list.get(0));
             assertEquals("v2", list.get(1));
             assertNull(list.get(2));
             list = instance.getAndUpsertBatch(List.of("k1", "k2"), Arrays.asList(null, null));
             assertEquals("v1", list.get(0));
             assertEquals("v2", list.get(1));
-            list = instance.queryBatch(List.of("k1", "k2", "k3"));
+            list = instance.getBatch(List.of("k1", "k2", "k3"));
             assertNull(list.get(0));
             assertNull(list.get(1));
             assertNull(list.get(2));
@@ -263,7 +269,7 @@ public class JdbcStoreTest {
             });
             assertNull(list.get(0));
             assertNull(list.get(1));
-            list = instance.queryBatch(List.of("k1", "k2", "k3"));
+            list = instance.getBatch(List.of("k1", "k2", "k3"));
             assertEquals("v1", list.get(0));
             assertEquals("v2", list.get(1));
             assertNull(list.get(2));
@@ -277,7 +283,7 @@ public class JdbcStoreTest {
             });
             assertEquals("v1", list.get(0));
             assertEquals("v2", list.get(1));
-            list = instance.queryBatch(List.of("k1", "k2", "k3"));
+            list = instance.getBatch(List.of("k1", "k2", "k3"));
             assertNull(list.get(0));
             assertNull(list.get(1));
             assertNull(list.get(2));
@@ -297,7 +303,7 @@ public class JdbcStoreTest {
             });
             assertEquals("v1", list.get(0));
             assertEquals("v2", list.get(1));
-            list = instance.queryBatch(List.of("k1", "k2", "k3"));
+            list = instance.getBatch(List.of("k1", "k2", "k3"));
             assertEquals("v1", list.get(0));
             assertEquals("v2", list.get(1));
             assertNull(list.get(2));
@@ -311,7 +317,7 @@ public class JdbcStoreTest {
             });
             assertNull(list.get(0));
             assertNull(list.get(1));
-            list = instance.queryBatch(List.of("k1", "k2", "k3"));
+            list = instance.getBatch(List.of("k1", "k2", "k3"));
             assertNull(list.get(0));
             assertNull(list.get(1));
             assertNull(list.get(2));
@@ -338,13 +344,5 @@ public class JdbcStoreTest {
         }
     }
 
-    private static class StringMarshaller implements Marshaller<String> {
-        public byte[] toBytes(String s) {
-            return s.getBytes();
-        }
 
-        public String fromBytes(byte[] bytes) {
-            return new String(bytes);
-        }
-    }
 }

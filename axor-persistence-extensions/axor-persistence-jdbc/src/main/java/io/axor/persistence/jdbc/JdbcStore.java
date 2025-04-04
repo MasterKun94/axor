@@ -4,10 +4,12 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigOrigin;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
+import io.axor.runtime.Serde;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.sql.DataSource;
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -33,7 +35,7 @@ public class JdbcStore {
     private final String delete;
 
     private JdbcStore(Config config) {
-        String tableName = config.getString("table");
+        String tableName = config.getString("storeTableName");
         Properties properties = new Properties();
         for (var e : config.getConfig("properties").entrySet()) {
             properties.put(e.getKey(), e.getValue().unwrapped().toString());
@@ -64,10 +66,10 @@ public class JdbcStore {
     }
 
     public <K, V> JdbcStoreInstance<K, V> getInstance(String name,
-                                                      Marshaller<K> keyMarshaller,
-                                                      Marshaller<V> valueMarshaller,
+                                                      Serde<K> keySerde,
+                                                      Serde<V> valueSerde,
                                                       boolean multiWriter) {
-        return new JdbcStoreInstanceImpl<>(name, keyMarshaller, valueMarshaller, multiWriter);
+        return new JdbcStoreInstanceImpl<>(name, keySerde, valueSerde, multiWriter);
     }
 
     private void autoCreateTable() {
@@ -81,15 +83,15 @@ public class JdbcStore {
 
     public class JdbcStoreInstanceImpl<K, V> implements JdbcStoreInstance<K, V> {
         private final String name;
-        private final Marshaller<K> keyMarshaller;
-        private final Marshaller<V> valueMarshaller;
+        private final Serde<K> keySerde;
+        private final Serde<V> valueSerde;
         private final boolean txnEnabled;
 
-        public JdbcStoreInstanceImpl(String name, Marshaller<K> keyMarshaller,
-                                     Marshaller<V> valueMarshaller, boolean txnEnabled) {
+        public JdbcStoreInstanceImpl(String name, Serde<K> keySerde,
+                                     Serde<V> valueSerde, boolean txnEnabled) {
             this.name = name;
-            this.keyMarshaller = keyMarshaller;
-            this.valueMarshaller = valueMarshaller;
+            this.keySerde = keySerde;
+            this.valueSerde = valueSerde;
             this.txnEnabled = txnEnabled;
         }
 
@@ -98,12 +100,12 @@ public class JdbcStore {
         }
 
         @Override
-        public @Nullable V query(K key) {
+        public @Nullable V get(K key) {
             try (var stmts = newStmts()) {
                 V ret = stmts.doQuery(key);
                 stmts.setSuccess();
                 return ret;
-            } catch (SQLException e) {
+            } catch (SQLException | IOException e) {
                 throw new RuntimeException(e);
             }
         }
@@ -117,7 +119,7 @@ public class JdbcStore {
             try (var stmts = newStmts()) {
                 stmts.doUpsert(key, value);
                 stmts.setSuccess();
-            } catch (SQLException e) {
+            } catch (SQLException | IOException e) {
                 throw new RuntimeException(e);
             }
         }
@@ -133,7 +135,7 @@ public class JdbcStore {
                 return getAndDelete(key);
             }
             try (var stmts = newStmts()) {
-                V prev = stmts.doQuery(key);
+                V prev = stmts.doQueryForUpdate(key);
                 if (prev == null) {
                     stmts.doInsert(key, value);
                 } else {
@@ -141,7 +143,7 @@ public class JdbcStore {
                 }
                 stmts.setSuccess();
                 return prev;
-            } catch (SQLException e) {
+            } catch (SQLException | IOException e) {
                 throw new RuntimeException(e);
             }
         }
@@ -149,7 +151,7 @@ public class JdbcStore {
         @Override
         public @Nullable V getAndUpsert(K key, BiFunction<K, @Nullable V, @Nullable V> valueFunc) {
             try (var stmts = newStmts()) {
-                V prev = stmts.doQuery(key);
+                V prev = stmts.doQueryForUpdate(key);
                 V now = valueFunc.apply(key, prev);
                 if (prev == null) {
                     if (now != null) {
@@ -164,7 +166,7 @@ public class JdbcStore {
                 }
                 stmts.setSuccess();
                 return prev;
-            } catch (SQLException e) {
+            } catch (SQLException | IOException e) {
                 throw new RuntimeException(e);
             }
         }
@@ -172,7 +174,7 @@ public class JdbcStore {
         @Override
         public @Nullable V upsertAndGet(K key, BiFunction<K, @Nullable V, @Nullable V> valueFunc) {
             try (var stmts = newStmts()) {
-                V prev = stmts.doQuery(key);
+                V prev = stmts.doQueryForUpdate(key);
                 V now = valueFunc.apply(key, prev);
                 if (prev == null) {
                     if (now != null) {
@@ -187,7 +189,7 @@ public class JdbcStore {
                 }
                 stmts.setSuccess();
                 return now;
-            } catch (SQLException e) {
+            } catch (SQLException | IOException e) {
                 throw new RuntimeException(e);
             }
         }
@@ -197,7 +199,7 @@ public class JdbcStore {
             try (var stmts = newStmts()) {
                 stmts.doDelete(key);
                 stmts.setSuccess();
-            } catch (SQLException e) {
+            } catch (SQLException | IOException e) {
                 throw new RuntimeException(e);
             }
         }
@@ -208,7 +210,7 @@ public class JdbcStore {
         }
 
         @Override
-        public List<@Nullable V> queryBatch(List<K> keys) {
+        public List<@Nullable V> getBatch(List<K> keys) {
             try (var stmts = newStmts()) {
                 List<V> list = new ArrayList<>();
                 for (K key : keys) {
@@ -216,7 +218,7 @@ public class JdbcStore {
                 }
                 stmts.setSuccess();
                 return list;
-            } catch (SQLException e) {
+            } catch (SQLException | IOException e) {
                 throw new RuntimeException(e);
             }
         }
@@ -234,7 +236,7 @@ public class JdbcStore {
                     }
                 }
                 stmts.setSuccess();
-            } catch (SQLException e) {
+            } catch (SQLException | IOException e) {
                 throw new RuntimeException(e);
             }
         }
@@ -258,7 +260,7 @@ public class JdbcStore {
                     }
                 }
                 stmts.setSuccess();
-            } catch (SQLException e) {
+            } catch (SQLException | IOException e) {
                 throw new RuntimeException(e);
             }
         }
@@ -269,7 +271,7 @@ public class JdbcStore {
                 List<V> list = new ArrayList<>(keys.size());
                 for (int i = 0, l = keys.size(); i < l; i++) {
                     K key = keys.get(i);
-                    list.add(stmts.doQuery(key));
+                    list.add(stmts.doQueryForUpdate(key));
                     V value = values.get(i);
                     if (value == null) {
                         stmts.doDelete(key);
@@ -279,7 +281,7 @@ public class JdbcStore {
                 }
                 stmts.setSuccess();
                 return list;
-            } catch (SQLException e) {
+            } catch (SQLException | IOException e) {
                 throw new RuntimeException(e);
             }
         }
@@ -290,7 +292,7 @@ public class JdbcStore {
             try (var stmts = newStmts()) {
                 List<V> list = new ArrayList<>(keys.size());
                 for (K key : keys) {
-                    V prev = stmts.doQuery(key);
+                    V prev = stmts.doQueryForUpdate(key);
                     list.add(prev);
                     V value = valueFunc.apply(key, prev);
                     if (value == null) {
@@ -301,7 +303,7 @@ public class JdbcStore {
                 }
                 stmts.setSuccess();
                 return list;
-            } catch (SQLException e) {
+            } catch (SQLException | IOException e) {
                 throw new RuntimeException(e);
             }
         }
@@ -312,7 +314,7 @@ public class JdbcStore {
             try (var stmts = newStmts()) {
                 List<V> list = new ArrayList<>(keys.size());
                 for (K key : keys) {
-                    V prev = stmts.doQuery(key);
+                    V prev = stmts.doQueryForUpdate(key);
                     V value = valueFunc.apply(key, prev);
                     list.add(value);
                     if (value == null) {
@@ -323,7 +325,7 @@ public class JdbcStore {
                 }
                 stmts.setSuccess();
                 return list;
-            } catch (SQLException e) {
+            } catch (SQLException | IOException e) {
                 throw new RuntimeException(e);
             }
         }
@@ -335,7 +337,7 @@ public class JdbcStore {
                     stmts.doDelete(key);
                 }
                 stmts.setSuccess();
-            } catch (SQLException e) {
+            } catch (SQLException | IOException e) {
                 throw new RuntimeException(e);
             }
         }
@@ -345,13 +347,13 @@ public class JdbcStore {
             try (var stmts = newStmts()) {
                 List<V> list = new ArrayList<>(keys.size());
                 for (K key : keys) {
-                    V prev = stmts.doQuery(key);
+                    V prev = stmts.doQueryForUpdate(key);
                     list.add(prev);
                     stmts.doDelete(key);
                 }
                 stmts.setSuccess();
                 return list;
-            } catch (SQLException e) {
+            } catch (SQLException | IOException e) {
                 throw new RuntimeException(e);
             }
         }
@@ -370,44 +372,57 @@ public class JdbcStore {
                 conn.setAutoCommit(!txnEnabled);
             }
 
-            private V doQuery(K key) throws SQLException {
+            private V doQuery(K key) throws SQLException, IOException {
                 var stmt = query = conn.prepareStatement(JdbcStore.this.query);
                 stmt.setString(1, name);
-                stmt.setBytes(2, keyMarshaller.toBytes(key));
+                stmt.setBinaryStream(2, keySerde.serialize(key));
                 try (ResultSet rs = stmt.executeQuery()) {
-                    return rs.next() ? valueMarshaller.fromBytes(rs.getBytes(1)) : null;
+                    return rs.next() ? valueSerde.deserialize(rs.getBinaryStream(1)) : null;
                 }
             }
 
-            private void doInsert(K key, @NotNull V value) throws SQLException {
+            private V doQueryForUpdate(K key) throws SQLException, IOException {
+                if (txnEnabled) {
+                    var stmt = query = conn.prepareStatement(JdbcStore.this.queryForUpdate);
+                    stmt.setString(1, name);
+                    stmt.setBinaryStream(2, keySerde.serialize(key));
+                    try (ResultSet rs = stmt.executeQuery()) {
+                        return rs.next() ? valueSerde.deserialize(rs.getBinaryStream(1)) : null;
+                    }
+                } else {
+                    return doQuery(key);
+                }
+            }
+
+            private void doInsert(K key, @NotNull V value) throws SQLException, IOException {
                 var stmt = insert = conn.prepareStatement(JdbcStore.this.insert);
                 stmt.setString(1, name);
-                stmt.setBytes(2, keyMarshaller.toBytes(key));
-                stmt.setBytes(3, valueMarshaller.toBytes(value));
+                stmt.setBinaryStream(2, keySerde.serialize(key));
+                stmt.setBinaryStream(3, valueSerde.serialize(value));
                 stmt.execute();
             }
 
-            private void doUpsert(K key, @NotNull V value) throws SQLException {
+            private void doUpsert(K key, @NotNull V value) throws SQLException, IOException {
                 var stmt = upsert = conn.prepareStatement(JdbcStore.this.upsert);
                 stmt.setString(1, name);
-                stmt.setBytes(2, keyMarshaller.toBytes(key));
-                stmt.setBytes(3, valueMarshaller.toBytes(value));
-                stmt.setBytes(4, valueMarshaller.toBytes(value));
+                stmt.setBinaryStream(2, keySerde.serialize(key));
+                stmt.setBinaryStream(3, valueSerde.serialize(value));
+                stmt.setBinaryStream(4, valueSerde.serialize(value));
                 stmt.execute();
             }
 
-            private void doUpdate(K key, @NotNull V value) throws SQLException {
+            private void doUpdate(K key, @NotNull V value) throws SQLException, IOException {
                 var stmt = update = conn.prepareStatement(JdbcStore.this.update);
-                stmt.setBytes(1, valueMarshaller.toBytes(value));
+                stmt.setBinaryStream(1, valueSerde.serialize(value));
                 stmt.setString(2, name);
-                stmt.setBytes(3, keyMarshaller.toBytes(key));
+                stmt.setBinaryStream(3, keySerde.serialize(key));
                 stmt.execute();
             }
 
-            private void doDelete(K key) throws SQLException {
+            private void doDelete(K key) throws SQLException, IOException {
                 var stmt = delete = conn.prepareStatement(JdbcStore.this.delete);
                 stmt.setString(1, name);
-                stmt.setBytes(2, keyMarshaller.toBytes(key));
+                stmt.setBinaryStream(2, keySerde.serialize(key));
                 stmt.execute();
             }
 

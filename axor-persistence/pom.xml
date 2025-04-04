@@ -14,7 +14,7 @@
     <dependencies>
         <dependency>
             <groupId>io.axor</groupId>
-            <artifactId>axor-commons</artifactId>
+            <artifactId>axor-runtime</artifactId>
         </dependency>
     </dependencies>
 

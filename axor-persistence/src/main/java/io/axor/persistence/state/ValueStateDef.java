@@ -1,19 +1,20 @@
 package io.axor.persistence.state;
 
 import com.typesafe.config.Config;
-import org.jetbrains.annotations.Nullable;
+import io.axor.runtime.Serde;
 
-public abstract class ValueStateDef<V, C> {
-    private final String name;
-    private final ShareableScope scope;
-    private final Config config;
+import java.util.Objects;
 
-    protected ValueStateDef(String name, ShareableScope scope, Config config) {
-        this.name = name;
-        this.scope = scope;
-        this.config = config;
+public sealed class ValueStateDef<V, C> extends StateDef<V> permits EventSourceValueStateDef {
+    private final CommandFunction<V, C> commandFunction;
+
+    protected ValueStateDef(String name, String impl, ShareableScope scope, Config config,
+                            Serde<V> valueSerde, CommandFunction<V, C> commandFunction) {
+        super(name, impl, scope, config, valueSerde);
+        this.commandFunction = Objects.requireNonNull(commandFunction, "commandFunction");
     }
 
-    @Nullable
-    public abstract V command(V prev, C command);
+    public CommandFunction<V, C> getCommandFunction() {
+        return commandFunction;
+    }
 }
