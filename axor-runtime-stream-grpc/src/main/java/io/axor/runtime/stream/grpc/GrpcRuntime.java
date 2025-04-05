@@ -1,18 +1,23 @@
 package io.axor.runtime.stream.grpc;
 
 import com.google.common.net.HostAndPort;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.InvalidProtocolBufferException;
 import io.axor.runtime.DeadLetterHandlerFactory;
 import io.axor.runtime.EventContext;
 import io.axor.runtime.EventDispatcher;
+import io.axor.runtime.MsgType;
 import io.axor.runtime.Serde;
 import io.axor.runtime.SerdeRegistry;
+import io.axor.runtime.Signal;
 import io.axor.runtime.Status;
 import io.axor.runtime.StatusCode;
 import io.axor.runtime.StreamAddress;
 import io.axor.runtime.StreamChannel;
 import io.axor.runtime.StreamDefinition;
 import io.axor.runtime.StreamInChannel;
-import io.axor.runtime.stream.grpc.proto.AxorProto.ResStatus;
+import io.axor.runtime.impl.AutoTypeSerde;
+import io.axor.runtime.stream.grpc.proto.AxorProto;
 import io.grpc.BindableService;
 import io.grpc.CallOptions;
 import io.grpc.Channel;
@@ -37,8 +42,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.io.InputStream;
 
+import static io.axor.runtime.stream.grpc.StreamUtils.endSignal;
 import static io.axor.runtime.stream.grpc.StreamUtils.fromStatusException;
 import static io.axor.runtime.stream.grpc.StreamUtils.toStatusException;
 
@@ -54,9 +61,10 @@ public class GrpcRuntime {
     private final Metadata.Key<StreamDefinition<?>> clientStreamDefKey;
     private final Metadata.Key<StreamDefinition<?>> serverStreamDefKey;
     private final String serviceName;
-    private final MethodDescriptor<InputStream, ResStatus> methodDescriptor;
+    private final MethodDescriptor<InputStream, AxorProto.RemoteSignal> methodDescriptor;
     private final ServerServiceDefinition serviceDefinition;
     private final ServiceRegistry serviceRegistry;
+    private final SerdeRegistry serdeRegistry;
     private final ChannelPool channelPool;
     private final DeadLetterHandlerFactory deadLetterHandler;
 
@@ -66,18 +74,19 @@ public class GrpcRuntime {
                        ChannelPool channelPool,
                        DeadLetterHandlerFactory deadLetterHandler) {
         this.serviceRegistry = serviceRegistry;
+        this.serdeRegistry = registry;
         this.channelPool = channelPool;
         this.deadLetterHandler = deadLetterHandler;
         var marshaller = new StreamDefinitionBinaryMarshaller(registry);
         this.clientStreamDefKey = Metadata.Key.of("CDEF", marshaller);
         this.serverStreamDefKey = Metadata.Key.of("SDEF", marshaller);
         this.serviceName = SERVICE_PREFIX + system;
-        this.methodDescriptor = MethodDescriptor.<InputStream, ResStatus>newBuilder()
+        this.methodDescriptor = MethodDescriptor.<InputStream, AxorProto.RemoteSignal>newBuilder()
                 .setType(MethodDescriptor.MethodType.BIDI_STREAMING)
                 .setFullMethodName(serviceName + "/" + METHOD_NAME)
                 .setSampledToLocalTracing(true)
                 .setRequestMarshaller(Marshallers.forwardingMarshaller())
-                .setResponseMarshaller(ProtoUtils.marshaller(ResStatus.getDefaultInstance()))
+                .setResponseMarshaller(ProtoUtils.marshaller(AxorProto.RemoteSignal.getDefaultInstance()))
                 .build();
         this.serviceDefinition = new StreamService().bindService();
     }
@@ -92,7 +101,7 @@ public class GrpcRuntime {
     }
 
     @VisibleForTesting
-    MethodDescriptor<InputStream, ResStatus> getMethodDescriptor() {
+    MethodDescriptor<InputStream, AxorProto.RemoteSignal> getMethodDescriptor() {
         return methodDescriptor;
     }
 
@@ -105,10 +114,10 @@ public class GrpcRuntime {
     }
 
     public <T> StreamChannel.StreamObserver<T> clientCall(Channel channel,
-                                                          StreamDefinition<?> selfDefinition,
-                                                          StreamDefinition<T> definition,
+                                                          StreamDefinition<?> selfDef,
+                                                          StreamDefinition<T> remoteDef,
                                                           EventDispatcher executor,
-                                                          StreamChannel.Observer observer) {
+                                                          StreamChannel.StreamObserver<Signal> observer) {
         channel = ClientInterceptors.intercept(channel, new ClientInterceptor() {
             @Override
             public <ReqT, RespT> ClientCall<ReqT, RespT> interceptCall(MethodDescriptor<ReqT,
@@ -120,8 +129,8 @@ public class GrpcRuntime {
                     return new ForwardingClientCall.SimpleForwardingClientCall<>(call) {
                         @Override
                         public void start(Listener<RespT> responseListener, Metadata headers) {
-                            headers.put(clientStreamDefKey, selfDefinition);
-                            headers.put(serverStreamDefKey, definition);
+                            headers.put(clientStreamDefKey, selfDef);
+                            headers.put(serverStreamDefKey, remoteDef);
                             super.start(responseListener, headers);
                         }
                     };
@@ -129,10 +138,11 @@ public class GrpcRuntime {
             }
         });
         CallOptions callOpt = callOptions.withExecutor(executor);
-        ClientCall<InputStream, ResStatus> call = channel.newCall(methodDescriptor, callOpt);
-        var res = new ResStatusObserver(definition, selfDefinition, observer, executor);
+        ClientCall<InputStream, AxorProto.RemoteSignal> call = channel.newCall(methodDescriptor,
+                callOpt);
+        var res = new ResStatusObserver(remoteDef, selfDef, observer, executor, serdeRegistry);
         var req = ClientCalls.asyncBidiStreamingCall(call, res);
-        var marshaller = new ContextMsgMarshaller<>(definition.serde());
+        var marshaller = new ContextMsgMarshaller<>(remoteDef.serde());
         return new ReqObserverAdaptor<>(req, marshaller, executor);
     }
 
@@ -145,13 +155,13 @@ public class GrpcRuntime {
         private final EventDispatcher executor;
         private final StreamChannel.StreamObserver open;
         private final ContextMsgMarshaller<?> msgMarshaller;
-        private final StreamObserver<ResStatus> resObserver;
+        private final StreamObserver<AxorProto.RemoteSignal> resObserver;
         private boolean done;
 
         public ResObserverAdaptor(EventDispatcher executor,
                                   StreamChannel.StreamObserver open,
                                   ContextMsgMarshaller<?> msgMarshaller,
-                                  StreamObserver<ResStatus> resObserver) {
+                                  StreamObserver<AxorProto.RemoteSignal> resObserver) {
             this.executor = executor;
             this.open = open;
             this.msgMarshaller = msgMarshaller;
@@ -160,8 +170,8 @@ public class GrpcRuntime {
         }
 
         @VisibleForTesting
-        void setDone(boolean done) {
-            this.done = done;
+        void setDone() {
+            this.done = true;
         }
 
         @Override
@@ -251,36 +261,51 @@ public class GrpcRuntime {
         }
     }
 
-    static class ResStatusObserver implements StreamObserver<ResStatus> {
+    static class ResStatusObserver implements StreamObserver<AxorProto.RemoteSignal> {
         private final StreamDefinition<?> remoteDefinition;
         private final StreamDefinition<?> selfDefinition;
-        private final StreamChannel.Observer observer;
+        private final StreamChannel.StreamObserver<Signal> observer;
         private final EventDispatcher executor;
+        private final MethodDescriptor.Marshaller<Signal> signalMarshaller;
         private boolean done;
 
         public ResStatusObserver(StreamDefinition<?> remoteDefinition,
                                  StreamDefinition<?> selfDefinition,
-                                 StreamChannel.Observer observer,
-                                 EventDispatcher executor) {
+                                 StreamChannel.StreamObserver<Signal> observer,
+                                 EventDispatcher executor,
+                                 SerdeRegistry serdeRegistry) {
             this.remoteDefinition = remoteDefinition;
             this.selfDefinition = selfDefinition;
             this.observer = observer;
             this.executor = executor;
+            this.signalMarshaller = new MarshallerAdaptor<>(new AutoTypeSerde<>(serdeRegistry,
+                    MsgType.of(Signal.class)));
             done = false;
         }
 
         @Override
-        public void onNext(ResStatus value) {
-            if (LOG.isTraceEnabled()) {
-                LOG.trace("Receive res status[code={}, msg={}] from {} to {}", value.getCode(),
-                        value.getMessage(), remoteDefinition.address(), selfDefinition.address());
-            }
-            if (done) {
-                return;
-            }
-            done = true;
-            try (var ignored = createContext()) {
-                observer.onEnd(StreamUtils.fromProto(value));
+        public void onNext(AxorProto.RemoteSignal signal) {
+            if (signal.getEndOfStream()) {
+                AxorProto.ResStatus v;
+                try {
+                    v = AxorProto.ResStatus.parseFrom(signal.getContent());
+                } catch (InvalidProtocolBufferException e) {
+                    throw new RuntimeException(e);
+                }
+                if (LOG.isTraceEnabled()) {
+                    LOG.trace("Receive res status[code={}, msg={}] from {} to {}", v.getCode(),
+                            v.getMessage(), remoteDefinition.address(), selfDefinition.address());
+
+                }
+                if (done) {
+                    return;
+                }
+                done = true;
+                try (var ignored = createContext()) {
+                    observer.onEnd(StreamUtils.fromProto(v));
+                }
+            } else {
+                observer.onNext(signalMarshaller.parse(signal.getContent().newInput()));
             }
         }
 
@@ -350,7 +375,7 @@ public class GrpcRuntime {
 
     class StreamService implements BindableService {
 
-        private StreamObserver<InputStream> call(StreamObserver<ResStatus> ob) {
+        private StreamObserver<InputStream> call(StreamObserver<AxorProto.RemoteSignal> ob) {
             var resObserver = new SafeStreamObserver<>(ob);
             Metadata headers = METADATA_TL.get();
             StreamDefinition<?> clientStreamDef = headers.get(clientStreamDefKey);
@@ -363,25 +388,20 @@ public class GrpcRuntime {
             StreamInChannel<?> channel = serviceRegistry.getChannel(serverStreamDef);
             boolean streamUnavailable = false;
             if (channel == null) {
-                resObserver.onNext(ResStatus.newBuilder()
-                        .setCode(StatusCode.UNAVAILABLE.code)
-                        .setMessage(serverStreamDef.address() + " not available")
-                        .build());
+                resObserver.onNext(StreamUtils.endSignal(StatusCode.UNAVAILABLE.code,
+                        serverStreamDef.address() + " not available"));
                 streamUnavailable = true;
             } else {
                 Serde<?> expected = channel.getSelfDefinition().serde();
                 Serde<?> actual = serverStreamDef.serde();
                 if (!expected.getType().equals(actual.getType())) {
-                    resObserver.onNext(ResStatus.newBuilder()
-                            .setCode(StatusCode.MSG_TYPE_MISMATCH.code)
-                            .setMessage("expect type: " + expected.getType() + " but found: " + actual.getType())
-                            .build());
+                    resObserver.onNext(StreamUtils.endSignal(StatusCode.MSG_TYPE_MISMATCH.code,
+                            "expect type: " + expected.getType() + " but found: " + actual.getType()));
                     streamUnavailable = true;
                 } else if (!expected.getImpl().equals(actual.getImpl())) {
-                    resObserver.onNext(ResStatus.newBuilder()
-                            .setCode(StatusCode.SERDE_MISMATCH.code)
-                            .setMessage("expect serde: " + expected.getImpl() + " but found: " + actual.getImpl())
-                            .build());
+                    resObserver.onNext(StreamUtils.endSignal(StatusCode.SERDE_MISMATCH.code,
+                            "expect serde: " + expected.getImpl() + " but found: " + actual.getImpl()
+                    ));
                     streamUnavailable = true;
                 }
             }
@@ -415,9 +435,29 @@ public class GrpcRuntime {
             LOG.debug("New stream open from {} to {}", address, serverStreamDef.address());
             EventDispatcher executor = EventDispatcher.current();
             assert executor != null;
+            var signalMarshaller = new MarshallerAdaptor<>(
+                    new AutoTypeSerde<>(serdeRegistry, MsgType.of(Signal.class)));
             @SuppressWarnings("rawtypes")
             StreamChannel.StreamObserver open = channel.open(clientStreamDef, executor,
-                    status -> resObserver.onNext(StreamUtils.toProto(status)));
+                    new StreamChannel.StreamObserver<>() {
+
+                        @Override
+                        public void onNext(Signal signal) {
+                            try (InputStream stream = signalMarshaller.stream(signal)) {
+                                resObserver.onNext(AxorProto.RemoteSignal.newBuilder()
+                                        .setEndOfStream(false)
+                                        .setContent(ByteString.readFrom(stream))
+                                        .build());
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                        }
+
+                        @Override
+                        public void onEnd(Status status) {
+                            resObserver.onNext(endSignal(status));
+                        }
+                    });
             var msgMarshaller = new ContextMsgMarshaller<>(channel.getSelfDefinition().serde());
             return new ResObserverAdaptor(executor, open, msgMarshaller, resObserver);
         }

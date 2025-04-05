@@ -2,9 +2,9 @@ package io.axor.testkit.actor;
 
 import io.axor.api.ActorRef;
 import io.axor.api.ActorRefRich;
-import io.axor.api.Signal;
 import io.axor.api.SystemEvent;
 import io.axor.api.impl.ForwardingActorRef;
+import io.axor.runtime.Signal;
 import io.axor.runtime.StreamDefinition;
 import io.axor.runtime.StreamManager;
 import org.junit.Assert;

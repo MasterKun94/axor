@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
+import java.lang.ref.WeakReference;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
@@ -132,7 +133,7 @@ public class StreamManager<IN> implements Closeable {
     }
 
     public StreamChannel.StreamObserver<IN> getStreamIn(StreamDefinition<?> outDefinition,
-                                                        StreamChannel.Observer unaryOrObserver) {
+                                                        StreamChannel.StreamObserver<Signal> unaryOrObserver) {
         if (closed) {
             throw new IllegalStateException("Stream manager closed");
         }
@@ -219,18 +220,30 @@ public class StreamManager<IN> implements Closeable {
 
         public abstract void handle(IN msg);
 
+        public abstract void signal(Signal signal);
+
         public abstract long id();
     }
 
-    private class ManagerObserver implements StreamChannel.Observer {
+    private class ManagerObserver implements StreamChannel.StreamObserver<Signal> {
         private final int streamId;
         private final StreamDefinition<?> outDefinition;
+        private final WeakReference<MsgHandler<?>> msgHandler;
         private final long outId;
 
         private ManagerObserver(StreamDefinition<?> outDefinition, int streamId, long outId) {
             this.outDefinition = outDefinition;
             this.streamId = streamId;
             this.outId = outId;
+            this.msgHandler = new WeakReference<>(msgHandlerCreator.apply(outDefinition));
+        }
+
+        @Override
+        public void onNext(Signal remoteSignal) {
+            MsgHandler<?> get = msgHandler.get();
+            if (get != null) {
+                get.signal(remoteSignal);
+            }
         }
 
         @Override
@@ -286,7 +299,7 @@ class StreamCacheHolder {
     private int streamOutId;
     private StreamChannel.StreamObserver<?> streamOutObserver;
     private int streamInId;
-    private StreamChannel.Observer streamInObserver;
+    private StreamChannel.StreamObserver<Signal> streamInObserver;
 
     public void putStreamOut(int streamOutId, StreamChannel.StreamObserver<?> streamOutObserver) {
         this.streamOutId = streamOutId;
@@ -306,18 +319,19 @@ class StreamCacheHolder {
         return null;
     }
 
-    public void putStreamIn(int streamInId, StreamChannel.Observer streamInObserver) {
+    public void putStreamIn(int streamInId,
+                            StreamChannel.StreamObserver<Signal> streamInObserver) {
         this.streamInId = streamInId;
         this.streamInObserver = streamInObserver;
     }
 
-    public StreamChannel.Observer getStreamInObserver() {
+    public StreamChannel.StreamObserver<Signal> getStreamInObserver() {
         return streamInObserver;
     }
 
-    public StreamChannel.Observer removeStreamIn(int id) {
+    public StreamChannel.StreamObserver<Signal> removeStreamIn(int id) {
         if (streamInId == id) {
-            StreamChannel.Observer observer = streamInObserver;
+            StreamChannel.StreamObserver<Signal> observer = streamInObserver;
             streamInObserver = null;
             return observer;
         }

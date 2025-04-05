@@ -4,8 +4,8 @@ import io.axor.api.ActorContext;
 import io.axor.api.ActorRef;
 import io.axor.api.ActorRefRich;
 import io.axor.api.ActorSystem;
-import io.axor.api.Signal;
 import io.axor.runtime.EventDispatcher;
+import io.axor.runtime.Signal;
 
 public class ActorUnsafe {
     public static boolean isStopped(ActorRef<?> ref) {

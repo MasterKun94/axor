@@ -1,6 +1,7 @@
 package io.axor.api;
 
 import io.axor.api.impl.ActorUnsafe;
+import io.axor.runtime.Signal;
 
 /**
  * Abstract base class for actors, providing a framework for defining the behavior and lifecycle of

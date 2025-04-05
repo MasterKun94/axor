@@ -1,12 +1,13 @@
 package io.axor.runtime.stream.grpc;
 
 import io.axor.runtime.EventDispatcher;
+import io.axor.runtime.SerdeRegistry;
+import io.axor.runtime.Signal;
 import io.axor.runtime.Status;
 import io.axor.runtime.StatusCode;
 import io.axor.runtime.StreamChannel;
 import io.axor.runtime.StreamDefinition;
 import io.axor.runtime.stream.grpc.GrpcRuntime.ResStatusObserver;
-import io.axor.runtime.stream.grpc.proto.AxorProto;
 import org.junit.Test;
 
 import static org.mockito.Mockito.any;
@@ -23,19 +24,13 @@ public class ResStatusObserverTest {
     public void testOnNextWithValidResStatus() {
         StreamDefinition<?> remoteDefinition = mock(StreamDefinition.class);
         StreamDefinition<?> selfDefinition = mock(StreamDefinition.class);
-        StreamChannel.Observer observer = mock(StreamChannel.Observer.class);
+        StreamChannel.StreamObserver<Signal> observer =
+                mock(StreamChannel.StreamObserver.class);
         EventDispatcher executor = mock(EventDispatcher.class);
 
         ResStatusObserver resStatusObserver = new ResStatusObserver(remoteDefinition,
-                selfDefinition, observer, executor);
-
-        AxorProto.ResStatus resStatus = AxorProto.ResStatus.newBuilder()
-                .setCode(StatusCode.COMPLETE.code)
-                .setMessage("Complete")
-                .build();
-
-        resStatusObserver.onNext(resStatus);
-
+                selfDefinition, observer, executor, SerdeRegistry.defaultInstance());
+        resStatusObserver.onNext(StreamUtils.endSignal(StatusCode.COMPLETE.code, "Complete"));
         verify(observer).onEnd(eq(new Status(StatusCode.COMPLETE.code, null)));
     }
 
@@ -43,19 +38,13 @@ public class ResStatusObserverTest {
     public void testOnNextWithInvalidResStatus() {
         StreamDefinition<?> remoteDefinition = mock(StreamDefinition.class);
         StreamDefinition<?> selfDefinition = mock(StreamDefinition.class);
-        StreamChannel.Observer observer = mock(StreamChannel.Observer.class);
+        StreamChannel.StreamObserver<Signal> observer =
+                mock(StreamChannel.StreamObserver.class);
         EventDispatcher executor = mock(EventDispatcher.class);
 
         ResStatusObserver resStatusObserver = new ResStatusObserver(remoteDefinition,
-                selfDefinition, observer, executor);
-
-        AxorProto.ResStatus resStatus = AxorProto.ResStatus.newBuilder()
-                .setCode(StatusCode.SYSTEM_ERROR.code)
-                .setMessage("Error")
-                .build();
-
-        resStatusObserver.onNext(resStatus);
-
+                selfDefinition, observer, executor, SerdeRegistry.defaultInstance());
+        resStatusObserver.onNext(StreamUtils.endSignal(StatusCode.SYSTEM_ERROR.code, "Error"));
         verify(observer).onEnd(refEq(new Status(StatusCode.SYSTEM_ERROR.code, null), "cause"));
     }
 
@@ -63,21 +52,15 @@ public class ResStatusObserverTest {
     public void testOnNextWhenAlreadyDone() {
         StreamDefinition<?> remoteDefinition = mock(StreamDefinition.class);
         StreamDefinition<?> selfDefinition = mock(StreamDefinition.class);
-        StreamChannel.Observer observer = mock(StreamChannel.Observer.class);
+        StreamChannel.StreamObserver<Signal> observer =
+                mock(StreamChannel.StreamObserver.class);
         EventDispatcher executor = mock(EventDispatcher.class);
         when(executor.inExecutor()).thenReturn(true);
 
         ResStatusObserver resStatusObserver = new ResStatusObserver(remoteDefinition,
-                selfDefinition, observer, executor);
-
-        AxorProto.ResStatus resStatus = AxorProto.ResStatus.newBuilder()
-                .setCode(StatusCode.COMPLETE.code)
-                .setMessage("Complete")
-                .build();
-
+                selfDefinition, observer, executor, SerdeRegistry.defaultInstance());
         resStatusObserver.onCompleted();
-        resStatusObserver.onNext(resStatus);
-
+        resStatusObserver.onNext(StreamUtils.endSignal(StatusCode.COMPLETE.code, "Complete"));
         verify(observer, times(1)).onEnd(any(Status.class));
     }
 
@@ -85,17 +68,14 @@ public class ResStatusObserverTest {
     public void testOnError() {
         StreamDefinition<?> remoteDefinition = mock(StreamDefinition.class);
         StreamDefinition<?> selfDefinition = mock(StreamDefinition.class);
-        StreamChannel.Observer observer = mock(StreamChannel.Observer.class);
+        StreamChannel.StreamObserver<Signal> observer =
+                mock(StreamChannel.StreamObserver.class);
         EventDispatcher executor = mock(EventDispatcher.class);
         when(executor.inExecutor()).thenReturn(true);
-
         ResStatusObserver resStatusObserver = new ResStatusObserver(remoteDefinition,
-                selfDefinition, observer, executor);
-
+                selfDefinition, observer, executor, SerdeRegistry.defaultInstance());
         Throwable t = new RuntimeException("Test Exception");
-
         resStatusObserver.onError(t);
-
         verify(observer).onEnd(any(Status.class));
     }
 
@@ -103,15 +83,13 @@ public class ResStatusObserverTest {
     public void testOnCompleted() {
         StreamDefinition<?> remoteDefinition = mock(StreamDefinition.class);
         StreamDefinition<?> selfDefinition = mock(StreamDefinition.class);
-        StreamChannel.Observer observer = mock(StreamChannel.Observer.class);
+        StreamChannel.StreamObserver<Signal> observer =
+                mock(StreamChannel.StreamObserver.class);
         EventDispatcher executor = mock(EventDispatcher.class);
         when(executor.inExecutor()).thenReturn(true);
-
         ResStatusObserver resStatusObserver = new ResStatusObserver(remoteDefinition,
-                selfDefinition, observer, executor);
-
+                selfDefinition, observer, executor, SerdeRegistry.defaultInstance());
         resStatusObserver.onCompleted();
-
         verify(observer).onEnd(eq(new Status(StatusCode.COMPLETE.code, null)));
     }
 }

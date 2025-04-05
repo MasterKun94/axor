@@ -5,10 +5,10 @@ import com.typesafe.config.ConfigFactory;
 import io.axor.api.ActorCreator;
 import io.axor.api.ActorRef;
 import io.axor.api.InternalSignals;
-import io.axor.api.Signal;
 import io.axor.cluster.Cluster;
 import io.axor.commons.config.ConfigMapper;
 import io.axor.runtime.MsgType;
+import io.axor.runtime.Signal;
 
 public class SingletonSystem {
     private final Cluster cluster;

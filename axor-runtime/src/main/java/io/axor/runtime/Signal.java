@@ -1,4 +1,4 @@
-package io.axor.api;
+package io.axor.runtime;
 
 public interface Signal {
 }

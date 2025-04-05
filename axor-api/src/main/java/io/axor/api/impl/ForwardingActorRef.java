@@ -3,9 +3,9 @@ package io.axor.api.impl;
 import io.axor.api.ActorAddress;
 import io.axor.api.ActorRef;
 import io.axor.api.ActorRefRich;
-import io.axor.api.Signal;
 import io.axor.api.SystemEvent;
 import io.axor.runtime.MsgType;
+import io.axor.runtime.Signal;
 import io.axor.runtime.StreamDefinition;
 import io.axor.runtime.StreamManager;
 

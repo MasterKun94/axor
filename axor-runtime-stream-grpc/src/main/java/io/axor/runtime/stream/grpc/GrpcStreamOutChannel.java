@@ -2,6 +2,7 @@ package io.axor.runtime.stream.grpc;
 
 import com.google.common.net.HostAndPort;
 import io.axor.runtime.EventDispatcher;
+import io.axor.runtime.Signal;
 import io.axor.runtime.StreamDefinition;
 import io.axor.runtime.StreamOutChannel;
 import io.grpc.Channel;
@@ -25,7 +26,7 @@ public class GrpcStreamOutChannel<T> implements StreamOutChannel<T> {
 
     @Override
     public <OUT> StreamObserver<OUT> open(StreamDefinition<OUT> to, EventDispatcher executor,
-                                          Observer observer) {
+                                          StreamObserver<Signal> observer) {
         HostAndPort key = HostAndPort.fromParts(to.address().host(), to.address().port());
         Channel channel = channelPool.getChannel(key);
         return runtime.clientCall(channel, selfDefinition, to, executor, observer);

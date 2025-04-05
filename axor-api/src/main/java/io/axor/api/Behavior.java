@@ -1,5 +1,7 @@
 package io.axor.api;
 
+import io.axor.runtime.Signal;
+
 /**
  * Defines the behavior of an actor, which is the core component for processing messages in an actor
  * system. The behavior defines how an actor should handle incoming messages and can be changed over

@@ -7,7 +7,6 @@ import io.axor.api.ActorRef;
 import io.axor.api.ActorRefRich;
 import io.axor.api.ActorSystem;
 import io.axor.api.InternalSignals;
-import io.axor.api.Signal;
 import io.axor.api.SystemEvent;
 import io.axor.api.SystemEvent.ActorStopped;
 import io.axor.commons.concurrent.EventPromise;
@@ -18,6 +17,7 @@ import io.axor.exception.ActorException;
 import io.axor.runtime.EventContext;
 import io.axor.runtime.EventDispatcher;
 import io.axor.runtime.SerdeRegistry;
+import io.axor.runtime.Signal;
 import io.axor.runtime.Status;
 import io.axor.runtime.StreamDefinition;
 import io.axor.runtime.StreamInChannel;
@@ -87,7 +87,7 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
             @Override
             public <OUT> StreamObserver<OUT> open(StreamDefinition<OUT> to,
                                                   EventDispatcher executor,
-                                                  Observer observer) {
+                                                  StreamObserver<Signal> observer) {
                 var remoteAddress = ActorAddress.create(to.address());
                 var remoteMsgType = to.serde().getType();
                 var selfAddress = LocalActorRef.this.address();
@@ -164,8 +164,13 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
             }
 
             @Override
+            public void signal(Signal signal) {
+                signalAction.accept(signal);
+            }
+
+            @Override
             public void handle(T msg) {
-                LocalActorRef.this.tellAction.accept(msg, sender);
+                tellAction.accept(msg, sender);
             }
         });
         initialize(serde, manager);
@@ -514,7 +519,7 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
         @Override
         public <OUT> StreamObserver<T> open(StreamDefinition<OUT> to,
                                             EventDispatcher executor,
-                                            Observer unaryOrObserver) {
+                                            StreamObserver<Signal> observer) {
             var remoteAddress = ActorAddress.create(to.address());
             var remoteMsgType = to.serde().getType();
             var selfAddress = LocalActorRef.this.address();
@@ -522,7 +527,7 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
             systemEvent(new SystemEvent.StreamInOpened(
                     remoteAddress, remoteMsgType,
                     selfAddress, selfMsgType));
-            StreamObserver<T> streamIn = streamManager.getStreamIn(to, unaryOrObserver);
+            StreamObserver<T> streamIn = streamManager.getStreamIn(to, observer);
             return new StreamObserver<>() {
 
                 @Override

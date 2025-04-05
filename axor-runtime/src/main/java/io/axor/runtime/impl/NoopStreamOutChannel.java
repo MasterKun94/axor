@@ -1,6 +1,7 @@
 package io.axor.runtime.impl;
 
 import io.axor.runtime.EventDispatcher;
+import io.axor.runtime.Signal;
 import io.axor.runtime.StreamDefinition;
 import io.axor.runtime.StreamOutChannel;
 
@@ -13,7 +14,7 @@ public class NoopStreamOutChannel<T> implements StreamOutChannel<T> {
 
     @Override
     public <OUT> StreamObserver<OUT> open(StreamDefinition<OUT> to, EventDispatcher executor,
-                                          Observer observer) {
+                                          StreamObserver<Signal> observer) {
         throw new UnsupportedOperationException();
     }
 

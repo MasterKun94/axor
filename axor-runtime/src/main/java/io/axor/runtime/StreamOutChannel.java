@@ -16,10 +16,11 @@ public non-sealed interface StreamOutChannel<IN> extends StreamChannel<IN> {
      * @param to       the definition of the stream, including the address and
      *                 serialization/deserialization strategy
      * @param executor the event executor to use for handling events related to the stream
-     * @param observer the observer to notify of stream events, such as completion or error
+     * @param observer the observer to be notified of signal and the end of the stream, including
+     *                 any status or error
      * @return a {@link StreamObserver} that can be used to send data to the opened stream
      */
     <OUT> StreamObserver<OUT> open(StreamDefinition<OUT> to,
                                    EventDispatcher executor,
-                                   Observer observer);
+                                   StreamObserver<Signal> observer);
 }

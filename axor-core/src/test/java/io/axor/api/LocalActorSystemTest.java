@@ -6,6 +6,7 @@ import io.axor.exception.ActorNotFoundException;
 import io.axor.exception.IllegalMsgTypeException;
 import io.axor.runtime.EventContext;
 import io.axor.runtime.MsgType;
+import io.axor.runtime.Signal;
 import io.axor.runtime.TypeReference;
 import io.axor.testkit.LocalActorSystem;
 import io.axor.testkit.actor.ActorTestKit;

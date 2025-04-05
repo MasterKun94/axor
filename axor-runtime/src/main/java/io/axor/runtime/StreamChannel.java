@@ -11,5 +11,7 @@ public sealed interface StreamChannel<T> permits StreamInChannel, StreamOutChann
     interface StreamObserver<T> extends Observer {
 
         void onNext(T t);
+
+        void onEnd(Status status);
     }
 }

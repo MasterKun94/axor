@@ -50,6 +50,21 @@ public class StreamUtils {
         return new StatusRuntimeException(toGrpcStatus(status), metadata);
     }
 
+    public static AxorProto.RemoteSignal endSignal(Status status) {
+        return endSignal(status.code(),
+                status.cause() == null ? null : status.cause().toString());
+    }
+
+    public static AxorProto.RemoteSignal endSignal(int statusCode, String message) {
+        return AxorProto.RemoteSignal.newBuilder()
+                .setEndOfStream(true)
+                .setContent(AxorProto.ResStatus.newBuilder()
+                        .setCode(statusCode)
+                        .setMessage(message == null ? "" : message)
+                        .build().toByteString())
+                .build();
+    }
+
     public static Status fromStatusException(Throwable e) {
         Metadata metadata;
         io.grpc.Status status;

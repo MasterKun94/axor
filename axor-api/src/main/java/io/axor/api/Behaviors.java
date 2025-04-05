@@ -1,5 +1,6 @@
 package io.axor.api;
 
+import io.axor.runtime.Signal;
 import org.slf4j.Logger;
 import org.slf4j.event.Level;
 

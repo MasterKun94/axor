@@ -5,9 +5,9 @@ import io.axor.api.ActorAddress;
 import io.axor.api.ActorContext;
 import io.axor.api.ActorRef;
 import io.axor.api.ActorSystem;
-import io.axor.api.Signal;
 import io.axor.api.impl.ActorUnsafe;
 import io.axor.runtime.MsgType;
+import io.axor.runtime.Signal;
 
 import java.time.Duration;
 

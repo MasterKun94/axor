@@ -6,6 +6,7 @@ import io.axor.api.SystemEvent;
 import io.axor.runtime.EventDispatcher;
 import io.axor.runtime.MsgType;
 import io.axor.runtime.Serde;
+import io.axor.runtime.Signal;
 import io.axor.runtime.StreamDefinition;
 import io.axor.runtime.StreamManager;
 import io.axor.runtime.StreamOutChannel;
@@ -41,6 +42,11 @@ public final class NoSenderActorRef extends AbstractActorRef<Object> {
                     }
 
                     @Override
+                    public void signal(Signal signal) {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    @Override
                     public long id() {
                         throw new UnsupportedOperationException();
                     }
@@ -57,7 +63,8 @@ public final class NoSenderActorRef extends AbstractActorRef<Object> {
         var manager = new StreamManager<>(new StreamOutChannel<>() {
             @Override
             public <OUT> StreamObserver<OUT> open(StreamDefinition<OUT> to,
-                                                  EventDispatcher executor, Observer observer) {
+                                                  EventDispatcher executor,
+                                                  StreamObserver<Signal> observer) {
                 throw new UnsupportedOperationException();
             }
 

@@ -1,6 +1,6 @@
 package io.axor.cluster.singleton;
 
-import io.axor.api.Signal;
+import io.axor.runtime.Signal;
 
 enum StateChange implements Signal {
     SERVABLE,

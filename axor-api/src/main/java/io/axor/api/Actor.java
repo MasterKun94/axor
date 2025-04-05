@@ -1,6 +1,7 @@
 package io.axor.api;
 
 import io.axor.runtime.MsgType;
+import io.axor.runtime.Signal;
 
 /**
  * Abstract base class for actors, which are the fundamental unit of computation in an actor system.

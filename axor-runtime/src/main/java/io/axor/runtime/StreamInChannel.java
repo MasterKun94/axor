@@ -17,12 +17,12 @@ public non-sealed interface StreamInChannel<IN> extends StreamChannel<IN> {
      * @param remote   the definition of the remote stream, including the address and serde for
      *                 serialization/deserialization
      * @param executor the event executor to be used for handling events related to the stream
-     * @param observer the observer to be notified of the end of the stream, including any status or
-     *                 error
+     * @param observer the observer to be notified of signal and the end of the stream, including
+     *                 any status or error
      * @return a {@link StreamObserver} that can be used to send incoming messages of type IN to the
      * remote endpoint
      */
     <OUT> StreamObserver<IN> open(StreamDefinition<OUT> remote,
                                   EventDispatcher executor,
-                                  Observer observer);
+                                  StreamObserver<Signal> observer);
 }

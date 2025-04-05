@@ -3,6 +3,7 @@ package io.axor.runtime.stream.grpc;
 import io.axor.runtime.EventDispatcher;
 import io.axor.runtime.MsgType;
 import io.axor.runtime.SerdeRegistry;
+import io.axor.runtime.Signal;
 import io.axor.runtime.Status;
 import io.axor.runtime.StatusCode;
 import io.axor.runtime.StreamAddress;
@@ -51,7 +52,7 @@ public class GrpcStreamServerTest {
             @Override
             public <OUT> StreamObserver<ActorAddress> open(StreamDefinition<OUT> remote,
                                                            EventDispatcher executor,
-                                                           Observer observer) {
+                                                           StreamObserver<Signal> observer) {
                 LOG.info("Open from {} to {}", remote.address(), selfDefinition.address());
                 return new StreamObserver<>() {
 
@@ -83,9 +84,18 @@ public class GrpcStreamServerTest {
         );
         StreamOutChannel<ActorAddress> channel = streamServer.get(definition2, executor);
         StreamChannel.StreamObserver<ActorAddress> open = channel.open(selfDefinition, executor,
-                status ->
-                        LOG.info("{} received end stats: {}", definition2.address(), status));
+                new StreamChannel.StreamObserver<>() {
+                    @Override
+                    public void onNext(Signal remoteSignal) {
+                        LOG.info("{} received remote signal: {}", definition2.address(),
+                                remoteSignal);
+                    }
 
+                    @Override
+                    public void onEnd(Status status) {
+                        LOG.info("{} received end stats: {}", definition2.address(), status);
+                    }
+                });
         open.onNext(ActorAddress.newBuilder().setName("hello").build());
         open.onNext(ActorAddress.newBuilder().setName("world").build());
         open.onEnd(StatusCode.COMPLETE.toStatus());

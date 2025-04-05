@@ -4,6 +4,7 @@ import com.google.protobuf.Timestamp;
 import io.axor.runtime.EventDispatcher;
 import io.axor.runtime.MsgType;
 import io.axor.runtime.SerdeRegistry;
+import io.axor.runtime.Signal;
 import io.axor.runtime.Status;
 import io.axor.runtime.StatusCode;
 import io.axor.runtime.StreamAddress;
@@ -36,7 +37,8 @@ public class GrpcRuntimeTest {
                 new StreamAddress("localhost", 8081, "service", "call"),
                 registry.create(MsgType.of(Timestamp.class)));
         EventDispatcher executor = Mockito.mock(EventDispatcher.class);
-        StreamChannel.Observer observer = Mockito.mock(StreamChannel.Observer.class);
+        StreamChannel.StreamObserver<Signal> observer =
+                Mockito.mock(StreamChannel.StreamObserver.class);
 
         when(channel.newCall(any(MethodDescriptor.class), any())).thenReturn(Mockito.mock(io.grpc.ClientCall.class));
 

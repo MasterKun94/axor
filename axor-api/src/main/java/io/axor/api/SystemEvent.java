@@ -1,6 +1,7 @@
 package io.axor.api;
 
 import io.axor.runtime.MsgType;
+import io.axor.runtime.Signal;
 import io.axor.runtime.Status;
 
 /**
