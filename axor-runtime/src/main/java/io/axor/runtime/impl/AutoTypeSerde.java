@@ -10,12 +10,15 @@ import java.io.DataOutput;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.HashMap;
+import java.util.Map;
 
-@SuppressWarnings("rawtypes")
+@SuppressWarnings({"rawtypes", "unchecked"})
 public class AutoTypeSerde<T> implements BuiltinSerde<T> {
     private final SerdeRegistry registry;
     private final BuiltinSerde<MsgType> msgTypeSerde;
     private final MsgType<T> msgType;
+    private final Map<MsgType<T>, Serde<T>> serdeCache = new HashMap<>();
 
     public AutoTypeSerde(SerdeRegistry registry, MsgType<T> msgType) {
         this.registry = registry;
@@ -45,7 +48,7 @@ public class AutoTypeSerde<T> implements BuiltinSerde<T> {
     @Override
     public T doDeserialize(DataInput in) throws IOException {
         MsgType<T> type = msgTypeSerde.doDeserialize(in);
-        Serde<T> serde = registry.create(type);
+        Serde<T> serde = serdeCache.computeIfAbsent(type, registry::create);
         if (serde instanceof BuiltinSerde<T> bSerde) {
             return bSerde.doDeserialize(in);
         } else {

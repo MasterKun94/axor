@@ -82,19 +82,21 @@ public class ForwardingActorRef<T> extends ActorRefRich<T> {
         return delegate.isNoSender();
     }
 
+    @Override
     public void signal(Signal signal) {
-        if (delegate instanceof LocalActorRef<?> l) {
-            l.signal(signal);
+        delegate.signal(signal);
+    }
+
+    public void signal(Signal signal, ActorRef<?> ref) {
+        if (delegate instanceof RemoteActorRef<T> f) {
+            f.signal(signal, ref);
         } else {
-            throw new UnsupportedOperationException("delegate not a LocalActorRef");
+            signal(signal);
         }
     }
 
+    @Override
     public void signalInline(Signal signal) {
-        if (delegate instanceof LocalActorRef<?> l) {
-            l.signalInline(signal);
-        } else {
-            throw new UnsupportedOperationException("delegate not a LocalActorRef");
-        }
+        delegate.signalInline(signal);
     }
 }

@@ -6,6 +6,8 @@ public sealed interface StreamChannel<T> permits StreamInChannel, StreamOutChann
 
     interface Observer {
         void onEnd(Status status);
+
+        void onSignal(Signal signal);
     }
 
     interface StreamObserver<T> extends Observer {

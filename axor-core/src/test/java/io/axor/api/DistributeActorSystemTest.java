@@ -2,11 +2,15 @@ package io.axor.api;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import io.axor.api.impl.ActorUnsafe;
 import io.axor.commons.concurrent.EventStage;
 import io.axor.runtime.EventContext;
 import io.axor.runtime.MsgType;
+import io.axor.runtime.Signal;
 import io.axor.runtime.Status;
 import io.axor.runtime.StatusCode;
+import io.axor.runtime.serde.kryo.KryoSerdeFactory;
+import io.axor.runtime.stream.grpc.StreamRecord;
 import io.axor.testkit.actor.ActorTestKit;
 import io.axor.testkit.actor.MockActorRef;
 import org.junit.AfterClass;
@@ -19,7 +23,10 @@ import org.slf4j.LoggerFactory;
 import java.time.Duration;
 import java.util.LinkedList;
 import java.util.Queue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -139,6 +146,46 @@ public class DistributeActorSystemTest {
                 Stream.of(actor3, actor2, actor1).map(a -> "," + a.address() + "=Test").collect(Collectors.joining()),
                 poll.getMsg()
         );
+    }
+
+    @Test
+    public void testSignal() throws Exception {
+        system1.getSerdeRegistry().getFactory(KryoSerdeFactory.class)
+                .addInitializer(kryo -> kryo.register(TestSignal.class, 21101));
+        system2.getSerdeRegistry().getFactory(KryoSerdeFactory.class)
+                .addInitializer(kryo -> kryo.register(TestSignal.class, 21101));
+        BlockingQueue<StreamRecord.ContextSignal<?>> signals = new LinkedBlockingQueue<>();
+        ActorRef<String> ref = system1.start(c -> new Actor<>(c) {
+            @Override
+            public void onReceive(String s) {
+                throw new RuntimeException(s);
+            }
+
+            @Override
+            public void onSignal(Signal signal) {
+                signals.add(new StreamRecord.ContextSignal<>(EventContext.current(), signal));
+            }
+
+            @Override
+            public MsgType<String> msgType() {
+                return MsgType.of(String.class);
+            }
+        }, "testSignal");
+        ActorRef<String> actor = system2.get(ref.address(), MsgType.of(String.class));
+        ActorUnsafe.signal(actor, new TestSignal("Hello"));
+        EventContext.set(EventContext.INITIAL.with(key, "Hi Hi"));
+        ActorUnsafe.signal(actor, new TestSignal("World"));
+        EventContext.set(EventContext.INITIAL);
+        ActorUnsafe.signal(actor, new TestSignal("!!!"));
+        Assert.assertEquals(new StreamRecord.ContextSignal<>(EventContext.INITIAL,
+                        new TestSignal("Hello")),
+                signals.poll(300, TimeUnit.MILLISECONDS));
+        Assert.assertEquals(new StreamRecord.ContextSignal<>(EventContext.INITIAL.with(key, "Hi Hi"),
+                        new TestSignal("World")),
+                signals.poll(10, TimeUnit.MILLISECONDS));
+        Assert.assertEquals(new StreamRecord.ContextSignal<>(EventContext.INITIAL,
+                        new TestSignal("!!!")),
+                signals.poll(10, TimeUnit.MILLISECONDS));
     }
 
     @Test
@@ -287,5 +334,8 @@ public class DistributeActorSystemTest {
         public MsgType<String> msgType() {
             return MsgType.of(String.class);
         }
+    }
+
+    public record TestSignal(String hello) implements Signal {
     }
 }

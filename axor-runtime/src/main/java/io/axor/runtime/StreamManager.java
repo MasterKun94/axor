@@ -92,6 +92,17 @@ public class StreamManager<IN> implements Closeable {
         return executor;
     }
 
+    public StreamChannel.Observer getStreamIn(StreamManager<?> outManager) {
+        if (closed) {
+            throw new IllegalStateException("Stream manager closed");
+        }
+        if (!executor.inExecutor()) {
+            throw new IllegalArgumentException("Not in executor");
+        }
+        StreamCacheHolder cache = getOutCache(outManager.id());
+        return cache.getStreamInObserver();
+    }
+
     @SuppressWarnings("unchecked")
     public <OUT> StreamChannel.StreamObserver<OUT> getStreamOut(StreamManager<OUT> outManager) {
         if (closed) {
@@ -132,8 +143,8 @@ public class StreamManager<IN> implements Closeable {
         return open;
     }
 
-    public StreamChannel.StreamObserver<IN> getStreamIn(StreamDefinition<?> outDefinition,
-                                                        StreamChannel.StreamObserver<Signal> unaryOrObserver) {
+    public StreamChannel.StreamObserver<IN> createStreamIn(StreamDefinition<?> outDefinition,
+                                                           StreamChannel.Observer unaryObserver) {
         if (closed) {
             throw new IllegalStateException("Stream manager closed");
         }
@@ -143,7 +154,7 @@ public class StreamManager<IN> implements Closeable {
         int streamId = this.streamId++;
         ManagerStreamObserver observer = new ManagerStreamObserver(outDefinition, streamId);
         var cache = getOutCache(observer.id());
-        cache.putStreamIn(streamId, unaryOrObserver);
+        cache.putStreamIn(streamId, unaryObserver);
         activeStreamsIn++;
         return observer;
     }
@@ -225,7 +236,7 @@ public class StreamManager<IN> implements Closeable {
         public abstract long id();
     }
 
-    private class ManagerObserver implements StreamChannel.StreamObserver<Signal> {
+    private class ManagerObserver implements StreamChannel.Observer {
         private final int streamId;
         private final StreamDefinition<?> outDefinition;
         private final WeakReference<MsgHandler<?>> msgHandler;
@@ -239,10 +250,10 @@ public class StreamManager<IN> implements Closeable {
         }
 
         @Override
-        public void onNext(Signal remoteSignal) {
+        public void onSignal(Signal signal) {
             MsgHandler<?> get = msgHandler.get();
             if (get != null) {
-                get.signal(remoteSignal);
+                get.signal(signal);
             }
         }
 
@@ -283,6 +294,15 @@ public class StreamManager<IN> implements Closeable {
         }
 
         @Override
+        public void onSignal(Signal signal) {
+            if (executor.inExecutor()) {
+                msgHandler.signal(signal);
+            } else {
+                executor.execute(() -> msgHandler.signal(signal));
+            }
+        }
+
+        @Override
         public void onEnd(Status status) {
             if (!executor.inExecutor()) {
                 executor.execute(() -> onEnd(status));
@@ -299,7 +319,7 @@ class StreamCacheHolder {
     private int streamOutId;
     private StreamChannel.StreamObserver<?> streamOutObserver;
     private int streamInId;
-    private StreamChannel.StreamObserver<Signal> streamInObserver;
+    private StreamChannel.Observer streamInObserver;
 
     public void putStreamOut(int streamOutId, StreamChannel.StreamObserver<?> streamOutObserver) {
         this.streamOutId = streamOutId;
@@ -320,18 +340,18 @@ class StreamCacheHolder {
     }
 
     public void putStreamIn(int streamInId,
-                            StreamChannel.StreamObserver<Signal> streamInObserver) {
+                            StreamChannel.Observer streamInObserver) {
         this.streamInId = streamInId;
         this.streamInObserver = streamInObserver;
     }
 
-    public StreamChannel.StreamObserver<Signal> getStreamInObserver() {
+    public StreamChannel.Observer getStreamInObserver() {
         return streamInObserver;
     }
 
-    public StreamChannel.StreamObserver<Signal> removeStreamIn(int id) {
+    public StreamChannel.Observer removeStreamIn(int id) {
         if (streamInId == id) {
-            StreamChannel.StreamObserver<Signal> observer = streamInObserver;
+            StreamChannel.Observer observer = streamInObserver;
             streamInObserver = null;
             return observer;
         }

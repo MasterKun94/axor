@@ -24,5 +24,5 @@ public non-sealed interface StreamInChannel<IN> extends StreamChannel<IN> {
      */
     <OUT> StreamObserver<IN> open(StreamDefinition<OUT> remote,
                                   EventDispatcher executor,
-                                  StreamObserver<Signal> observer);
+                                  Observer observer);
 }

@@ -8,8 +8,11 @@ import io.axor.api.SystemEvent;
 import io.axor.runtime.EventContext;
 import io.axor.runtime.EventDispatcher;
 import io.axor.runtime.Serde;
+import io.axor.runtime.Signal;
+import io.axor.runtime.StreamChannel;
 import io.axor.runtime.StreamManager;
 import io.axor.runtime.StreamOutChannel;
+import org.jetbrains.annotations.ApiStatus.Internal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,6 +36,15 @@ final class RemoteActorRef<T> extends AbstractActorRef<T> {
     private final BiConsumer<StreamManager<?>, T> tellAction =
             (manager, t) -> manager
                     .getStreamOut(getStreamManager()).onNext(t);
+    private final BiConsumer<StreamManager<?>, Signal> signalAction =
+            (manager, signal) -> {
+                StreamChannel.Observer streamIn = manager.getStreamIn(getStreamManager());
+                if (streamIn != null) {
+                    streamIn.onSignal(signal);
+                } else {
+                    manager.getStreamOut(getStreamManager()).onSignal(signal);
+                }
+            };
 
     private RemoteActorRef(ActorAddress address,
                            Serde<T> serde,
@@ -65,6 +77,25 @@ final class RemoteActorRef<T> extends AbstractActorRef<T> {
             tellAction.accept(manager, value);
         } else {
             EventContext.current().execute(() -> tellAction.accept(manager, value), executor);
+        }
+    }
+
+    @Internal
+    @Override
+    public void signal(Signal signal) {
+        signal(signal, ActorRef.noSender());
+    }
+
+    public void signal(Signal signal, ActorRef<?> sender) {
+        if (sender.isNoSender()) {
+            sender = system.noSender();
+        }
+        var manager = ((ActorRefRich<?>) sender).getStreamManager();
+        var executor = manager.getExecutor();
+        if (executor.inExecutor()) {
+            signalAction.accept(manager, signal);
+        } else {
+            EventContext.current().execute(() -> signalAction.accept(manager, signal), executor);
         }
     }
 

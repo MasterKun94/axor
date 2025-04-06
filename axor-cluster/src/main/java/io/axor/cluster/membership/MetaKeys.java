@@ -3,7 +3,7 @@ package io.axor.cluster.membership;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.MessageLite;
 import com.google.protobuf.Parser;
-import io.axor.cluster.internal.ByteArray;
+import io.axor.commons.util.ByteArray;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;

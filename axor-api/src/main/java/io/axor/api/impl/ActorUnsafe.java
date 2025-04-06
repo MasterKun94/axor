@@ -39,12 +39,16 @@ public class ActorUnsafe {
     }
 
     public static void signal(ActorRef<?> ref, Signal signal) {
-        if (ref instanceof LocalActorRef<?> l) {
-            l.signal(signal);
+        ((ActorRefRich<?>) ref).signal(signal);
+    }
+
+    public static void signal(ActorRef<?> ref, Signal signal, ActorRef<?> sender) {
+        if (ref instanceof RemoteActorRef<?> r) {
+            r.signal(signal, sender);
         } else if (ref instanceof ForwardingActorRef<?> f) {
-            f.signal(signal);
+            f.signal(signal, sender);
         } else {
-            throw new IllegalArgumentException("Not a LocalActorRef");
+            signal(ref, signal);
         }
     }
 
@@ -65,13 +69,7 @@ public class ActorUnsafe {
     }
 
     public static void signalInline(ActorRef<?> ref, Signal signal) {
-        if (ref instanceof LocalActorRef<?> l) {
-            l.signalInline(signal);
-        } else if (ref instanceof ForwardingActorRef<?> f) {
-            f.signalInline(signal);
-        } else {
-            throw new IllegalArgumentException("Not a LocalActorRef");
-        }
+        ((ActorRefRich<?>) ref).signalInline(signal);
     }
 
     public static boolean isStopInvoked(ActorContext<?> context) {

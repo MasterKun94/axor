@@ -52,7 +52,7 @@ public class GrpcStreamServerTest {
             @Override
             public <OUT> StreamObserver<ActorAddress> open(StreamDefinition<OUT> remote,
                                                            EventDispatcher executor,
-                                                           StreamObserver<Signal> observer) {
+                                                           Observer observer) {
                 LOG.info("Open from {} to {}", remote.address(), selfDefinition.address());
                 return new StreamObserver<>() {
 
@@ -61,6 +61,13 @@ public class GrpcStreamServerTest {
                         LOG.info("{} received end stats: {}", selfDefinition.address(), status);
                         assert executor.inExecutor();
                         observer.onEnd(status);
+                    }
+
+                    @Override
+                    public void onSignal(Signal signal) {
+                        LOG.info("{} received signal: {}", selfDefinition.address(), signal);
+                        assert executor.inExecutor();
+                        observer.onSignal(signal);
                     }
 
                     @Override
@@ -84,11 +91,12 @@ public class GrpcStreamServerTest {
         );
         StreamOutChannel<ActorAddress> channel = streamServer.get(definition2, executor);
         StreamChannel.StreamObserver<ActorAddress> open = channel.open(selfDefinition, executor,
-                new StreamChannel.StreamObserver<>() {
+                new StreamChannel.Observer() {
+
                     @Override
-                    public void onNext(Signal remoteSignal) {
+                    public void onSignal(Signal signal) {
                         LOG.info("{} received remote signal: {}", definition2.address(),
-                                remoteSignal);
+                                signal);
                     }
 
                     @Override

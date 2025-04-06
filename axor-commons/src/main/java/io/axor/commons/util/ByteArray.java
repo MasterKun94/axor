@@ -1,4 +1,4 @@
-package io.axor.cluster.internal;
+package io.axor.commons.util;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;

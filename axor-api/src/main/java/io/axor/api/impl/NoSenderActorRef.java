@@ -64,7 +64,7 @@ public final class NoSenderActorRef extends AbstractActorRef<Object> {
             @Override
             public <OUT> StreamObserver<OUT> open(StreamDefinition<OUT> to,
                                                   EventDispatcher executor,
-                                                  StreamObserver<Signal> observer) {
+                                                  Observer observer) {
                 throw new UnsupportedOperationException();
             }
 
@@ -102,5 +102,12 @@ public final class NoSenderActorRef extends AbstractActorRef<Object> {
     @Override
     public void removeWatcher(ActorRef<?> watcher) {
 
+    }
+
+    @Override
+    public void signal(Signal signal) {
+        if (LOG.isTraceEnabled()) {
+            LOG.trace("Signaling {} to NoSenderActor", signal);
+        }
     }
 }

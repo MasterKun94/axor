@@ -13,7 +13,8 @@ public class ContextMsgSerdeTest {
     public void testSerde() throws Exception {
         Serde<TestElem> s = SerdeRegistry.defaultInstance().create("kryo",
                 MsgType.of(TestElem.class));
-        Serde<ContextMsg<TestElem>> serde = new ContextMsgSerde<>(s);
+        Serde<StreamRecord<TestElem>> serde = new ContextMsgSerde<>(s,
+                SerdeRegistry.defaultInstance());
         EventContext.Key<String> key1 = new EventContext.Key<>(1, "testKey", "description",
                 new StringKeyMarshaller());
         EventContext.Key<String> key2 = new EventContext.Key<>(2, "testKey2", "description",
@@ -22,7 +23,7 @@ public class ContextMsgSerdeTest {
                 .with(key2, "World");
 
         SerdeTestKit.of(serde)
-                .test(new ContextMsg<>(ctx, new TestElem(123, "Test Test")))
+                .test(new StreamRecord.ContextMsg<>(ctx, new TestElem(123, "Test Test")))
                 .instanceOf(BuiltinSerde.class);
     }
 

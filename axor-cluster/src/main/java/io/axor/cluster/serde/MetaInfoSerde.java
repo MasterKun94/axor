@@ -1,10 +1,10 @@
 package io.axor.cluster.serde;
 
-import io.axor.cluster.internal.ByteArray;
 import io.axor.cluster.membership.MetaInfo;
 import io.axor.cluster.membership.Unsafe;
 import io.axor.commons.collection.IntObjectHashMap;
 import io.axor.commons.collection.IntObjectMap;
+import io.axor.commons.util.ByteArray;
 import io.axor.runtime.MsgType;
 import io.axor.runtime.impl.BuiltinSerde;
 

@@ -31,7 +31,7 @@ public class ResObserverAdaptorTest {
         InputStream value = Mockito.mock(InputStream.class);
 
         when(executor.inExecutor()).thenReturn(true);
-        when(msgMarshaller.parse(value)).thenReturn(new ContextMsg<>(EventContext.INITIAL, value));
+        when(msgMarshaller.parse(value)).thenReturn(new StreamRecord.ContextMsg<>(EventContext.INITIAL, value));
 
         ResObserverAdaptor adaptor = new ResObserverAdaptor(executor, open, msgMarshaller,
                 resObserver);

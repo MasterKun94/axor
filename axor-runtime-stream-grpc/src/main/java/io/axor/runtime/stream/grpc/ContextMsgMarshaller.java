@@ -5,6 +5,7 @@ import io.axor.exception.ActorNotFoundException;
 import io.axor.exception.ActorRuntimeException;
 import io.axor.exception.IllegalMsgTypeException;
 import io.axor.runtime.Serde;
+import io.axor.runtime.SerdeRegistry;
 import io.axor.runtime.StatusCode;
 import io.grpc.Drainable;
 import io.grpc.KnownLength;
@@ -15,20 +16,20 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-public class ContextMsgMarshaller<T> implements MethodDescriptor.Marshaller<ContextMsg<T>> {
+public class ContextMsgMarshaller<T> implements MethodDescriptor.Marshaller<StreamRecord<T>> {
     private final ContextMsgSerde<T> serde;
 
-    public ContextMsgMarshaller(Serde<T> serde) {
-        this.serde = new ContextMsgSerde<>(serde);
+    public ContextMsgMarshaller(Serde<T> serde, SerdeRegistry serdeRegistry) {
+        this.serde = new ContextMsgSerde<>(serde, serdeRegistry);
     }
 
     @Override
-    public InputStream stream(ContextMsg<T> value) {
+    public InputStream stream(StreamRecord<T> value) {
         return new InputStreamKnownLengthDrainable(serde.serialize(value));
     }
 
     @Override
-    public ContextMsg<T> parse(InputStream stream) {
+    public StreamRecord<T> parse(InputStream stream) {
         try {
             if (stream instanceof Drainable) {
                 if (stream instanceof KnownLength) {

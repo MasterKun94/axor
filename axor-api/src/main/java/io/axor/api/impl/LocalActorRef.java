@@ -87,7 +87,7 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
             @Override
             public <OUT> StreamObserver<OUT> open(StreamDefinition<OUT> to,
                                                   EventDispatcher executor,
-                                                  StreamObserver<Signal> observer) {
+                                                  Observer observer) {
                 var remoteAddress = ActorAddress.create(to.address());
                 var remoteMsgType = to.serde().getType();
                 var selfAddress = LocalActorRef.this.address();
@@ -104,6 +104,11 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
                                 remoteAddress, remoteMsgType,
                                 selfAddress, selfMsgType, status));
                         streamOut.onEnd(status);
+                    }
+
+                    @Override
+                    public void onSignal(Signal signal) {
+                        streamOut.onSignal(signal);
                     }
 
                     @Override
@@ -358,10 +363,12 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
     }
 
     @Internal
+    @Override
     public void signal(Signal signal) {
         EventContext.current().execute(() -> signalAction.accept(signal), executor);
     }
 
+    @Override
     public void signalInline(Signal signal) {
         if (executor.inExecutor()) {
             signalAction.accept(signal);
@@ -519,7 +526,7 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
         @Override
         public <OUT> StreamObserver<T> open(StreamDefinition<OUT> to,
                                             EventDispatcher executor,
-                                            StreamObserver<Signal> observer) {
+                                            Observer observer) {
             var remoteAddress = ActorAddress.create(to.address());
             var remoteMsgType = to.serde().getType();
             var selfAddress = LocalActorRef.this.address();
@@ -527,7 +534,7 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
             systemEvent(new SystemEvent.StreamInOpened(
                     remoteAddress, remoteMsgType,
                     selfAddress, selfMsgType));
-            StreamObserver<T> streamIn = streamManager.getStreamIn(to, observer);
+            StreamObserver<T> streamIn = streamManager.createStreamIn(to, observer);
             return new StreamObserver<>() {
 
                 @Override
@@ -536,6 +543,11 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
                             remoteAddress, remoteMsgType,
                             selfAddress, selfMsgType, status));
                     streamIn.onEnd(status);
+                }
+
+                @Override
+                public void onSignal(Signal signal) {
+                    streamIn.onSignal(signal);
                 }
 
                 @Override

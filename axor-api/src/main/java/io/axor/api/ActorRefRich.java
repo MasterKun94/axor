@@ -1,5 +1,6 @@
 package io.axor.api;
 
+import io.axor.runtime.Signal;
 import io.axor.runtime.StreamDefinition;
 import io.axor.runtime.StreamManager;
 
@@ -29,6 +30,12 @@ public non-sealed abstract class ActorRefRich<T> implements ActorRef<T> {
     public void tellInline(T value, ActorRef<?> sender) {
         tell(value, sender);
     }
+
+    public void signalInline(Signal signal) {
+        signal(signal);
+    }
+
+    public abstract void signal(Signal signal);
 
     public String displayName() {
         if (name == null) {

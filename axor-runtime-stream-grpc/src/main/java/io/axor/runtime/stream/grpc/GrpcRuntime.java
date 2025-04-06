@@ -16,7 +16,8 @@ import io.axor.runtime.StreamAddress;
 import io.axor.runtime.StreamChannel;
 import io.axor.runtime.StreamDefinition;
 import io.axor.runtime.StreamInChannel;
-import io.axor.runtime.impl.AutoTypeSerde;
+import io.axor.runtime.stream.grpc.StreamRecord.ContextMsg;
+import io.axor.runtime.stream.grpc.StreamRecord.ContextSignal;
 import io.axor.runtime.stream.grpc.proto.AxorProto;
 import io.grpc.BindableService;
 import io.grpc.CallOptions;
@@ -117,7 +118,7 @@ public class GrpcRuntime {
                                                           StreamDefinition<?> selfDef,
                                                           StreamDefinition<T> remoteDef,
                                                           EventDispatcher executor,
-                                                          StreamChannel.StreamObserver<Signal> observer) {
+                                                          StreamChannel.Observer observer) {
         channel = ClientInterceptors.intercept(channel, new ClientInterceptor() {
             @Override
             public <ReqT, RespT> ClientCall<ReqT, RespT> interceptCall(MethodDescriptor<ReqT,
@@ -142,7 +143,7 @@ public class GrpcRuntime {
                 callOpt);
         var res = new ResStatusObserver(remoteDef, selfDef, observer, executor, serdeRegistry);
         var req = ClientCalls.asyncBidiStreamingCall(call, res);
-        var marshaller = new ContextMsgMarshaller<>(remoteDef.serde());
+        var marshaller = new ContextMsgMarshaller<>(remoteDef.serde(), serdeRegistry);
         return new ReqObserverAdaptor<>(req, marshaller, executor);
     }
 
@@ -178,9 +179,14 @@ public class GrpcRuntime {
         public void onNext(InputStream value) {
             assert executor.inExecutor();
             try {
-                ContextMsg<?> ctxMsg = msgMarshaller.parse(value);
-                executor.setContext(ctxMsg.context());
-                open.onNext(ctxMsg.msg());
+                StreamRecord<?> ctxMsg = msgMarshaller.parse(value);
+                if (ctxMsg instanceof ContextMsg<?>(var ctx, var msg)) {
+                    executor.setContext(ctx);
+                    open.onNext(msg);
+                } else if (ctxMsg instanceof ContextSignal<?>(var ctx, var signal)) {
+                    executor.setContext(ctx);
+                    open.onSignal(signal);
+                }
             } catch (Throwable e) {
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("Message send error", e);
@@ -253,6 +259,14 @@ public class GrpcRuntime {
         }
 
         @Override
+        public void onSignal(Signal signal) {
+            if (done) {
+                throw new IllegalArgumentException("already completed");
+            }
+            req.onNext(marshaller.stream(new ContextSignal<>(dispatcher.getContext(), signal)));
+        }
+
+        @Override
         public void onNext(T t) {
             if (done) {
                 throw new IllegalArgumentException("already completed");
@@ -264,22 +278,22 @@ public class GrpcRuntime {
     static class ResStatusObserver implements StreamObserver<AxorProto.RemoteSignal> {
         private final StreamDefinition<?> remoteDefinition;
         private final StreamDefinition<?> selfDefinition;
-        private final StreamChannel.StreamObserver<Signal> observer;
+        private final StreamChannel.Observer observer;
         private final EventDispatcher executor;
         private final MethodDescriptor.Marshaller<Signal> signalMarshaller;
         private boolean done;
 
         public ResStatusObserver(StreamDefinition<?> remoteDefinition,
                                  StreamDefinition<?> selfDefinition,
-                                 StreamChannel.StreamObserver<Signal> observer,
+                                 StreamChannel.Observer observer,
                                  EventDispatcher executor,
                                  SerdeRegistry serdeRegistry) {
             this.remoteDefinition = remoteDefinition;
             this.selfDefinition = selfDefinition;
             this.observer = observer;
             this.executor = executor;
-            this.signalMarshaller = new MarshallerAdaptor<>(new AutoTypeSerde<>(serdeRegistry,
-                    MsgType.of(Signal.class)));
+            Serde<Signal> signalSerde = serdeRegistry.create(MsgType.of(Signal.class));
+            this.signalMarshaller = new MarshallerAdaptor<>(signalSerde);
             done = false;
         }
 
@@ -305,7 +319,7 @@ public class GrpcRuntime {
                     observer.onEnd(StreamUtils.fromProto(v));
                 }
             } else {
-                observer.onNext(signalMarshaller.parse(signal.getContent().newInput()));
+                observer.onSignal(signalMarshaller.parse(signal.getContent().newInput()));
             }
         }
 
@@ -406,12 +420,16 @@ public class GrpcRuntime {
                 }
             }
             if (streamUnavailable) {
-                var msgMarshaller = new ContextMsgMarshaller<>(serverStreamDef.serde());
+                var msgMarshaller = new ContextMsgMarshaller<>(serverStreamDef.serde(),
+                        serdeRegistry);
                 var handler = deadLetterHandler.create(clientStreamDef, serverStreamDef);
                 return new StreamObserver<>() {
                     @Override
                     public void onNext(InputStream value) {
-                        handler.handle(msgMarshaller.parse(value).msg());
+                        StreamRecord<?> parsed = msgMarshaller.parse(value);
+                        if (parsed instanceof StreamRecord.ContextMsg<?>(var ignore, var msg)) {
+                            handler.handle(msg);
+                        }
                     }
 
                     @Override
@@ -435,14 +453,14 @@ public class GrpcRuntime {
             LOG.debug("New stream open from {} to {}", address, serverStreamDef.address());
             EventDispatcher executor = EventDispatcher.current();
             assert executor != null;
-            var signalMarshaller = new MarshallerAdaptor<>(
-                    new AutoTypeSerde<>(serdeRegistry, MsgType.of(Signal.class)));
+            Serde<Signal> signalSerde = serdeRegistry.create(MsgType.of(Signal.class));
+            var signalMarshaller = new MarshallerAdaptor<>(signalSerde);
             @SuppressWarnings("rawtypes")
             StreamChannel.StreamObserver open = channel.open(clientStreamDef, executor,
-                    new StreamChannel.StreamObserver<>() {
+                    new StreamChannel.Observer() {
 
                         @Override
-                        public void onNext(Signal signal) {
+                        public void onSignal(Signal signal) {
                             try (InputStream stream = signalMarshaller.stream(signal)) {
                                 resObserver.onNext(AxorProto.RemoteSignal.newBuilder()
                                         .setEndOfStream(false)
@@ -458,7 +476,8 @@ public class GrpcRuntime {
                             resObserver.onNext(endSignal(status));
                         }
                     });
-            var msgMarshaller = new ContextMsgMarshaller<>(channel.getSelfDefinition().serde());
+            var msgMarshaller = new ContextMsgMarshaller<>(channel.getSelfDefinition().serde(),
+                    serdeRegistry);
             return new ResObserverAdaptor(executor, open, msgMarshaller, resObserver);
         }
 

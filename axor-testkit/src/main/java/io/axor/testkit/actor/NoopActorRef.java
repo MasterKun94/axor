@@ -5,6 +5,7 @@ import io.axor.api.ActorRef;
 import io.axor.api.ActorRefRich;
 import io.axor.api.SystemEvent;
 import io.axor.runtime.MsgType;
+import io.axor.runtime.Signal;
 import io.axor.runtime.StreamDefinition;
 import io.axor.runtime.StreamManager;
 
@@ -61,6 +62,11 @@ public class NoopActorRef<T> extends ActorRefRich<T> {
 
     @Override
     protected void cleanup() {
+
+    }
+
+    @Override
+    public void signal(Signal signal) {
 
     }
 }

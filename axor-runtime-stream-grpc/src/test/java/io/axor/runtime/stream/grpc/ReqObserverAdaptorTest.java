@@ -2,6 +2,7 @@ package io.axor.runtime.stream.grpc;
 
 import io.axor.runtime.EventDispatcher;
 import io.axor.runtime.MsgType;
+import io.axor.runtime.SerdeRegistry;
 import io.axor.runtime.Status;
 import io.axor.runtime.StatusCode;
 import io.axor.runtime.impl.BuiltinSerde;
@@ -29,7 +30,8 @@ public class ReqObserverAdaptorTest {
     public void testOnNext() {
         StreamObserver<InputStream> mockReq = Mockito.mock(StreamObserver.class);
         ContextMsgMarshaller<String> marshaller =
-                new ContextMsgMarshaller<>(new StringBuiltinSerde());
+                new ContextMsgMarshaller<>(new StringBuiltinSerde(),
+                        SerdeRegistry.defaultInstance());
 
         ReqObserverAdaptor<String> adaptor = new ReqObserverAdaptor<>(mockReq, marshaller,
                 Mockito.mock(EventDispatcher.class));
@@ -43,7 +45,8 @@ public class ReqObserverAdaptorTest {
     public void testOnEndWithCompleteStatus() {
         StreamObserver<InputStream> mockReq = Mockito.mock(StreamObserver.class);
         ContextMsgMarshaller<String> marshaller =
-                new ContextMsgMarshaller<>(new StringBuiltinSerde());
+                new ContextMsgMarshaller<>(new StringBuiltinSerde(),
+                        SerdeRegistry.defaultInstance());
 
         ReqObserverAdaptor<String> adaptor = new ReqObserverAdaptor<>(mockReq, marshaller,
                 Mockito.mock(EventDispatcher.class));
@@ -57,7 +60,8 @@ public class ReqObserverAdaptorTest {
     public void testOnEndWithErrorStatus() {
         StreamObserver<InputStream> mockReq = Mockito.mock(StreamObserver.class);
         ContextMsgMarshaller<String> marshaller =
-                new ContextMsgMarshaller<>(new StringBuiltinSerde());
+                new ContextMsgMarshaller<>(new StringBuiltinSerde(),
+                        SerdeRegistry.defaultInstance());
 
         ReqObserverAdaptor<String> adaptor = new ReqObserverAdaptor<>(mockReq, marshaller,
                 Mockito.mock(EventDispatcher.class));
@@ -77,7 +81,8 @@ public class ReqObserverAdaptorTest {
     public void testOnNextAfterCompletion() {
         StreamObserver<InputStream> mockReq = Mockito.mock(StreamObserver.class);
         ContextMsgMarshaller<String> marshaller =
-                new ContextMsgMarshaller<>(new StringBuiltinSerde());
+                new ContextMsgMarshaller<>(new StringBuiltinSerde(),
+                        SerdeRegistry.defaultInstance());
 
         ReqObserverAdaptor<String> adaptor = new ReqObserverAdaptor<>(mockReq, marshaller,
                 Mockito.mock(EventDispatcher.class));
