@@ -4,6 +4,7 @@ import io.axor.api.ActorContext;
 import io.axor.api.ActorCreator;
 import io.axor.api.ActorRef;
 import io.axor.api.ActorRefRich;
+import io.axor.api.ActorSettings;
 import io.axor.api.ActorSystem;
 import io.axor.api.SystemEvent;
 import io.axor.runtime.EventDispatcher;
@@ -15,6 +16,7 @@ class ActorContextImpl<T> implements ActorContext<T> {
     private final ActorSystem system;
     private final EventDispatcher executor;
     private final LocalActorRef<T> self;
+    private final ActorSettings settings = new ActorSettings();
     private ActorRef<?> sender;
 
     public ActorContextImpl(ActorSystem system, EventDispatcher executor, LocalActorRef<T> self) {
@@ -71,6 +73,11 @@ class ActorContextImpl<T> implements ActorContext<T> {
     @Override
     public void unwatch(ActorRef<?> target) {
         ((ActorRefRich<?>) target).removeWatcher(self);
+    }
+
+    @Override
+    public ActorSettings settings() {
+        return settings;
     }
 
     public int state() {

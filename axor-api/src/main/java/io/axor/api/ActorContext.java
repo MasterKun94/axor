@@ -127,4 +127,12 @@ public interface ActorContext<T> {
      * @param target the {@code ActorRef} of the actor to stop watching
      */
     void unwatch(ActorRef<?> target);
+
+    /**
+     * Retrieves the current settings for the actor, allowing access to configuration options such
+     * as auto-acknowledgment.
+     *
+     * @return the {@code ActorSettings} object containing the current configuration of the actor
+     */
+    ActorSettings settings();
 }

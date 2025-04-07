@@ -65,7 +65,6 @@ record EventContextImpl(IntObjectMap<BytesHolder> map) implements EventContext {
             this(b, 0, b.length);
         }
 
-
         @Override
         public boolean equals(Object o) {
             if (o == null || getClass() != o.getClass()) return false;

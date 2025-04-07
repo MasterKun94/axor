@@ -2,6 +2,7 @@ package io.axor.api;
 
 import io.axor.api.impl.ActorUnsafe;
 import io.axor.commons.concurrent.EventStage;
+import io.axor.commons.concurrent.Try;
 import io.axor.exception.ActorNotFoundException;
 import io.axor.exception.IllegalMsgTypeException;
 import io.axor.runtime.EventContext;
@@ -64,6 +65,14 @@ public class LocalActorSystemTest {
         Assert.assertEquals("hello", future.toFuture().get());
         future = ActorPatterns.ask(simpleReply, "world", resType, timeout, system);
         Assert.assertEquals("world", future.toFuture().get());
+    }
+
+    @Test
+    public void testTellWithAck() throws Exception {
+        ActorRef<String> actor = system.start(c -> new StringActor(c) {
+        }, "testTellWithAck");
+        EventStage<Void> hello = ActorPatterns.tellWithAck(actor, "Hello", Duration.ofMillis(100), system);
+        Assert.assertEquals(Try.success(null), hello.toFuture().syncUninterruptibly());
     }
 
     @Test

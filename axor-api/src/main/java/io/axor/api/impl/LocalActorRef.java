@@ -7,6 +7,7 @@ import io.axor.api.ActorRef;
 import io.axor.api.ActorRefRich;
 import io.axor.api.ActorSystem;
 import io.axor.api.InternalSignals;
+import io.axor.api.ReliableDelivery;
 import io.axor.api.SystemEvent;
 import io.axor.api.SystemEvent.ActorStopped;
 import io.axor.commons.concurrent.EventPromise;
@@ -343,6 +344,9 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
         try {
             context.sender(sender1);
             actor.onReceive(msg);
+            if (context.settings().isAutoAck()) {
+                ActorUnsafe.msgAck(context);
+            }
         } catch (Throwable e) {
             systemErrorEvent(SystemEvent.ActorAction.ON_RECEIVE, e);
             try {
@@ -356,6 +360,10 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
                 }
             } catch (Throwable ex) {
                 actor.context().system().systemFailure(ex);
+            } finally {
+                if (context.settings().isAutoAck()) {
+                    ActorUnsafe.msgAckFailed(context, e);
+                }
             }
         } finally {
             context.sender(ActorRef.noSender());

@@ -4,8 +4,12 @@ import io.axor.api.ActorContext;
 import io.axor.api.ActorRef;
 import io.axor.api.ActorRefRich;
 import io.axor.api.ActorSystem;
+import io.axor.api.ReliableDelivery;
+import io.axor.runtime.EventContext;
 import io.axor.runtime.EventDispatcher;
 import io.axor.runtime.Signal;
+
+import static io.axor.api.ReliableDelivery.MSG_ID;
 
 public class ActorUnsafe {
     public static boolean isStopped(ActorRef<?> ref) {
@@ -74,5 +78,25 @@ public class ActorUnsafe {
 
     public static boolean isStopInvoked(ActorContext<?> context) {
         return ((ActorContextImpl<?>) context).state() != LocalActorRef.RUNNING_STATE;
+    }
+
+    public static void msgAck(ActorContext<?> context) {
+        EventContext eventContext = context.dispatcher().getContext();
+        Long l = eventContext.get(MSG_ID);
+        if (l == null) {
+            return;
+        }
+        context.dispatcher().setContext(eventContext.without(MSG_ID));
+        ActorUnsafe.signal(context.sender(), new ReliableDelivery.MsgAckSuccess(l), context.self());
+    }
+
+    public static void msgAckFailed(ActorContext<?> context,  Throwable e) {
+        EventContext eventContext = context.dispatcher().getContext();
+        Long l = eventContext.get(MSG_ID);
+        if (l == null) {
+            return;
+        }
+        context.dispatcher().setContext(eventContext.without(MSG_ID));
+        ActorUnsafe.signal(context.sender(), new ReliableDelivery.MsgAckFailed(l, e), context.self());
     }
 }

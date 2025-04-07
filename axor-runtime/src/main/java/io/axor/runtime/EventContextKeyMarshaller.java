@@ -8,18 +8,18 @@ public class EventContextKeyMarshaller {
 
     public static final EventContext.KeyMarshaller<Integer> INT =
             new EventContext.KeyMarshaller<>() {
-        @Override
-        public Integer read(byte[] bytes, int off, int len) {
-            return ByteArray.getInt(bytes, off);
-        }
+                @Override
+                public Integer read(byte[] bytes, int off, int len) {
+                    return ByteArray.getInt(bytes, off);
+                }
 
-        @Override
-        public byte[] write(Integer value) {
-            byte[] bytes = new byte[8];
-            ByteArray.setInt(bytes, 0, value);
-            return bytes;
-        }
-    };
+                @Override
+                public byte[] write(Integer value) {
+                    byte[] bytes = new byte[8];
+                    ByteArray.setInt(bytes, 0, value);
+                    return bytes;
+                }
+            };
 
     public static final EventContext.KeyMarshaller<Long> LONG = new EventContext.KeyMarshaller<>() {
         @Override
@@ -37,14 +37,14 @@ public class EventContextKeyMarshaller {
 
     public static final EventContext.KeyMarshaller<String> STRING =
             new EventContext.KeyMarshaller<>() {
-        @Override
-        public String read(byte[] bytes, int off, int len) {
-            return new String(bytes, off, len, StandardCharsets.UTF_8);
-        }
+                @Override
+                public String read(byte[] bytes, int off, int len) {
+                    return new String(bytes, off, len, StandardCharsets.UTF_8);
+                }
 
-        @Override
-        public byte[] write(String value) {
-            return value.getBytes(StandardCharsets.UTF_8);
-        }
-    };
+                @Override
+                public byte[] write(String value) {
+                    return value.getBytes(StandardCharsets.UTF_8);
+                }
+            };
 }

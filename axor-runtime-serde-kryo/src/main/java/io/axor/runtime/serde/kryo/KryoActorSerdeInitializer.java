@@ -66,7 +66,7 @@ public class KryoActorSerdeInitializer extends ActorSystemSerdeInitializer<KryoS
             kryo.register(SystemEvent.StreamInClosed.class, ID_BASE + 22);
             kryo.register(Status.class, ID_BASE + 23);
             kryo.register(StatusCode.class, ID_BASE + 24);
-            kryo.register(ReliableDelivery.MsgAck.class, ID_BASE + 25);
+            kryo.register(ReliableDelivery.MsgAckSuccess.class, ID_BASE + 25);
         });
     }
 

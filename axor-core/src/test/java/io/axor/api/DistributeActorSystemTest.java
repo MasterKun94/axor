@@ -4,6 +4,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import io.axor.api.impl.ActorUnsafe;
 import io.axor.commons.concurrent.EventStage;
+import io.axor.commons.concurrent.Try;
 import io.axor.runtime.EventContext;
 import io.axor.runtime.MsgType;
 import io.axor.runtime.Signal;
@@ -122,6 +123,23 @@ public class DistributeActorSystemTest {
                 null, MsgType.of(String.class),
                 StatusCode.COMPLETE.toStatus());
         Assert.assertTrue(queue.isEmpty());
+    }
+
+    @Test
+    public void testTellWithAck() throws Exception {
+        ActorRef<String> actor = system1.start(c -> new Actor<>(c) {
+            @Override
+            public void onReceive(String t) {
+            }
+
+            @Override
+            public MsgType<String> msgType() {
+                return MsgType.of(String.class);
+            }
+        }, "testTellWithAck");
+        ActorRef<String> ref = system2.get(actor.address(), String.class);
+        EventStage<Void> stage = ActorPatterns.tellWithAck(ref, "Hello", Duration.ofMillis(1000), system2);
+        Assert.assertEquals(Try.success(null), stage.toFuture().syncUninterruptibly());
     }
 
     @Test
