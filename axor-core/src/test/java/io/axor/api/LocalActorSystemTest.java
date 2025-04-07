@@ -6,6 +6,7 @@ import io.axor.commons.concurrent.Try;
 import io.axor.exception.ActorNotFoundException;
 import io.axor.exception.IllegalMsgTypeException;
 import io.axor.runtime.EventContext;
+import io.axor.runtime.EventContextKeyMarshaller;
 import io.axor.runtime.MsgType;
 import io.axor.runtime.Signal;
 import io.axor.runtime.TypeReference;
@@ -30,18 +31,10 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class LocalActorSystemTest {
     private static final ActorTestKit testKit = new ActorTestKit(Duration.ofMillis(100));
-    private static final EventContext.Key<String> key = new EventContext.Key<>(2, "test", "test",
-            new EventContext.KeyMarshaller<String>() {
-                @Override
-                public String read(byte[] bytes, int off, int len) {
-                    return new String(bytes, off, len);
-                }
-
-                @Override
-                public byte[] write(String value) {
-                    return value.getBytes();
-                }
-            });
+    private static final EventContext.Key<String> key = new EventContext.Key<>(2,
+            "test", "test", EventContextKeyMarshaller.STRING);
+    private static final EventContext.Key<String> key2 = new EventContext.Key<>(3,
+            "test2", "test2", EventContextKeyMarshaller.STRING);
     private static ActorSystem system;
     private static ActorRef<String> simpleReply;
 
@@ -71,7 +64,8 @@ public class LocalActorSystemTest {
     public void testTellWithAck() throws Exception {
         ActorRef<String> actor = system.start(c -> new StringActor(c) {
         }, "testTellWithAck");
-        EventStage<Void> hello = ActorPatterns.tellWithAck(actor, "Hello", Duration.ofMillis(100), system);
+        EventStage<Void> hello = ActorPatterns.tellWithAck(actor, "Hello", Duration.ofMillis(100)
+                , system);
         Assert.assertEquals(Try.success(null), hello.toFuture().syncUninterruptibly());
     }
 
@@ -277,16 +271,17 @@ public class LocalActorSystemTest {
         ActorRef<Map<ActorAddress, String>> propagation3 =
                 system.start(c -> new ContextPropagation(c, propagation2), "propagation3");
 
-        try (var scope = EventContext.INITIAL.with(key, "Test").openScope()) {
+        try (var ignore =
+                     EventContext.INITIAL.with(key, "Test").with(key2, "Test2", 2).openScope()) {
             Assert.assertEquals("Test", EventContext.current().get(key));
             propagation3.tell(Collections.emptyMap());
         }
         MockActorRef<Map<ActorAddress, String>>.MsgAndSender poll = subscriber1.poll();
         Assert.assertEquals(poll.getSender(), propagation1);
         Assert.assertEquals(new HashMap<>(Map.of(
-                propagation1.address(), "Test",
-                propagation2.address(), "Test",
-                propagation3.address(), "Test"
+                propagation1.address(), "Test:null",
+                propagation2.address(), "Test:Test2",
+                propagation3.address(), "Test:Test2"
         )), poll.getMsg());
     }
 
@@ -432,7 +427,8 @@ public class LocalActorSystemTest {
         public void onReceive(Map<ActorAddress, String> s) {
             LOG.info("Receive {} from {}", s, sender());
             var map = new HashMap<>(s);
-            map.put(self().address(), EventContext.current().get(key));
+            EventContext ctx = EventContext.current();
+            map.put(self().address(), ctx.get(key) + ":" + ctx.get(key2));
             sendTo.tell(map, self());
         }
 

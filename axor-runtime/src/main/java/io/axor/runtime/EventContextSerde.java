@@ -15,14 +15,17 @@ public class EventContextSerde implements BuiltinSerde<EventContext> {
             out.writeShort(0);
             return;
         }
-        var map = ((EventContextImpl) obj).map();
+        EventContextImpl cast = (EventContextImpl) obj;
+        var map = cast.map();
         out.writeShort(map.size());
         for (var entry : map.entries()) {
             out.writeInt(entry.key());
             EventContextImpl.BytesHolder value = entry.value();
             out.writeShort(value.len());
             out.write(value.b(), value.off(), value.len());
+            out.writeInt(value.propagateLevel());
         }
+        out.writeInt(cast.propagateCnt());
     }
 
     @Override
@@ -37,9 +40,9 @@ public class EventContextSerde implements BuiltinSerde<EventContext> {
             int len = Short.toUnsignedInt(in.readShort());
             byte[] b = new byte[len];
             in.readFully(b, 0, len);
-            map.put(id, new EventContextImpl.BytesHolder(b));
+            map.put(id, new EventContextImpl.BytesHolder(b, in.readInt()));
         }
-        return new EventContextImpl(map);
+        return new EventContextImpl(map, in.readInt());
     }
 
     @Override

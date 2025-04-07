@@ -7,7 +7,6 @@ import io.axor.api.ActorRef;
 import io.axor.api.ActorRefRich;
 import io.axor.api.ActorSystem;
 import io.axor.api.InternalSignals;
-import io.axor.api.ReliableDelivery;
 import io.axor.api.SystemEvent;
 import io.axor.api.SystemEvent.ActorStopped;
 import io.axor.commons.concurrent.EventPromise;
@@ -337,11 +336,11 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
     private void doTell(T msg, ActorRef<?> sender1) {
         assert executor.inExecutor();
         ActorContextImpl<T> context = (ActorContextImpl<T>) actor.context();
-        if (state != RUNNING_STATE) {
-            context.deadLetter(msg);
-            return;
-        }
-        try {
+        try (var ignore = executor.getContext().propagate().openScope()) {
+            if (state != RUNNING_STATE) {
+                context.deadLetter(msg);
+                return;
+            }
             context.sender(sender1);
             actor.onReceive(msg);
             if (context.settings().isAutoAck()) {

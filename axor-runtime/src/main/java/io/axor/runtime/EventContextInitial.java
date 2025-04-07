@@ -3,6 +3,7 @@ package io.axor.runtime;
 import io.axor.commons.collection.IntObjectHashMap;
 import io.axor.commons.collection.IntObjectMap;
 import io.axor.commons.concurrent.EventStage;
+import io.axor.runtime.EventContextImpl.BytesHolder;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.concurrent.Callable;
@@ -19,14 +20,19 @@ final class EventContextInitial implements EventContext {
     }
 
     @Override
+    public EventContext propagate() {
+        return this;
+    }
+
+    @Override
     public <T> @Nullable T get(Key<T> key) {
         return null;
     }
 
     @Override
-    public <T> EventContext with(Key<T> key, T value) {
-        IntObjectMap<EventContextImpl.BytesHolder> map = new IntObjectHashMap<>(1);
-        map.put(key.id(), new EventContextImpl.BytesHolder(key.marshaller().write(value)));
+    public <T> EventContext with(Key<T> key, T value, int propagateLevel) {
+        IntObjectMap<BytesHolder> map = new IntObjectHashMap<>(1);
+        map.put(key.id(), new BytesHolder(key.marshaller().write(value), propagateLevel));
         return new EventContextImpl(map);
     }
 

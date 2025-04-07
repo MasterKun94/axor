@@ -6,6 +6,7 @@ import io.axor.api.impl.ActorUnsafe;
 import io.axor.commons.concurrent.EventStage;
 import io.axor.commons.concurrent.Try;
 import io.axor.runtime.EventContext;
+import io.axor.runtime.EventContextKeyMarshaller;
 import io.axor.runtime.MsgType;
 import io.axor.runtime.Signal;
 import io.axor.runtime.Status;
@@ -29,22 +30,12 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public class DistributeActorSystemTest {
-    private static final EventContext.Key<String> key = new EventContext.Key<>(2, "test", "test",
-            new EventContext.KeyMarshaller<>() {
-                @Override
-                public String read(byte[] bytes, int off, int len) {
-                    return new String(bytes, off, len);
-                }
-
-                @Override
-                public byte[] write(String value) {
-                    return value.getBytes();
-                }
-            });
+    private static final EventContext.Key<String> key = new EventContext.Key<>(2,
+            "test", "test", EventContextKeyMarshaller.STRING);
+    private static final EventContext.Key<String> key2 = new EventContext.Key<>(3,
+            "test2", "test2", EventContextKeyMarshaller.STRING);
     private static ActorTestKit testKit = new ActorTestKit(Duration.ofMillis(100));
     private static ActorSystem system1;
     private static ActorSystem system2;
@@ -138,7 +129,8 @@ public class DistributeActorSystemTest {
             }
         }, "testTellWithAck");
         ActorRef<String> ref = system2.get(actor.address(), String.class);
-        EventStage<Void> stage = ActorPatterns.tellWithAck(ref, "Hello", Duration.ofMillis(1000), system2);
+        EventStage<Void> stage = ActorPatterns.tellWithAck(ref, "Hello", Duration.ofMillis(1000),
+                system2);
         Assert.assertEquals(Try.success(null), stage.toFuture().syncUninterruptibly());
     }
 
@@ -154,14 +146,26 @@ public class DistributeActorSystemTest {
         ActorRef<String> actor2Ref = system1.get(actor2.address(), MsgType.of(String.class));
         ActorRef<String> actor3 = system1.start(s -> new ContextPropagation(s, actor2Ref),
                 "propagation3");
-        try (var scope = EventContext.INITIAL.with(key, "Test").openScope()) {
-            Assert.assertEquals("Test", EventContext.current().get(key));
+        try (var scope = EventContext.INITIAL.with(key, "A").with(key2, "A2", 2).openScope()) {
+            Assert.assertEquals("A", EventContext.current().get(key));
             actor3.tell("");
         }
         MockActorRef<String>.MsgAndSender poll = mock.poll();
         Assert.assertEquals(poll.getSender(), actor1);
         Assert.assertEquals(
-                Stream.of(actor3, actor2, actor1).map(a -> "," + a.address() + "=Test").collect(Collectors.joining()),
+                String.format(",%s=A:A2,%s=A:A2,%s=A:null", actor3.address(), actor2.address(),
+                        actor1.address()),
+                poll.getMsg()
+        );
+        try (var scope = EventContext.INITIAL.with(key, "B").with(key2, "B2", 1).openScope()) {
+            Assert.assertEquals("B", EventContext.current().get(key));
+            actor3.tell("");
+        }
+        poll = mock.poll();
+        Assert.assertEquals(poll.getSender(), actor1);
+        Assert.assertEquals(
+                String.format(",%s=B:B2,%s=B:null,%s=B:null", actor3.address(), actor2.address(),
+                        actor1.address()),
                 poll.getMsg()
         );
     }
@@ -345,7 +349,9 @@ public class DistributeActorSystemTest {
         @Override
         public void onReceive(String s) {
             LOG.info("Receive {} from {}", s, sender());
-            sendTo.tell(s + "," + self().address() + "=" + EventContext.current().get(key), self());
+            EventContext ctx = EventContext.current();
+            sendTo.tell(s + "," + self().address() + "=" + ctx.get(key) + ":" + ctx.get(key2),
+                    self());
         }
 
         @Override

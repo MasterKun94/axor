@@ -90,13 +90,14 @@ public class ActorUnsafe {
         ActorUnsafe.signal(context.sender(), new ReliableDelivery.MsgAckSuccess(l), context.self());
     }
 
-    public static void msgAckFailed(ActorContext<?> context,  Throwable e) {
+    public static void msgAckFailed(ActorContext<?> context, Throwable e) {
         EventContext eventContext = context.dispatcher().getContext();
         Long l = eventContext.get(MSG_ID);
         if (l == null) {
             return;
         }
         context.dispatcher().setContext(eventContext.without(MSG_ID));
-        ActorUnsafe.signal(context.sender(), new ReliableDelivery.MsgAckFailed(l, e), context.self());
+        ActorUnsafe.signal(context.sender(), new ReliableDelivery.MsgAckFailed(l, e),
+                context.self());
     }
 }

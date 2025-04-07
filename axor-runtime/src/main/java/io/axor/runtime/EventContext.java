@@ -49,6 +49,8 @@ public sealed interface EventContext permits EventContextInitial, EventContextIm
         return prev;
     }
 
+    EventContext propagate();
+
     /**
      * Retrieves the value associated with the given key from the event context.
      *
@@ -67,7 +69,11 @@ public sealed interface EventContext permits EventContextInitial, EventContextIm
      * @param value the value to be associated with the given key
      * @return a new {@link EventContext} with the updated key-value pair
      */
-    <T> EventContext with(Key<T> key, T value);
+    default <T> EventContext with(Key<T> key, T value) {
+        return with(key, value, -1);
+    }
+
+    <T> EventContext with(Key<T> key, T value, int propagateLevel);
 
     /**
      * Returns a new {@link EventContext} with the specified key removed.
