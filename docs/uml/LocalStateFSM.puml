@@ -1,0 +1,21 @@
+@startuml
+'https://plantuml.com/state-diagram
+
+[*] --> JOINING : MemberJoin
+JOINING --> HEALTHY : +M
+HEALTHY : healthy member >=n
+JOINING --> UNHEALTHY : +M
+UNHEALTHY : healthy member <n
+HEALTHY --> UNHEALTHY : -M
+UNHEALTHY --> HEALTHY : +M
+HEALTHY --> ORPHANED : -M
+ORPHANED : healthy member = 0
+UNHEALTHY --> ORPHANED : -M
+ORPHANED --> HEALTHY  : +M
+ORPHANED --> UNHEALTHY : +M
+
+HEALTHY --> LEAVING : MemberLeave
+UNHEALTHY --> LEAVING : MemberLeave
+ORPHANED --> LEFT : MemberLeave
+LEAVING --> LEFT : Gossip.LeaveAck
+@enduml

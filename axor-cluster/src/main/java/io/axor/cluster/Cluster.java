@@ -158,7 +158,7 @@ public class Cluster {
         public void onReceive(ClusterEvent clusterEvent) {
             if (clusterEvent instanceof ClusterEvent.LocalStateChange(var current)) {
                 if (!joinPromise.isDone()) {
-                    if (current == LocalMemberState.UP || current == LocalMemberState.WEAKLY_UP) {
+                    if (current == LocalMemberState.HEALTHY || current == LocalMemberState.UNHEALTHY) {
                         joinPromise.success(null);
                     } else if (current == LocalMemberState.LEFT) {
                         joinPromise.failure(new RuntimeException("member left"));

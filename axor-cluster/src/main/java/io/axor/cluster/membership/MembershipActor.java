@@ -162,8 +162,8 @@ public class MembershipActor extends AbstractActor<MembershipMessage> {
             }
             if (msg instanceof Gossip.PushedEvents gossip) {
                 memberManager.gossipEvent(gossip);
-                if (splitBrainResolver.getLocalMemberState() == LocalMemberState.UP ||
-                    splitBrainResolver.getLocalMemberState() == LocalMemberState.WEAKLY_UP) {
+                if (splitBrainResolver.getLocalMemberState() == LocalMemberState.HEALTHY ||
+                    splitBrainResolver.getLocalMemberState() == LocalMemberState.UNHEALTHY) {
                     return up();
                 }
                 return Behaviors.same();

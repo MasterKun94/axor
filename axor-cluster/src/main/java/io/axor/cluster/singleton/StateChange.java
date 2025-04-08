@@ -3,8 +3,8 @@ package io.axor.cluster.singleton;
 import io.axor.runtime.Signal;
 
 enum StateChange implements Signal {
-    SERVABLE,
-    UNSERVABLE,
+    HEALTHY,
+    UNHEALTHY,
     LEADER_ADDED,
     LEADER_REMOVED,
     LEADER_CHANGED,

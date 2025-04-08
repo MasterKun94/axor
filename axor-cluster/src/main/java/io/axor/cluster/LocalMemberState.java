@@ -3,9 +3,9 @@ package io.axor.cluster;
 public enum LocalMemberState {
     NONE,
     JOINING,
-    UP,
-    WEAKLY_UP,
-    DISCONNECTED,
+    HEALTHY,
+    UNHEALTHY,
+    ORPHANED,
     LEAVING,
     LEFT
 }
