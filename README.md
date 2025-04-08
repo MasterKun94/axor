@@ -52,6 +52,10 @@ maven：
 - [**集群单例示例**](docs/example/cluster_singleton.md)：提供了关于如何在 Axor 集群环境中配置和使用单例
   Actor 的指导，适用于需要保证唯一性的场景。
 
+## 详细介绍
+- [**Axor-Cluster模块内部原理详细介绍**](docs/cluster-membership.md)
+- TODO
+
 ## 未来规划
 
 - **axor-persistence**：将引入 Actor 状态持久化功能，确保状态的一致性和可靠性。

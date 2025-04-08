@@ -76,6 +76,10 @@ maven:
   configuring and using singleton Actors in an Axor cluster environment, suitable for scenarios
   requiring uniqueness.
 
+## Detailed Content
+- [**Detailed Internal Principles of the Axor-Cluster Module**](docs/cluster-membership-en.md)
+- TODO
+
 ## Future Plans
 
 - **axor-persistence**: Will introduce Actor state persistence to ensure consistency and reliability

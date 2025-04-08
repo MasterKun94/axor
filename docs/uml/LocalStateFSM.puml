@@ -3,19 +3,19 @@
 
 [*] --> JOINING : MemberJoin
 JOINING --> HEALTHY : +M
-HEALTHY : healthy member >=n
+HEALTHY : Healthy member >=n
 JOINING --> UNHEALTHY : +M
-UNHEALTHY : healthy member <n
+UNHEALTHY : Healthy member <n
 HEALTHY --> UNHEALTHY : -M
 UNHEALTHY --> HEALTHY : +M
 HEALTHY --> ORPHANED : -M
-ORPHANED : healthy member = 0
+ORPHANED : Healthy member = 0
 UNHEALTHY --> ORPHANED : -M
 ORPHANED --> HEALTHY  : +M
 ORPHANED --> UNHEALTHY : +M
 
-HEALTHY --> LEAVING : MemberLeave
-UNHEALTHY --> LEAVING : MemberLeave
-ORPHANED --> LEFT : MemberLeave
-LEAVING --> LEFT : Gossip.LeaveAck
+HEALTHY --> LEAVING : Command[MemberLeave]
+UNHEALTHY --> LEAVING : Command[MemberLeave]
+ORPHANED --> LEFT : Command[MemberLeave]
+LEAVING --> LEFT : Receive[LeaveAck]
 @enduml
