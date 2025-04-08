@@ -62,7 +62,7 @@ class ClusterSingletonProxy<T> extends Actor<T> {
     private ActorRef<SingletonManagerMessage> manager;
     private ActorRef<ClusterEvent> listener;
     private ActorRef<T> realInstance;
-    private boolean servable;
+    private boolean healthy;
     @Nullable
     private ClusterMember leaderMember;
 
@@ -160,15 +160,15 @@ class ClusterSingletonProxy<T> extends Actor<T> {
         public void onReceive(ClusterEvent clusterEvent) {
             switch (clusterEvent) {
                 case ClusterEvent.LocalStateChange(var state) -> {
-                    if (servable) {
-                        if (state != LocalMemberState.UP) {
-                            servable = false;
-                            ActorUnsafe.signalInline(manager, StateChange.UNSERVABLE);
+                    if (healthy) {
+                        if (state != LocalMemberState.HEALTHY) {
+                            healthy = false;
+                            ActorUnsafe.signalInline(manager, StateChange.UNHEALTHY);
                         }
                     } else {
-                        if (state == LocalMemberState.UP) {
-                            servable = true;
-                            ActorUnsafe.signalInline(manager, StateChange.SERVABLE);
+                        if (state == LocalMemberState.HEALTHY) {
+                            healthy = true;
+                            ActorUnsafe.signalInline(manager, StateChange.HEALTHY);
                         }
                     }
                 }
@@ -310,32 +310,32 @@ class ClusterSingletonProxy<T> extends Actor<T> {
 
         @Override
         protected Behavior<SingletonManagerMessage> initialBehavior() {
-            return unservableFollower();
+            return unhealthyFollower();
         }
 
-        private Behavior<SingletonManagerMessage> unservableFollower() {
-            LOG.info("Manager state changed to UNSERVABLE_FOLLOWER");
+        private Behavior<SingletonManagerMessage> unhealthyFollower() {
+            LOG.info("Manager state changed to UNHEALTHY_FOLLOWER");
             return log(receive(msg -> {
-                assert !servable;
+                assert !healthy;
                 if (msg.getType() == SingletonManagerMessage.Type.INSTANCE_READY) {
-                    LOG.warn("Receive instance ready but self not servable, ignore msg {}",
+                    LOG.warn("Receive instance ready but self not healthy, ignore msg {}",
                             ProtobufUtil.toString(msg));
                     return same();
                 }
                 return unhandled();
             }, signal -> {
-                assert !servable;
+                assert !healthy;
                 if (!(signal instanceof StateChange)) {
                     return unhandled();
                 }
                 switch ((StateChange) signal) {
-                    case SERVABLE -> {
+                    case HEALTHY -> {
                         assert realInstance == null;
                         if (leaderMember != null && leaderMember.uid() == cluster.uid()) {
                             assert instance == null;
                             return instanceReady();
                         }
-                        return servableFollower();
+                        return healthyFollower();
                     }
                     case INSTANCE_STARTED -> {
                         try {
@@ -358,9 +358,9 @@ class ClusterSingletonProxy<T> extends Actor<T> {
             }), LOG, LOG_LEVEL);
         }
 
-        private Behavior<SingletonManagerMessage> servableFollower() {
-            LOG.info("Manager state changed to SERVABLE_FOLLOWER");
-            assert servable;
+        private Behavior<SingletonManagerMessage> healthyFollower() {
+            LOG.info("Manager state changed to HEALTHY_FOLLOWER");
+            assert healthy;
             if (instance != null) {
                 realInstance = instance;
                 flushBuffer();
@@ -369,7 +369,7 @@ class ClusterSingletonProxy<T> extends Actor<T> {
                 tryLeaderAck(getRemoteManager(leaderMember));
             }
             return log(receive(msg -> {
-                assert servable;
+                assert healthy;
                 if (msg.getType() == SingletonManagerMessage.Type.INSTANCE_READY) {
                     if (leaderMember == null) {
                         LOG.warn("Receive instance ready but self detect no leader " +
@@ -389,9 +389,9 @@ class ClusterSingletonProxy<T> extends Actor<T> {
                     return unhandled();
                 }
                 switch ((StateChange) signal) {
-                    case UNSERVABLE -> {
+                    case UNHEALTHY -> {
                         realInstance = null;
-                        return unservableFollower();
+                        return unhealthyFollower();
                     }
                     case INSTANCE_STARTED -> {
                         try {
@@ -469,7 +469,7 @@ class ClusterSingletonProxy<T> extends Actor<T> {
                             return same();
                         } else {
                             sc.cancel(false);
-                            return unservableFollower();
+                            return unhealthyFollower();
                         }
                     }
                     default -> {
@@ -481,9 +481,9 @@ class ClusterSingletonProxy<T> extends Actor<T> {
                     return unhandled();
                 }
                 switch ((StateChange) signal) {
-                    case UNSERVABLE -> {
+                    case UNHEALTHY -> {
                         sc.cancel(false);
-                        return unservableFollower();
+                        return unhealthyFollower();
                     }
                     case LEADER_CHANGED -> {
                         // TODO split brain?
@@ -492,7 +492,7 @@ class ClusterSingletonProxy<T> extends Actor<T> {
                         sc.cancel(false);
                         assert leaderMember != null;
                         tryLeaderAck(getRemoteManager(leaderMember));
-                        return servableFollower();
+                        return healthyFollower();
                     }
                     default -> {
                         LOG.error("Unexpected signal: {}, maybe a bug, current leader member is " +
@@ -545,16 +545,16 @@ class ClusterSingletonProxy<T> extends Actor<T> {
                     return unhandled();
                 }
                 switch ((StateChange) signal) {
-                    case UNSERVABLE -> {
-                        // unservableInstanceStopping
+                    case UNHEALTHY -> {
+                        // unhealthyInstanceStopping
                         return instanceStopping();
                     }
                     case LEADER_REMOVED -> {
-                        // servableInstanceStopping
+                        // healthyInstanceStopping
                         return instanceStopping();
                     }
                     case LEADER_ADDED, LEADER_CHANGED -> {
-                        // servableInstanceStopping, TODO split brain?
+                        // healthyInstanceStopping, TODO split brain?
                         return instanceStopping();
                     }
                     case INSTANCE_STARTED -> {
@@ -581,42 +581,42 @@ class ClusterSingletonProxy<T> extends Actor<T> {
                 context().system().stop(instance);
             }, timeout, TimeUnit.MILLISECONDS);
             List<Signal> signalBuffer = new ArrayList<>();
-            if (servable) {
-                return unservableInstanceStopping(future, signalBuffer);
+            if (healthy) {
+                return unhealthyInstanceStopping(future, signalBuffer);
             } else {
-                return servableInstanceStopping(future, signalBuffer);
+                return healthyInstanceStopping(future, signalBuffer);
             }
         }
 
-        private Behavior<SingletonManagerMessage> unservableInstanceStopping(ScheduledFuture<?> future, List<Signal> signalBuffer) {
-            LOG.info("Manager state changed to UNSERVABLE_INSTANCE_STOPPING");
+        private Behavior<SingletonManagerMessage> unhealthyInstanceStopping(ScheduledFuture<?> future, List<Signal> signalBuffer) {
+            LOG.info("Manager state changed to UNHEALTHY_INSTANCE_STOPPING");
             return log(receive(msg -> {
                 if (msg.getType() == SingletonManagerMessage.Type.INSTANCE_READY) {
                     LOG.warn("Receive instance ready but self Instance is still stopping and " +
-                             "unservable, ignore msg {}", ProtobufUtil.toString(msg));
+                             "unhealthy, ignore msg {}", ProtobufUtil.toString(msg));
                     return same();
                 }
                 return unhandled();
             }, signal -> {
                 if (signal instanceof SystemEvent.ActorStopped(var ref) && ref.equals(instance)) {
                     future.cancel(false);
-                    var consumedBuffer = Behaviors.consumeBuffer(unservableFollower());
+                    var consumedBuffer = Behaviors.consumeBuffer(unhealthyFollower());
                     signalBuffer.forEach(consumedBuffer::addSignal);
                     return consumedBuffer.toBehavior();
                 }
                 if (!(signal instanceof StateChange)) {
                     return unhandled();
                 }
-                if (signal == StateChange.SERVABLE) {
-                    return servableInstanceStopping(future, signalBuffer);
+                if (signal == StateChange.HEALTHY) {
+                    return healthyInstanceStopping(future, signalBuffer);
                 }
                 signalBuffer.add(signal);
                 return same();
             }), LOG, LOG_LEVEL);
         }
 
-        private Behavior<SingletonManagerMessage> servableInstanceStopping(ScheduledFuture<?> future, List<Signal> signalBuffer) {
-            LOG.info("Manager state changed to SERVABLE_INSTANCE_STOPPING");
+        private Behavior<SingletonManagerMessage> healthyInstanceStopping(ScheduledFuture<?> future, List<Signal> signalBuffer) {
+            LOG.info("Manager state changed to HEALTHY_INSTANCE_STOPPING");
             return log(receive(msg -> {
                 if (msg.getType() == SingletonManagerMessage.Type.INSTANCE_READY) {
                     LOG.warn("Receive instance ready but self Instance is still stopping, ignore " +
@@ -627,15 +627,15 @@ class ClusterSingletonProxy<T> extends Actor<T> {
             }, signal -> {
                 if (signal instanceof SystemEvent.ActorStopped(var ref) && ref.equals(instance)) {
                     future.cancel(false);
-                    var consumedBuffer = Behaviors.consumeBuffer(servableFollower());
+                    var consumedBuffer = Behaviors.consumeBuffer(healthyFollower());
                     signalBuffer.forEach(consumedBuffer::addSignal);
                     return consumedBuffer.toBehavior();
                 }
                 if (!(signal instanceof StateChange)) {
                     return unhandled();
                 }
-                if (signal == StateChange.UNSERVABLE) {
-                    return unservableInstanceStopping(future, signalBuffer);
+                if (signal == StateChange.UNHEALTHY) {
+                    return unhealthyInstanceStopping(future, signalBuffer);
                 }
                 signalBuffer.add(signal);
                 return same();
