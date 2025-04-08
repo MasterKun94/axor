@@ -1,6 +1,6 @@
 package io.axor.api;
 
-public enum BehaviorType {
+enum BehaviorType {
     SAME,
     STOP,
     UNHANDLED,

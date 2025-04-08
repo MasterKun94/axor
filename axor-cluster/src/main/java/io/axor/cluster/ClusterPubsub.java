@@ -106,7 +106,8 @@ public class ClusterPubsub<T> implements Pubsub<T> {
                 if (SUBSCRIBED_TOPIC.metaEquals(member.metaInfo(), prev)) {
                     return;
                 }
-                updateSubscriber(member.withMetaInfo(prev), member);
+                var m = new ClusterMember(member.uid(), member.system(), member.address(), prev);
+                updateSubscriber(m, member);
             } else if (event instanceof MemberStateChanged(var member, var from, var to)) {
                 LOG.info("Receive MemberStateChanged[member={}, from={}, to={}, meta={}]", member
                         , from, to, loggable(SUBSCRIBED_TOPIC.get(member.metaInfo())));

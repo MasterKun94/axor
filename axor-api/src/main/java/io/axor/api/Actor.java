@@ -1,5 +1,6 @@
 package io.axor.api;
 
+import io.axor.runtime.EventContext;
 import io.axor.runtime.MsgType;
 import io.axor.runtime.Signal;
 
@@ -28,6 +29,16 @@ public abstract class Actor<T> {
      */
     public ActorContext<T> context() {
         return context;
+    }
+
+    /**
+     * Returns the event context associated with this actor, which provides access to the current
+     * event and related information.
+     *
+     * @return the {@code EventContext} for the current event being processed by the
+     */
+    public EventContext eventContext() {
+        return context.dispatcher().getContext();
     }
 
     /**

@@ -35,6 +35,27 @@ public class ReliableDelivery {
     }
 
     /**
+     * Wraps the current event context with a specified message ID.
+     *
+     * @param id the message ID to be added to the event context
+     * @return the new event context with the message ID added
+     */
+    public static EventContext wrap(long id) {
+        return wrap(EventContext.current(), id);
+    }
+
+    /**
+     * Wraps the given event context with a message ID.
+     *
+     * @param eventContext the event context to be wrapped
+     * @param id           the message ID to be added to the event context
+     * @return the new event context with the message ID added
+     */
+    public static EventContext wrap(EventContext eventContext, long id) {
+        return eventContext.with(MSG_ID, id, 1);
+    }
+
+    /**
      * Checks if the auto-acknowledgment feature is enabled for the current actor.
      *
      * @return {@code true} if auto-acknowledgment is enabled, otherwise {@code false}

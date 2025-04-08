@@ -49,6 +49,17 @@ public class ActorPatterns {
         return promise;
     }
 
+    /**
+     * Sends a message to the specified actor and waits for an acknowledgment.
+     *
+     * @param <T>     the type of the message
+     * @param ref     the {@code ActorRef} representing the recipient of the message
+     * @param msg     the message to be sent
+     * @param timeout the duration to wait for an acknowledgment before timing out
+     * @param system  the actor system in which the operation is to be performed
+     * @return an {@code EventStage<Void>} that will complete when the acknowledgment is received or
+     * fail if the timeout is reached
+     */
     public static <T> EventStage<Void> tellWithAck(ActorRef<T> ref, T msg, Duration timeout,
                                                    ActorSystem system) {
         EventDispatcher dispatcher = EventDispatcher.current();
@@ -61,12 +72,8 @@ public class ActorPatterns {
         var sender = system.start(
                 c -> new TellWithAckActor(c, promise, l, timeout),
                 "sys/pattern-ack-" + ADDER.getAndIncrement(), dispatcher);
-        EventContext ctx = EventContext.current().with(ReliableDelivery.MSG_ID, l);
-        EventContext prev = EventContext.set(ctx);
-        try {
+        try (var ignore = ReliableDelivery.wrap(EventContext.current(), l).openScope()) {
             ref.tell(msg, sender);
-        } finally {
-            EventContext.set(prev);
         }
         return promise;
     }
