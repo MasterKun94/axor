@@ -108,9 +108,9 @@ public class ActorSystemImpl implements ActorSystem, HasMeter {
         this.publishAddress = publishAddress;
         this.eventExecutorGroup = eventExecutorGroup;
         this.shutdownHooks.register(new RootShutdownTask());
-        this.deadLetterPubsub = Pubsub.get("sys/DeadLetter", MsgType.of(DeadLetter.class),
+        this.systemEventPubsub = Pubsub.get("SystemEvent", MsgType.of(SystemEvent.class),
                 false, this);
-        this.systemEventPubsub = Pubsub.get("sys/SystemEvent", MsgType.of(SystemEvent.class),
+        this.deadLetterPubsub = Pubsub.get("DeadLetter", MsgType.of(DeadLetter.class),
                 false, this);
         var address = ActorAddress.create(this.name, publishAddress, NoSenderActorRef.ACTOR_NAME);
         var executor = eventExecutorGroup.nextDispatcher();

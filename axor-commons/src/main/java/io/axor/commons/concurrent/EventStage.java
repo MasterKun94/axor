@@ -332,6 +332,9 @@ public sealed interface EventStage<T> permits EventPromise, EventFuture, Succeed
      * @return the current {@code EventStage} with the added listener
      */
     default EventStage<T> addListener(EventStageListener<T> listener) {
+        if (listener instanceof NoopEventPromise<T>) {
+            return this;
+        }
         return addListeners(Collections.singletonList(listener));
     }
 

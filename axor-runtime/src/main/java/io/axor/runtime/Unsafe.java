@@ -3,7 +3,8 @@ package io.axor.runtime;
 import java.util.List;
 
 public class Unsafe {
-    public static <T> MsgType<T> msgType(Class<T> type, List<MsgType<?>> typeArguments) {
-        return new Parameterized<>(type, typeArguments);
+    @SuppressWarnings("unchecked")
+    public static <T> MsgType<T> msgType(Class<?> type, List<MsgType<?>> typeArguments) {
+        return new Parameterized<>((Class<T>) type, typeArguments);
     }
 }

@@ -40,6 +40,8 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * A concrete implementation of {@link AbstractActorRef} that represents a local actor reference.
  * This class is responsible for managing the lifecycle and message delivery to a local actor. It
@@ -66,6 +68,7 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
     private List<Runnable> stopRunners;
     private Map<ActorAddress, WatcherHolder> watchers;
     private byte state = RUNNING_STATE;
+    private EventStage<Void> stoppingStage;
 
     LocalActorRef(ActorAddress address, ActorSystem system, EventDispatcher executor,
                   ActorCreator<T> actorCreator, ActorConfig config) {
@@ -243,11 +246,17 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
     private void doStop(EventPromise<Void> promise) {
         assert executor.inExecutor();
         if (state != RUNNING_STATE) {
-            LOG.warn("Stop already invoked");
-            promise.failure(new RuntimeException("stop already invoked"));
+            if (state == STOPPED_STATE) {
+                promise.success(null);
+            } else {
+                requireNonNull(stoppingStage, "stoppingStage").addListener(promise);
+            }
             return;
         }
         state = STOPPING_STATE;
+        EventPromise<Void> stoppingPromise = EventPromise.newPromise(executor);
+        stoppingStage = stoppingPromise;
+        stoppingPromise.addListener(promise);
         try {
             actor.preStop();
         } catch (Exception e) {
@@ -297,12 +306,13 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
             }
             try {
                 state = STOPPED_STATE;
+                stoppingStage = null;
                 actor.postStop();
             } catch (Throwable e) {
                 systemErrorEvent(SystemEvent.ActorAction.ON_POST_STOP, e);
             }
             return Try.success((Void) null);
-        }, executor).addListener(promise);
+        }, executor).addListener(stoppingPromise);
     }
 
     @Internal

@@ -86,11 +86,11 @@ public class DefaultSplitBrainResolver implements SplitBrainResolver {
     @Override
     public LocalMemberState getLocalMemberState() {
         if (aliveMemberCount >= minRequireMembers) {
-            return initialState ? LocalMemberState.WEAKLY_UP : LocalMemberState.UP;
+            return initialState ? LocalMemberState.UNHEALTHY : LocalMemberState.HEALTHY;
         } else if (aliveMemberCount > 0) {
-            return LocalMemberState.WEAKLY_UP;
+            return LocalMemberState.UNHEALTHY;
         } else {
-            return LocalMemberState.DISCONNECTED;
+            return LocalMemberState.ORPHANED;
         }
     }
 

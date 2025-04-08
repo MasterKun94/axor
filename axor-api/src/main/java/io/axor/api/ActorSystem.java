@@ -131,7 +131,7 @@ public interface ActorSystem {
      * @return an {@code EventStream<DeadLetter>} that can be used to subscribe to and handle dead
      * letter events
      */
-    EventStream<DeadLetter> deadLetters();
+    Eventbus<DeadLetter> deadLetters();
 
     /**
      * Returns an {@code EventStream} that publishes system events. System events are used to
@@ -142,7 +142,7 @@ public interface ActorSystem {
      * @return an {@code EventStream<SystemEvent>} that can be used to subscribe to and handle
      * system events
      */
-    EventStream<SystemEvent> systemEvents();
+    Eventbus<SystemEvent> systemEvents();
 
     /**
      * Starts a new actor with the specified creator and name.
@@ -169,10 +169,27 @@ public interface ActorSystem {
      */
     <T> ActorRef<T> start(ActorCreator<T> creator, String name, EventDispatcher dispatcher);
 
+    /**
+     * Retrieves an existing actor by name or starts a new one if it does not exist.
+     *
+     * @param <T>     the type of messages that the actor can handle
+     * @param creator the actor creator used to start a new actor if one does not already exist
+     * @param name    the name of the actor to retrieve or start
+     * @return the actor reference for the existing or newly started actor
+     */
     default <T> ActorRef<T> getOrStart(ActorCreator<T> creator, String name) {
         return getOrStart(creator, name, getDispatcherGroup().nextDispatcher());
     }
 
+    /**
+     * Retrieves an existing actor by name or starts a new one if it does not exist.
+     *
+     * @param <T>        the type of messages this actor can handle
+     * @param creator    the function that creates and configures the actor
+     * @param name       the unique name of the actor
+     * @param dispatcher the event dispatcher to be used for processing the actor's messages
+     * @return an ActorRef representing the existing or newly started actor
+     */
     <T> ActorRef<T> getOrStart(ActorCreator<T> creator, String name, EventDispatcher dispatcher);
 
     /**

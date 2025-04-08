@@ -49,6 +49,12 @@ public sealed interface EventContext permits EventContextInitial, EventContextIm
         return prev;
     }
 
+    /**
+     * Propagates the current {@link EventContext} to a new scope or thread, ensuring that the
+     * context is carried over.
+     *
+     * @return a new or propagated {@link EventContext} that can be used in the new scope or thread
+     */
     EventContext propagate();
 
     /**
@@ -62,17 +68,32 @@ public sealed interface EventContext permits EventContextInitial, EventContextIm
     <T> T get(Key<T> key);
 
     /**
-     * Adds or updates a key-value pair in the current event context.
+     * Adds or updates a key-value pair in the current event context with unlimited propagation.
      *
      * @param <T>   the type of the value associated with the key
      * @param key   the key for which to set the value
      * @param value the value to be associated with the given key
-     * @return a new {@link EventContext} with the updated key-value pair
+     * @return a new {@link EventContext} with the updated key-value pair and unlimited propagation
      */
     default <T> EventContext with(Key<T> key, T value) {
         return with(key, value, -1);
     }
 
+    /**
+     * Adds or updates a key-value pair in the current event context and specifies the propagation
+     * level.
+     *
+     * @param <T>            the type of the value associated with the key
+     * @param key            the key for which to set the value
+     * @param value          the value to be associated with the given key
+     * @param propagateLevel the level to which the context should be propagated. 1 indicates that
+     *                       the value can only be propagated once, after which it will be hidden in
+     *                       subsequent propagations. -1 indicates that the value can be propagated
+     *                       an unlimited number of times. This value must be greater than or equal
+     *                       to -1.
+     * @return a new {@link EventContext} with the updated key-value pair and the specified
+     * propagation level
+     */
     <T> EventContext with(Key<T> key, T value, int propagateLevel);
 
     /**

@@ -6,6 +6,8 @@ import io.axor.api.ActorRef;
 import io.axor.api.ActorRefRich;
 import io.axor.api.ActorSystem;
 import io.axor.api.ActorSystemSerdeInitializer;
+import io.axor.api.Eventbus;
+import io.axor.api.Pubsub;
 import io.axor.api.ReliableDelivery;
 import io.axor.api.SystemEvent;
 import io.axor.api.impl.AbstractActorRef;
@@ -67,6 +69,15 @@ public class KryoActorSerdeInitializer extends ActorSystemSerdeInitializer<KryoS
             kryo.register(Status.class, ID_BASE + 23);
             kryo.register(StatusCode.class, ID_BASE + 24);
             kryo.register(ReliableDelivery.MsgAckSuccess.class, ID_BASE + 25);
+
+            kryo.register(Eventbus.Subscribe.class, ID_BASE + 31);
+            kryo.register(Eventbus.Unsubscribe.class, ID_BASE + 32);
+            kryo.register(Eventbus.SubscribeSuccess.class, ID_BASE + 33);
+            kryo.register(Eventbus.SubscribeFailed.class, ID_BASE + 34);
+            kryo.register(Eventbus.UnsubscribeSuccess.class, ID_BASE + 35);
+            kryo.register(Eventbus.UnsubscribeFailed.class, ID_BASE + 36);
+            kryo.register(Pubsub.PublishToAll.class, ID_BASE + 37);
+            kryo.register(Pubsub.SendToOne.class, ID_BASE + 38);
         });
     }
 

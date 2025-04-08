@@ -95,7 +95,8 @@ public class DistributeActorSystemTest {
             System.out.println(event);
         }
 
-        Assert.assertTrue(queue.poll() instanceof SystemEvent.ActorStarted);
+        SystemEvent poll = queue.poll();
+        Assert.assertTrue(poll instanceof SystemEvent.ActorStarted);
         assertStreamEvent(queue.poll(), SystemEvent.StreamOutOpened.class,
                 simpleReply.address(), MsgType.of(String.class),
                 null, MsgType.of(String.class),

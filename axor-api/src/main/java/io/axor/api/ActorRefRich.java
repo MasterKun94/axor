@@ -1,5 +1,6 @@
 package io.axor.api;
 
+import io.axor.runtime.EventDispatcher;
 import io.axor.runtime.Signal;
 import io.axor.runtime.StreamDefinition;
 import io.axor.runtime.StreamManager;
@@ -24,6 +25,10 @@ public non-sealed abstract class ActorRefRich<T> implements ActorRef<T> {
     public abstract StreamDefinition<T> getDefinition();
 
     public abstract StreamManager<T> getStreamManager();
+
+    public EventDispatcher dispatcher() {
+        return getStreamManager().getExecutor();
+    }
 
     protected abstract void cleanup();
 

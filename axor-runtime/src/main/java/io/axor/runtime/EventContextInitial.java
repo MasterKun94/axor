@@ -31,6 +31,9 @@ final class EventContextInitial implements EventContext {
 
     @Override
     public <T> EventContext with(Key<T> key, T value, int propagateLevel) {
+        if (propagateLevel < -1) {
+            throw new IllegalArgumentException("propagateLevel must greater than or equal to -1");
+        }
         IntObjectMap<BytesHolder> map = new IntObjectHashMap<>(1);
         map.put(key.id(), new BytesHolder(key.marshaller().write(value), propagateLevel));
         return new EventContextImpl(map);

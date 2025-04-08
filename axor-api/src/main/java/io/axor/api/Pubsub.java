@@ -6,7 +6,7 @@ import io.axor.runtime.MsgType;
 
 /**
  * Represents a publish-subscribe mechanism for distributing messages of type T to multiple
- * subscribers. Extends the functionality of {@link EventStream} by providing methods to publish
+ * subscribers. Extends the functionality of {@link Eventbus} by providing methods to publish
  * messages to all subscribed actors or send a message to a specific actor. This interface is
  * designed to work within an actor system, facilitating event-driven communication and decoupling
  * between components.
@@ -14,8 +14,7 @@ import io.axor.runtime.MsgType;
  * @param <T> the type of the message that can be published and received through this pubsub
  *            mechanism
  */
-public interface Pubsub<T> extends EventStream<T> {
-
+public interface Pubsub<T> extends Eventbus<T> {
 
     /**
      * Retrieves a {@code Pubsub} instance for the specified message type within the given actor
@@ -63,7 +62,9 @@ public interface Pubsub<T> extends EventStream<T> {
      * @param msg    the message to be published, of type T
      * @param sender the {@code ActorRef} representing the sender of the message
      */
-    void publishToAll(T msg, ActorRef<?> sender);
+    default void publishToAll(T msg, ActorRef<?> sender) {
+        mediator().tell(new PublishToAll<>(msg), sender);
+    }
 
     /**
      * Publishes the given message to all subscribed actors.
@@ -88,7 +89,9 @@ public interface Pubsub<T> extends EventStream<T> {
      * @param msg    the message to be sent, of type T
      * @param sender the {@code ActorRef} representing the sender of the message
      */
-    void sendToOne(T msg, ActorRef<?> sender);
+    default void sendToOne(T msg, ActorRef<?> sender) {
+        mediator().tell(new SendToOne<>(msg), sender);
+    }
 
     /**
      * Sends the given message to a specific actor, using a default sender.
@@ -109,5 +112,32 @@ public interface Pubsub<T> extends EventStream<T> {
      *
      * @return the {@link EventDispatcher} associated with this pubsub instance
      */
-    EventDispatcher dispatcher();
+    default EventDispatcher dispatcher() {
+        return ((ActorRefRich<?>) mediator()).dispatcher();
+    }
+
+    /**
+     * Provides the {@code ActorRef} for the mediator actor that handles commands of type
+     * {@code Command<T>}.
+     *
+     * @return an {@code ActorRef<Command<T>>} representing the mediator actor
+     */
+    @Override
+    ActorRef<Command<T>> mediator();
+
+    /**
+     * A sealed interface that represents a command in the pubsub system. This interface is used to
+     * define commands such as publishing messages to all subscribers or sending a message to a
+     * specific actor.
+     *
+     * @param <T> the type of messages that the command operates on
+     */
+    sealed interface Command<T> permits Eventbus.Command, Pubsub.PublishToAll, Pubsub.SendToOne {
+    }
+
+    record PublishToAll<T>(T msg) implements Command<T> {
+    }
+
+    record SendToOne<T>(T msg) implements Command<T> {
+    }
 }

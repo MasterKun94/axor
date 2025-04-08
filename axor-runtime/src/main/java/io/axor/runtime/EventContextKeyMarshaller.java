@@ -35,6 +35,21 @@ public class EventContextKeyMarshaller {
         }
     };
 
+    public static final EventContext.KeyMarshaller<Double> DOUBLE =
+            new EventContext.KeyMarshaller<>() {
+                @Override
+                public Double read(byte[] bytes, int off, int len) {
+                    return ByteArray.getDouble(bytes, off);
+                }
+
+                @Override
+                public byte[] write(Double value) {
+                    byte[] bytes = new byte[8];
+                    ByteArray.setDouble(bytes, 0, value);
+                    return bytes;
+                }
+            };
+
     public static final EventContext.KeyMarshaller<String> STRING =
             new EventContext.KeyMarshaller<>() {
                 @Override

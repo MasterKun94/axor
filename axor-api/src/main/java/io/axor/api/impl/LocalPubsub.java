@@ -1,7 +1,10 @@
 package io.axor.api.impl;
 
+import io.axor.api.Actor;
 import io.axor.api.ActorAddress;
+import io.axor.api.ActorContext;
 import io.axor.api.ActorRef;
+import io.axor.api.ActorRefRich;
 import io.axor.api.ActorSystem;
 import io.axor.api.Pubsub;
 import io.axor.api.SystemCacheKey;
@@ -10,6 +13,7 @@ import io.axor.exception.ActorRuntimeException;
 import io.axor.exception.IllegalMsgTypeException;
 import io.axor.runtime.EventDispatcher;
 import io.axor.runtime.MsgType;
+import io.axor.runtime.Unsafe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,26 +40,25 @@ public class LocalPubsub<T> implements Pubsub<T> {
     private static final Map<SystemCacheKey, LocalPubsub<?>> CACHE = new ConcurrentHashMap<>();
     private final String name;
     private final MsgType<T> msgType;
-    private final Map<ActorAddress, ActorRef<? super T>> actors = new HashMap<>();
-    private final List<ActorRef<? super T>> sendList = new ArrayList<>();
-    private final EventDispatcher executor;
+    private final ActorRef<Command<T>> mediator;
     private final boolean logUnSendMsg;
-    private int sendOffset = 0;
-    private volatile boolean closed = false;
+    private volatile boolean closed;
 
-    LocalPubsub(String name, MsgType<T> msgType, EventDispatcher executor, boolean logUnSendMsg,
+    LocalPubsub(String name, MsgType<T> msgType, boolean logUnSendMsg,
                 ActorSystem system) {
         this.name = name;
         this.msgType = msgType;
-        this.executor = executor;
         this.logUnSendMsg = logUnSendMsg;
         system.shutdownHooks().register(new DependencyTask("pubsub-" + name, "root") {
             @Override
             public CompletableFuture<Void> run() {
                 closed = true;
-                return CompletableFuture.completedFuture(null);
+                return system.stop(mediator).toCompletableFuture();
             }
         });
+        this.mediator = system.start(
+                c -> new PubsubMediator<>(c, logUnSendMsg, msgType, this),
+                "sys/PubsubMediator/" + name);
     }
 
     public static <T> LocalPubsub<T> get(String name, MsgType<T> msgType, ActorSystem system) {
@@ -74,37 +77,9 @@ public class LocalPubsub<T> implements Pubsub<T> {
                             msgType));
                 }
             } else {
-                EventDispatcher dispatcher = system.getDispatcherGroup().nextDispatcher();
-                return new LocalPubsub<>(name, msgType, dispatcher, logUnSendMsg, system);
+                return new LocalPubsub<>(name, msgType, logUnSendMsg, system);
             }
         });
-    }
-
-    @Override
-    public void subscribe(ActorRef<? super T> actor) {
-        if (!executor.inExecutor()) {
-            executor.execute(() -> subscribe(actor));
-            return;
-        }
-        if (actor == null) {
-            throw new NullPointerException("actor cannot be null");
-        }
-        if (actors.put(actor.address(), actor) == null) {
-            sendList.add(actor);
-        }
-    }
-
-    @Override
-    public void unsubscribe(ActorRef<? super T> ref) {
-        if (!executor.inExecutor()) {
-            executor.execute(() -> unsubscribe(ref));
-            return;
-        }
-        ActorRef<? super T> removed = actors.remove(ref.address());
-        if (removed != null) {
-            sendList.remove(removed);
-            Collections.shuffle(sendList);
-        }
     }
 
     @Override
@@ -115,29 +90,7 @@ public class LocalPubsub<T> implements Pubsub<T> {
             }
             return;
         }
-        if (executor.inExecutor()) {
-            doPublishToAll(msg, sender);
-        } else {
-            executor.execute(() -> doPublishToAll(msg, sender));
-        }
-    }
-
-    private void doPublishToAll(T msg, ActorRef<?> sender) {
-        if (actors.isEmpty()) {
-            if (logUnSendMsg) {
-                LOG.warn("{} has no actors to publish for this message", this);
-            }
-            return;
-        }
-        for (Iterator<ActorRef<? super T>> iterator = sendList.iterator(); iterator.hasNext(); ) {
-            ActorRef<? super T> actorRef = iterator.next();
-            if (actorRef instanceof LocalActorRef<? super T> l && ActorUnsafe.isStopped(l)) {
-                iterator.remove();
-                LOG.warn("{} already stopped", actorRef);
-                continue;
-            }
-            actorRef.tell(msg, sender);
-        }
+        Pubsub.super.publishToAll(msg, sender);
     }
 
     @Override
@@ -148,29 +101,12 @@ public class LocalPubsub<T> implements Pubsub<T> {
             }
             return;
         }
-        if (executor.inExecutor()) {
-            doSendToOne(msg, sender);
-        } else {
-            executor.execute(() -> doSendToOne(msg, sender));
-        }
+        Pubsub.super.sendToOne(msg, sender);
     }
 
     @Override
     public EventDispatcher dispatcher() {
-        return executor;
-    }
-
-    private void doSendToOne(T msg, ActorRef<?> sender) {
-        if (actors.isEmpty()) {
-            if (logUnSendMsg) {
-                LOG.warn("{} has no actors to send for this message", this);
-            }
-            return;
-        }
-        if (sendOffset >= sendList.size()) {
-            sendOffset = 0;
-        }
-        sendList.get(sendOffset++).tell(msg, sender);
+        return ((ActorRefRich<?>) mediator).dispatcher();
     }
 
     @Override
@@ -179,10 +115,102 @@ public class LocalPubsub<T> implements Pubsub<T> {
     }
 
     @Override
+    public ActorRef<Command<T>> mediator() {
+        return mediator;
+    }
+
+    @Override
     public String toString() {
         return "LocalPubsub[" +
                "name=" + name + ", " +
                "msgType=" + msgType.name() +
                ']';
+    }
+
+    private static class PubsubMediator<T> extends Actor<Command<T>> {
+        private final Map<ActorAddress, ActorRef<? super T>> actors = new HashMap<>();
+        private final List<ActorRef<? super T>> sendList = new ArrayList<>();
+        private final boolean logUnSendMsg;
+        private final MsgType<T> elemType;
+        private final LocalPubsub<T> pubsub;
+        private int sendOffset = 0;
+
+        protected PubsubMediator(ActorContext<Command<T>> context, boolean logUnSendMsg,
+                                 MsgType<T> elemType, LocalPubsub<T> pubsub) {
+            super(context);
+            this.logUnSendMsg = logUnSendMsg;
+            this.elemType = elemType;
+            this.pubsub = pubsub;
+        }
+
+        @Override
+        public void onReceive(Command<T> pMsg) {
+            switch (pMsg) {
+                case PublishToAll<T>(var msg) -> doPublishToAll(msg);
+                case SendToOne<T>(var msg) -> doSendToOne(msg);
+                case Subscribe<T>(var ref) -> doSubscribe(ref);
+                case Unsubscribe<T>(var ref) -> doUnsubscribe(ref);
+                case null, default ->
+                        throw new IllegalArgumentException("unsupported msg: " + pMsg);
+            }
+        }
+
+        private void doSubscribe(ActorRef<? super T> ref) {
+            if (actors.put(ref.address(), ref) == null) {
+                sendList.add(ref);
+                ActorUnsafe.signal(sender(), new SubscribeSuccess<>(self(), ref));
+            } else {
+                var alreadySubscribed = new IllegalArgumentException("already subscribed");
+                ActorUnsafe.signal(sender(), new SubscribeFailed<>(self(), ref, alreadySubscribed));
+            }
+        }
+
+        private void doUnsubscribe(ActorRef<? super T> ref) {
+            ActorRef<? super T> removed = actors.remove(ref.address());
+            if (removed != null) {
+                sendList.remove(removed);
+                Collections.shuffle(sendList);
+                ActorUnsafe.signal(sender(), new UnsubscribeSuccess<>(self(), ref));
+            } else {
+                var notSubscribed = new IllegalArgumentException("subscription not found");
+                ActorUnsafe.signal(sender(), new UnsubscribeFailed<>(self(), ref, notSubscribed));
+            }
+        }
+
+        private void doPublishToAll(T msg) {
+            if (actors.isEmpty()) {
+                if (logUnSendMsg) {
+                    LOG.warn("{} has no actors to publish for this message", this);
+                }
+                return;
+            }
+            for (Iterator<ActorRef<? super T>> iterator = sendList.iterator(); iterator.hasNext(); ) {
+                ActorRef<? super T> actorRef = iterator.next();
+                if (actorRef instanceof LocalActorRef<? super T> l && ActorUnsafe.isStopped(l)) {
+                    iterator.remove();
+                    LOG.warn("{} already stopped", actorRef);
+                    continue;
+                }
+                actorRef.tell(msg, sender());
+            }
+        }
+
+        private void doSendToOne(T msg) {
+            if (actors.isEmpty()) {
+                if (logUnSendMsg) {
+                    LOG.warn("{} has no actors to send for this message", this);
+                }
+                return;
+            }
+            if (sendOffset >= sendList.size()) {
+                sendOffset = 0;
+            }
+            sendList.get(sendOffset++).tell(msg, sender());
+        }
+
+        @Override
+        public MsgType<Command<T>> msgType() {
+            return Unsafe.msgType(Command.class, List.of(elemType));
+        }
     }
 }
