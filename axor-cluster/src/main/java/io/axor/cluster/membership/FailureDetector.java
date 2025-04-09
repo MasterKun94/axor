@@ -60,7 +60,7 @@ final class FailureDetectorImpl implements FailureDetector {
     private final ActorContext<?> context;
     private final List<ScheduledFuture<?>> scheduleList = new ArrayList<>();
     private final LongObjectMap<ValueHolder> heartbeats = new LongObjectHashMap<>();
-    private final List<Long> servableMemberUidList = new ArrayList<>();
+    private final List<Long> aliveMemberUidList = new ArrayList<>();
     private int pingOff = 0;
 
     FailureDetectorImpl(FailureDetectConfig config,
@@ -87,14 +87,14 @@ final class FailureDetectorImpl implements FailureDetector {
             public void onMemberStateChange(Member member, MemberState from, MemberState to) {
                 assert context.dispatcher().inExecutor();
                 long uid = member.uid();
-                if (from.SERVABLE) {
-                    if (!to.SERVABLE) {
-                        LOG.warn("{} not servable", member);
-                        servableMemberUidList.remove(uid);
+                if (from.isInCluster()) {
+                    if (!to.isInCluster()) {
+                        LOG.warn("{} not alive", member);
+                        aliveMemberUidList.remove(uid);
                     }
-                } else if (to.SERVABLE) {
-                    LOG.info("{} become servable", member);
-                    servableMemberUidList.add(uid);
+                } else if (to.isInCluster()) {
+                    LOG.info("{} become alive", member);
+                    aliveMemberUidList.add(uid);
                 }
                 var holder = getHolder(uid);
                 holder.member = member;
@@ -171,20 +171,20 @@ final class FailureDetectorImpl implements FailureDetector {
 
     private void schedulePing() {
         assert context.dispatcher().inExecutor();
-        if (servableMemberUidList.isEmpty()) {
+        if (aliveMemberUidList.isEmpty()) {
             return;
         }
-        if (pingOff >= servableMemberUidList.size()) {
+        if (pingOff >= aliveMemberUidList.size()) {
             pingOff = 0;
-            Collections.shuffle(servableMemberUidList);
+            Collections.shuffle(aliveMemberUidList);
         }
 
         long pingUid = pingOff == 0 ?
-                servableMemberUidList.getLast() :
-                servableMemberUidList.get(pingOff - 1);
+                aliveMemberUidList.getLast() :
+                aliveMemberUidList.get(pingOff - 1);
         var pingClock = memberManager.getClock(pingUid);
         assert pingClock != null;
-        long uid = servableMemberUidList.get(pingOff++);
+        long uid = aliveMemberUidList.get(pingOff++);
         var member = memberManager.getMember(uid);
         assert member != null;
         var holder = getHolder(uid);

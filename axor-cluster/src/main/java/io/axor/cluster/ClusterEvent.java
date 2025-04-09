@@ -15,8 +15,8 @@ public sealed interface ClusterEvent {
     }
 
     record MemberStateChanged(ClusterMember member,
-                              MemberState state,
-                              MemberState previousState) implements MemberEvent {
+                              MemberState from,
+                              MemberState to) implements MemberEvent {
     }
 
     record MemberMetaInfoChanged(ClusterMember member,

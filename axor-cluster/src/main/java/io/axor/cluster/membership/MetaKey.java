@@ -19,6 +19,8 @@ public sealed interface MetaKey<T> permits MetaKeys.AbstractMetaKey {
 
     boolean contains(MetaInfo metaInfo, T value);
 
+    boolean containsKey(MetaInfo metaInfo);
+
     Action upsert(T value);
 
     Action update(Function<T, T> updateFunc);

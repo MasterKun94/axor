@@ -7,6 +7,7 @@ import io.axor.api.ActorSystem;
 import io.axor.api.Pubsub;
 import io.axor.cluster.Cluster;
 import io.axor.runtime.MsgType;
+import io.axor.runtime.Signal;
 import io.axor.runtime.serde.kryo.KryoSerdeFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -99,6 +100,11 @@ public class _05_ClusterPubsubExample {
         @Override
         public void onReceive(TopicMessage msg) {
             LOG.info("Receive: {} from {}", msg, sender());
+        }
+
+        @Override
+        public void onSignal(Signal signal) {
+            LOG.info("Signal: {}", signal);
         }
 
         @Override

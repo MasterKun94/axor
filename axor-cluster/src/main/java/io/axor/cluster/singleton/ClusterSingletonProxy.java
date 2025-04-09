@@ -14,8 +14,11 @@ import io.axor.cluster.BuiltinMetaKeys;
 import io.axor.cluster.Cluster;
 import io.axor.cluster.ClusterEvent;
 import io.axor.cluster.ClusterMember;
+import io.axor.cluster.ClusterMemberAggregator;
+import io.axor.cluster.ClusterMemberAggregator.KeyedObserver;
 import io.axor.cluster.LocalMemberState;
 import io.axor.cluster.membership.MetaInfo;
+import io.axor.cluster.proto.MembershipProto;
 import io.axor.cluster.proto.MembershipProto.SingletonManagerMessage;
 import io.axor.commons.collection.LongObjectHashMap;
 import io.axor.commons.collection.LongObjectMap;
@@ -140,9 +143,14 @@ class ClusterSingletonProxy<T> extends Actor<T> {
 
     private class SingletonListener extends Actor<ClusterEvent> {
         private final Logger LOG = LoggerFactory.getLogger(SingletonListener.class);
+        private final ClusterMemberAggregator agg;
 
         protected SingletonListener(ActorContext<ClusterEvent> context) {
             super(context);
+            agg = ClusterMemberAggregator.requireMemberServable()
+                    .requireRoles(config.requireRoles())
+                    .requireMetaKey(BuiltinMetaKeys.SINGLETONS, s -> s.containsStates(name))
+                    .build(new MemberObserver());
         }
 
         @Override
@@ -172,63 +180,71 @@ class ClusterSingletonProxy<T> extends Actor<T> {
                         }
                     }
                 }
-                case ClusterEvent.MemberStateChanged(var member, var from, var to) -> {
-                    LOG.info("MemberStateChanged(member={}, from={}, to={}", member, from, to);
-                    if (!existsSingleton(member.metaInfo())) {
-                        return;
-                    }
-                    if (from.ALIVE) {
-                        if (!to.ALIVE) {
-                            removeMember(member);
-                        }
-                    } else if (to.ALIVE) {
-                        addMember(member);
-                    }
-                }
-                case ClusterEvent.MemberMetaInfoChanged(var member, var prev) -> {
-                    if (existsSingleton(member.metaInfo())) {
-                        if (existsSingleton(prev)) {
-                            assert leaderMember != null;
-                            if (member.uid() == leaderMember.uid()) {
-                                if (existsInstance(member.metaInfo())) {
-                                    if (!existsInstance(prev)) {
-                                        signalInstanceStarted(member);
-                                    }
-                                } else {
-                                    if (existsInstance(prev)) {
-                                        signalInstanceStopped(member);
-                                    }
-                                }
-                            }
-                        } else {
-                            addMember(member);
-                        }
-                    } else if (existsSingleton(prev)) {
-                        removeMember(member);
-                    }
-                }
                 case ClusterEvent.LocalMemberStopped() ->
                         ClusterSingletonProxy.this.context().stop();
+                default -> agg.onEvent(clusterEvent);
             }
         }
 
-        private boolean existsSingleton(MetaInfo metaInfo) {
-            var singletons = metaInfo.get(BuiltinMetaKeys.SINGLETONS);
-            List<String> requireRoles = config.requireRoles();
-            if (requireRoles != null && !requireRoles.isEmpty()) {
-                List<String> roles = metaInfo.get(BuiltinMetaKeys.SELF_ROLES);
-                for (String role : requireRoles) {
-                    if (!roles.contains(role)) {
-                        return false;
+        @Override
+        public MsgType<ClusterEvent> msgType() {
+            return MsgType.of(ClusterEvent.class);
+        }
+    }
+
+    private class MemberObserver implements KeyedObserver<MembershipProto.Singletons> {
+
+        @Override
+        public void onMemberAdd(ClusterMember member, MembershipProto.Singletons value) {
+            availableMembers.put(member.uid(), member);
+            boolean b = leaderMember == null;
+            if (b || member.uid() < leaderMember.uid()) {
+                leaderMember = member;
+                if (b) {
+                    ActorUnsafe.signalInline(manager, StateChange.LEADER_ADDED);
+                } else {
+                    ActorUnsafe.signalInline(manager, StateChange.LEADER_CHANGED);
+                }
+                if (value.getStatesOrThrow(name)) {
+                    signalInstanceStarted(member);
+                }
+            }
+        }
+
+        @Override
+        public void onMemberRemove(ClusterMember member, MembershipProto.Singletons value) {
+            availableMembers.remove(member.uid());
+            if (leaderMember != null && member.uid() == leaderMember.uid()) {
+                leaderMember = availableMembers.values().stream()
+                        .min(Comparator.comparingLong(ClusterMember::uid))
+                        .orElse(null);
+                if (value.getStatesOrThrow(name)) {
+                    signalInstanceStopped(member);
+                }
+                if (leaderMember != null) {
+                    ActorUnsafe.signalInline(manager, StateChange.LEADER_CHANGED);
+                } else {
+                    ActorUnsafe.signalInline(manager, StateChange.LEADER_REMOVED);
+                }
+            }
+        }
+
+        @Override
+        public void onMemberUpdate(ClusterMember member, MetaInfo prevMeta,
+                                   MembershipProto.Singletons value,
+                                   MembershipProto.Singletons prevValue) {
+            assert leaderMember != null;
+            if (member.uid() == leaderMember.uid()) {
+                if (value.getStatesOrThrow(name)) {
+                    if (!prevValue.getStatesOrThrow(name)) {
+                        signalInstanceStarted(member);
+                    }
+                } else {
+                    if (prevValue.getStatesOrThrow(name)) {
+                        signalInstanceStopped(member);
                     }
                 }
             }
-            return singletons.containsStates(name);
-        }
-
-        private boolean existsInstance(MetaInfo metaInfo) {
-            return BuiltinMetaKeys.SINGLETONS.get(metaInfo)
-                    .getStatesOrThrow(name);
         }
 
         private void signalInstanceStarted(ClusterMember member) {
@@ -246,44 +262,6 @@ class ClusterSingletonProxy<T> extends Actor<T> {
             }
             assert member == leaderMember;
             ActorUnsafe.signalInline(manager, StateChange.INSTANCE_STOPPED);
-        }
-
-        private void addMember(ClusterMember member) {
-            availableMembers.put(member.uid(), member);
-            boolean b = leaderMember == null;
-            if (b || member.uid() < leaderMember.uid()) {
-                leaderMember = member;
-                if (b) {
-                    ActorUnsafe.signalInline(manager, StateChange.LEADER_ADDED);
-                } else {
-                    ActorUnsafe.signalInline(manager, StateChange.LEADER_CHANGED);
-                }
-                if (existsInstance(member.metaInfo())) {
-                    signalInstanceStarted(member);
-                }
-            }
-        }
-
-        private void removeMember(ClusterMember member) {
-            availableMembers.remove(member.uid());
-            if (leaderMember != null && member.uid() == leaderMember.uid()) {
-                leaderMember = availableMembers.values().stream()
-                        .min(Comparator.comparingLong(ClusterMember::uid))
-                        .orElse(null);
-                if (existsInstance(member.metaInfo())) {
-                    signalInstanceStopped(member);
-                }
-                if (leaderMember != null) {
-                    ActorUnsafe.signalInline(manager, StateChange.LEADER_CHANGED);
-                } else {
-                    ActorUnsafe.signalInline(manager, StateChange.LEADER_REMOVED);
-                }
-            }
-        }
-
-        @Override
-        public MsgType<ClusterEvent> msgType() {
-            return MsgType.of(ClusterEvent.class);
         }
     }
 

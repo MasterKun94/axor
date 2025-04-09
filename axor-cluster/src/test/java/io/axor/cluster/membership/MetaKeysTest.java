@@ -10,7 +10,6 @@ import io.axor.cluster.membership.MetaKeys.IntMetaKey;
 import io.axor.cluster.membership.MetaKeys.LongMetaKey;
 import io.axor.cluster.membership.MetaKeys.ProtobufMetaKey;
 import io.axor.cluster.membership.MetaKeys.ShortMetaKey;
-import io.axor.cluster.membership.MetaKeys.StringListMetaKey;
 import io.axor.cluster.membership.MetaKeys.StringMetaKey;
 import org.junit.Test;
 
@@ -99,7 +98,7 @@ public class MetaKeysTest {
         List<String> defaultValue = new ArrayList<>();
         defaultValue.add("item1");
         defaultValue.add("item2");
-        StringListMetaKey key = MetaKeys.create(9, "testName", "testDescription", defaultValue);
+        var key = MetaKeys.create(9, "testName", "testDescription", defaultValue);
         assertEquals(9, key.id());
         assertEquals("testName", key.name());
         assertEquals("testDescription", key.description());

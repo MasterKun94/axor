@@ -3,6 +3,7 @@ package io.axor.cluster.membership;
 import com.google.protobuf.MessageLite;
 
 import java.util.List;
+import java.util.Set;
 
 public class MetaKeyBuilder {
     private int id;
@@ -56,8 +57,12 @@ public class MetaKeyBuilder {
         return new MetaKeys.StringMetaKey(id, name, description, defaultValue);
     }
 
-    public MetaKeys.StringListMetaKey build(List<String> defaultValue) {
-        return new MetaKeys.StringListMetaKey(id, name, description, defaultValue);
+    public MetaKeys.StringCollectionMetaKey<List<String>> build(List<String> defaultValue) {
+        return MetaKeys.create(id, name, description, defaultValue);
+    }
+
+    public MetaKeys.StringCollectionMetaKey<Set<String>> build(Set<String> defaultValue) {
+        return MetaKeys.create(id, name, description, defaultValue);
     }
 
     public <T extends MessageLite> MetaKeys.ProtobufMetaKey<T> build(T defaultValue) {

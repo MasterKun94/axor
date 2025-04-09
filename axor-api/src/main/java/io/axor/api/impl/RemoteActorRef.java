@@ -16,6 +16,7 @@ import org.jetbrains.annotations.ApiStatus.Internal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.ref.WeakReference;
 import java.util.List;
 import java.util.function.BiConsumer;
 
@@ -48,11 +49,14 @@ final class RemoteActorRef<T> extends AbstractActorRef<T> {
 
     private RemoteActorRef(ActorAddress address,
                            Serde<T> serde,
-                           StreamManager<T> manager,
+                           EventDispatcher executor,
+                           StreamOutChannel<T> channel,
                            ActorSystem system) {
         super(address);
         this.system = system;
-        initialize(serde, manager);
+        WeakReference<RemoteActorRef<?>> ref = new WeakReference<>(this);
+        initialize(serde, new StreamManager<>(channel, executor,
+                def -> msgHandler(ref)));
     }
 
     static <T> RemoteActorRef<T> create(ActorAddress address,
@@ -60,10 +64,29 @@ final class RemoteActorRef<T> extends AbstractActorRef<T> {
                                         EventDispatcher executor,
                                         StreamOutChannel<T> channel,
                                         ActorSystem system) {
-        StreamManager<T> manager = new StreamManager<>(channel, executor, t -> {
-            throw new UnsupportedOperationException("Not supported");
-        });
-        return new RemoteActorRef<>(address, serde, manager, system);
+        return new RemoteActorRef<>(address, serde, executor, channel, system);
+    }
+
+    private static <T> StreamManager.MsgHandler<T> msgHandler(WeakReference<RemoteActorRef<?>> ref) {
+        return new StreamManager.MsgHandler<>(null) {
+            @Override
+            public void handle(T msg) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public void signal(Signal signal) {
+                RemoteActorRef<?> get = ref.get();
+                if (get != null) {
+                    get.signal(signal);
+                }
+            }
+
+            @Override
+            public long id() {
+                throw new UnsupportedOperationException();
+            }
+        };
     }
 
     @Override

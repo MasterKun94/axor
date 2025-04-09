@@ -10,12 +10,20 @@ public enum MemberState {
     LEFT(MemberAction.LEAVE, false, false),
     REMOVED(MemberAction.REMOVE, false, false);
     public final MemberAction BIND_ACTION;
-    public final boolean ALIVE;
-    public final boolean SERVABLE;
+    public final boolean servable;
+    public final boolean inCluster;
 
-    MemberState(MemberAction bindAction, boolean alive, boolean serve) {
+    MemberState(MemberAction bindAction, boolean servable, boolean alive) {
         BIND_ACTION = bindAction;
-        ALIVE = alive;
-        SERVABLE = serve;
+        this.servable = servable;
+        inCluster = alive;
+    }
+
+    public boolean isServable() {
+        return servable;
+    }
+
+    public boolean isInCluster() {
+        return inCluster;
     }
 }

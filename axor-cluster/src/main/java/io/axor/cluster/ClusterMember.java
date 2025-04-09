@@ -5,7 +5,7 @@ import io.axor.api.Address;
 import io.axor.cluster.membership.Member;
 import io.axor.cluster.membership.MetaInfo;
 
-import java.util.List;
+import java.util.Set;
 
 /**
  * Represents a member of a cluster with its unique identifier, system name, address, and metadata.
@@ -24,7 +24,7 @@ public record ClusterMember(long uid, String system, Address address, MetaInfo m
         return metaInfo.get(BuiltinMetaKeys.SELF_DATACENTER);
     }
 
-    public List<String> selfRoles() {
+    public Set<String> selfRoles() {
         return metaInfo.get(BuiltinMetaKeys.SELF_ROLES);
     }
 

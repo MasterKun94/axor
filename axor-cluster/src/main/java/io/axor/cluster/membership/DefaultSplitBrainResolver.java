@@ -71,11 +71,11 @@ public class DefaultSplitBrainResolver implements SplitBrainResolver {
         if (!match(member)) {
             return;
         }
-        if (from.ALIVE) {
-            if (!to.ALIVE) {
+        if (from.isServable()) {
+            if (!to.isServable()) {
                 aliveMemberCount--;
             }
-        } else if (to.ALIVE) {
+        } else if (to.isServable()) {
             aliveMemberCount++;
             if (initialState && aliveMemberCount >= minInitialMembers) {
                 initialState = false;

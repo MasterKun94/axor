@@ -310,7 +310,7 @@ public class MemberManager {
             case LEFT:
                 holder.clock = holder.clock.merge(incAndGetClock());
                 sendEvent(senderUid, holder, MemberAction.FAIL);
-                break;
+                return;
             default:
                 throw new IllegalStateException("Unexpected state: " + holder.state);
         }

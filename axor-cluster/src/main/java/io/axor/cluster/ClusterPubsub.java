@@ -7,8 +7,7 @@ import io.axor.api.ActorRef;
 import io.axor.api.Pubsub;
 import io.axor.api.impl.ActorUnsafe;
 import io.axor.cluster.ClusterEvent.LocalMemberStopped;
-import io.axor.cluster.ClusterEvent.MemberMetaInfoChanged;
-import io.axor.cluster.ClusterEvent.MemberStateChanged;
+import io.axor.cluster.membership.MetaInfo;
 import io.axor.cluster.proto.MembershipProto;
 import io.axor.runtime.MsgType;
 import io.axor.runtime.SerdeRegistry;
@@ -23,7 +22,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static io.axor.api.MessageUtils.loggable;
 import static io.axor.cluster.BuiltinMetaKeys.SUBSCRIBED_TOPIC;
 import static io.axor.cluster.proto.MembershipProto.TopicDesc;
 import static io.axor.runtime.stream.grpc.StreamUtils.msgTypeToProto;
@@ -92,44 +90,51 @@ public class ClusterPubsub<T> implements Pubsub<T> {
     }
 
     private class ClusterPubsubListener extends Actor<ClusterEvent> {
+        private final ClusterMemberAggregator agg;
 
         protected ClusterPubsubListener(ActorContext<ClusterEvent> context) {
             super(context);
+            agg = ClusterMemberAggregator
+                    .requireMemberServable()
+                    .requireMetaKey(SUBSCRIBED_TOPIC, t -> t.containsTopic(topic))
+                    .build(new ClusterMemberAggregator.KeyedObserver<>() {
+                        @Override
+                        public void onMemberAdd(ClusterMember member,
+                                                MembershipProto.SubscribedTopics topics) {
+                            updateSubscriber(null, null, member, topics);
+                        }
+
+                        @Override
+                        public void onMemberRemove(ClusterMember member,
+                                                   MembershipProto.SubscribedTopics topics) {
+                            updateSubscriber(member, topics, null, null);
+                        }
+
+                        @Override
+                        public void onMemberUpdate(ClusterMember member, MetaInfo prevMeta,
+                                                   MembershipProto.SubscribedTopics topics,
+                                                   MembershipProto.SubscribedTopics prevTopics) {
+                            var prevMember = new ClusterMember(member.uid(), member.system(),
+                                    member.address(), prevMeta);
+                            updateSubscriber(prevMember, prevTopics, member, topics);
+                        }
+                    });
         }
 
         @Override
         public void onReceive(ClusterEvent event) {
-            if (event instanceof MemberMetaInfoChanged(var member, var prev)) {
-                LOG.info("Receive MemberMetaInfoChanged[member={}, prev={}, now={}]", member,
-                        loggable(SUBSCRIBED_TOPIC.get(prev)),
-                        loggable(SUBSCRIBED_TOPIC.get(member.metaInfo())));
-                if (SUBSCRIBED_TOPIC.metaEquals(member.metaInfo(), prev)) {
-                    return;
-                }
-                var m = new ClusterMember(member.uid(), member.system(), member.address(), prev);
-                updateSubscriber(m, member);
-            } else if (event instanceof MemberStateChanged(var member, var from, var to)) {
-                LOG.info("Receive MemberStateChanged[member={}, from={}, to={}, meta={}]", member
-                        , from, to, loggable(SUBSCRIBED_TOPIC.get(member.metaInfo())));
-                if (from.ALIVE) {
-                    if (to.ALIVE) {
-                        return;
-                    }
-                    updateSubscriber(member, null);
-                } else if (to.ALIVE) {
-                    updateSubscriber(null, member);
-                }
-            } else if (event instanceof LocalMemberStopped) {
+            agg.onEvent(event);
+            if (event instanceof LocalMemberStopped) {
                 context().stop();
             }
         }
 
-        private List<ActorAddress> getAvailableSubscribers(ClusterMember member) {
+        private List<ActorAddress> getAvailableSubscribers(ClusterMember member,
+                                                           MembershipProto.SubscribedTopics topics) {
             if (member == null) {
                 return Collections.emptyList();
             }
-            TopicDesc desc = SUBSCRIBED_TOPIC.get(member.metaInfo())
-                    .getTopicOrDefault(topic, defaultTopicDesc);
+            TopicDesc desc = topics.getTopicOrDefault(topic, defaultTopicDesc);
             if (desc.getSubscriberCount() == 0) {
                 return Collections.emptyList();
             }
@@ -154,17 +159,20 @@ public class ClusterPubsub<T> implements Pubsub<T> {
                     .collect(Collectors.toList());
         }
 
-        private void updateSubscriber(ClusterMember memberToRemove, ClusterMember memberToAdd) {
+        private void updateSubscriber(ClusterMember memberToRemove,
+                                      MembershipProto.SubscribedTopics removedTopics,
+                                      ClusterMember memberToAdd,
+                                      MembershipProto.SubscribedTopics addTopics) {
             try {
-                var removeList = getAvailableSubscribers(memberToRemove);
-                var addList = getAvailableSubscribers(memberToAdd);
+                var removeList = getAvailableSubscribers(memberToRemove, removedTopics);
+                var addList = getAvailableSubscribers(memberToAdd, addTopics);
                 if (removeList.isEmpty() && addList.isEmpty()) {
                     return;
                 }
                 if (!removeList.isEmpty()) {
-                    Set<ActorAddress> removeSet = new HashSet<>(removeList);
-                    addList.forEach(removeSet::remove);
-                    for (var addr : removeSet) {
+                    var toRemove = removeList.size() <= 8 ? removeList : new HashSet<>(removeList);
+                    addList.forEach(toRemove::remove);
+                    for (var addr : toRemove) {
                         var actor = cluster.system().get(addr, msgType);
                         LOG.info("ClusterPubsub[{}] unsubscribe {}", topic, actor);
                         ActorUnsafe.tellInline(internalPubsubMediator, new Unsubscribe<>(actor),
@@ -172,9 +180,9 @@ public class ClusterPubsub<T> implements Pubsub<T> {
                     }
                 }
                 if (!addList.isEmpty()) {
-                    Set<ActorAddress> addSet = new HashSet<>(addList);
-                    removeList.forEach(addSet::remove);
-                    for (var addr : addSet) {
+                    var toAdd = addList.size() <= 8 ? addList : new HashSet<>(addList);
+                    removeList.forEach(toAdd::remove);
+                    for (var addr : toAdd) {
                         var actor = cluster.system().get(addr, msgType);
                         LOG.info("ClusterPubsub[{}] subscribe {}", topic, actor);
                         ActorUnsafe.tellInline(internalPubsubMediator, new Subscribe<>(actor),
@@ -254,6 +262,7 @@ public class ClusterPubsub<T> implements Pubsub<T> {
                         .setAddress(StreamUtils.actorAddressToProto(ref.address()))
                         .build();
             }
+            subscribingActors.add(ref.address());
             cluster.updateMetaInfo(SUBSCRIBED_TOPIC.update(topics -> {
                 MembershipProto.SubscribedTopics.Builder builder = topics.toBuilder();
                 TopicDesc desc = builder.getTopicOrDefault(topic, defaultTopicDesc);

@@ -5,6 +5,7 @@ import io.axor.api.ActorContext;
 import io.axor.api.ActorSystem;
 import io.axor.api.Pubsub;
 import io.axor.runtime.MsgType;
+import io.axor.runtime.Signal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,6 +56,11 @@ public class _02_LocalPubsubExample {
         @Override
         public void onReceive(String helloBack) {
             LOG.info("Receive: {} from {}", helloBack, sender());
+        }
+
+        @Override
+        public void onSignal(Signal signal) {
+            LOG.info("Signal: {}", signal);
         }
 
         @Override

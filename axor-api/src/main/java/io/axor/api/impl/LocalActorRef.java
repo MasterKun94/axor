@@ -7,6 +7,7 @@ import io.axor.api.ActorRef;
 import io.axor.api.ActorRefRich;
 import io.axor.api.ActorSystem;
 import io.axor.api.InternalSignals;
+import io.axor.api.Pubsub;
 import io.axor.api.SystemEvent;
 import io.axor.api.SystemEvent.ActorStopped;
 import io.axor.commons.concurrent.EventPromise;
@@ -210,7 +211,18 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
                 }
             }
         }
-        ((ActorSystemImpl) actor.context().system()).systemEvents().publishToAll(event, this);
+        var pubsub = ((ActorSystemImpl) actor.context().system()).systemEvents();
+        if (pubsub != null) {
+            pubsub.publishToAll(event, this);
+        } else {
+            // 初始化ActorSystem时systemEvents可能为null
+            if (actor.self().address().name().equals("sys/PubsubMediator/SystemEvent")) {
+                ((ActorRefRich<?>) actor.self()).unsafeCast()
+                        .tell(new Pubsub.PublishToAll<>(event), this);
+            } else {
+                throw new IllegalArgumentException("should never happen");
+            }
+        }
         if (watchers != null) {
             for (var entry : watchers.entrySet()) {
                 maybeSignalWatcher(event, entry.getKey(), entry.getValue());

@@ -21,6 +21,7 @@ import io.axor.commons.task.DependencyTask;
 import io.axor.runtime.EventDispatcher;
 import io.axor.runtime.MsgType;
 
+import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -61,7 +62,7 @@ public class Cluster {
         });
         system.start(ClusterMembershipListener::new, "cluster/" + name + "/listener");
         updateMetaInfo(BuiltinMetaKeys.SELF_DATACENTER.upsert(this.config.datacenter()),
-                BuiltinMetaKeys.SELF_ROLES.upsert(this.config.roles()));
+                BuiltinMetaKeys.SELF_ROLES.upsert(new HashSet<>(this.config.roles())));
         if (this.config.join().autoJoin()) {
             join();
         }

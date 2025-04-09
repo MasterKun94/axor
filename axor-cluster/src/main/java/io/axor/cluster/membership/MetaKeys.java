@@ -12,11 +12,15 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import java.util.function.IntFunction;
 
 public class MetaKeys {
     private static final Map<Integer, String> CACHE = new ConcurrentHashMap<>();
@@ -58,9 +62,18 @@ public class MetaKeys {
         return new StringMetaKey(id, name, description, defaultValue);
     }
 
-    public static StringListMetaKey create(int id, String name, String description,
-                                           List<String> defaultValue) {
-        return new StringListMetaKey(id, name, description, List.copyOf(defaultValue));
+    public static StringCollectionMetaKey<List<String>> create(int id, String name,
+                                                               String description,
+                                                               List<String> defaultValue) {
+        return new StringCollectionMetaKey<>(id, name, description, List.copyOf(defaultValue),
+                Collections.emptyList(), ArrayList::new, Collections::unmodifiableList);
+    }
+
+    public static StringCollectionMetaKey<Set<String>> create(int id, String name,
+                                                              String description,
+                                                              Set<String> defaultValue) {
+        return new StringCollectionMetaKey<>(id, name, description, Set.copyOf(defaultValue),
+                Collections.emptySet(), HashSet::new, Collections::unmodifiableSet);
     }
 
     public static <T extends Enum<T>> EnumMetaKey<T> create(int id, String name,
@@ -135,6 +148,11 @@ public class MetaKeys {
         @Override
         public boolean contains(MetaInfo metaInfo, T value) {
             return get(metaInfo).equals(value);
+        }
+
+        @Override
+        public boolean containsKey(MetaInfo metaInfo) {
+            return metaInfo.unwrap().containsKey(id);
         }
 
         protected MetaInfo.BytesHolder getHolder(MetaInfo metaInfo) {
@@ -351,11 +369,13 @@ public class MetaKeys {
         }
     }
 
-    public static final class StringListMetaKey extends AbstractMetaKey<List<String>> {
-        StringListMetaKey(int id, String name, String description, List<String> defaultValue) {
+    public static final class StringCollectionMetaKey<C extends Collection<String>> extends AbstractMetaKey<C> {
+        StringCollectionMetaKey(int id, String name, String description, C defaultValue,
+                                C emptyCollection,
+                                IntFunction<C> init, Function<C, C> unmodifiable) {
             super(id, name, description, defaultValue, new MetaSerde<>() {
                 @Override
-                public byte[] serialize(List<String> object) {
+                public byte[] serialize(C object) {
                     ByteArrayOutputStream bos = new ByteArrayOutputStream();
                     DataOutputStream dos = new DataOutputStream(bos);
                     try {
@@ -371,19 +391,19 @@ public class MetaKeys {
                 }
 
                 @Override
-                public List<String> deserialize(byte[] bytes, int offset, int length) {
+                public C deserialize(byte[] bytes, int offset, int length) {
                     ByteArrayInputStream bis = new ByteArrayInputStream(bytes, offset, length);
                     DataInputStream dis = new DataInputStream(bis);
                     try {
                         short size = dis.readShort();
                         if (size == 0) {
-                            return Collections.emptyList();
+                            return emptyCollection;
                         }
-                        List<String> result = new ArrayList<>(size);
+                        C result = init.apply(size);
                         for (int i = 0; i < size; i++) {
                             result.add(dis.readUTF());
                         }
-                        return Collections.unmodifiableList(result);
+                        return unmodifiable.apply(result);
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
