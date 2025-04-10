@@ -82,9 +82,7 @@ ActorSystem system = ActorSystem.create("example");
 ActorRef<Hello> actor = system.start(HelloWorldActor::new, "HelloWorld");
 
 ActorRef<HelloReply> bot = system.start(HelloBot::new, "HelloBot");
-actor.
-
-tell(new Hello("Hello"),bot); // 向 HelloWorldActor 发送消息
+actor.tell(new Hello("Hello"),bot); // 向 HelloWorldActor 发送消息
 ```
 
 执行后日志输出：
@@ -104,10 +102,7 @@ var reply = ActorPatterns.ask(actor, new Hello("Greeting"),
                 Duration.ofSeconds(1), system)
         .toFuture()
         .get();
-LOG.
-
-info("Receive reply: {} from {} by ask pattern",reply, actor);
-
+LOG.info("Receive reply: {} from {} by ask pattern",reply, actor);
 ```
 
 执行后日志输出：
