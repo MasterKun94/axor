@@ -118,6 +118,7 @@ public class ByteBufferDataInputStream extends InputStream implements DataInput 
         return buffer.getDouble();
     }
 
+    @Deprecated
     @Override
     public String readLine() throws EOFException {
         try {
