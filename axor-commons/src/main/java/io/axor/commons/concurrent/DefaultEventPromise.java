@@ -20,8 +20,8 @@ public class DefaultEventPromise<T> implements EventPromise<T> {
     private final EventExecutor executor;
     protected Object obj;
     protected volatile byte status = pending;
-    protected List<EventStageListener<T>> listeners;
-    protected EventStageListener<T> listener;
+    protected List<EventStageObserver<T>> listeners;
+    protected EventStageObserver<T> listener;
 
     DefaultEventPromise(EventExecutor eventExecutor) {
         this.executor = Objects.requireNonNull(eventExecutor, "eventExecutor");
@@ -52,7 +52,7 @@ public class DefaultEventPromise<T> implements EventPromise<T> {
         }
     }
 
-    private <P> void doFireListener(P param, BiConsumer<EventStageListener<T>, P> handler) {
+    private <P> void doFireListener(P param, BiConsumer<EventStageObserver<T>, P> handler) {
         if (listener != null) {
             assert listeners == null;
             try {
@@ -66,7 +66,7 @@ public class DefaultEventPromise<T> implements EventPromise<T> {
             }
             listener = null;
         } else if (listeners != null && !listeners.isEmpty()) {
-            for (EventStageListener<T> listener : listeners) {
+            for (EventStageObserver<T> listener : listeners) {
                 try {
                     handler.accept(listener, param);
                 } catch (Throwable e) {
@@ -87,7 +87,7 @@ public class DefaultEventPromise<T> implements EventPromise<T> {
         }
         this.status = success;
         this.obj = value;
-        doFireListener(value, EventStageListener::success);
+        doFireListener(value, EventStageObserver::success);
         return true;
     }
 
@@ -106,7 +106,7 @@ public class DefaultEventPromise<T> implements EventPromise<T> {
         }
         this.status = cause instanceof CancellationException ? cancel : failure;
         this.obj = cause;
-        doFireListener(cause, EventStageListener::failure);
+        doFireListener(cause, EventStageObserver::failure);
         return true;
     }
 
@@ -124,26 +124,26 @@ public class DefaultEventPromise<T> implements EventPromise<T> {
     }
 
     @Override
-    public EventPromise<T> addListener(EventStageListener<T> listener) {
+    public EventPromise<T> observe(EventStageObserver<T> observer) {
         if (executor.inExecutor()) {
-            doAddListener(listener);
+            doAddListener(observer);
         } else {
-            executor.execute(() -> doAddListener(listener));
+            executor.execute(() -> doAddListener(observer));
         }
         return this;
     }
 
     @Override
-    public EventPromise<T> addListeners(Collection<EventStageListener<T>> eventListeners) {
+    public EventPromise<T> observe(Collection<EventStageObserver<T>> observers) {
         if (executor.inExecutor()) {
-            doAddListeners(eventListeners);
+            doAddListeners(observers);
         } else {
-            executor.execute(() -> doAddListeners(eventListeners));
+            executor.execute(() -> doAddListeners(observers));
         }
         return this;
     }
 
-    private void doAddListener(EventStageListener<T> listener) {
+    private void doAddListener(EventStageObserver<T> listener) {
         if (this.listener != null) {
             this.listeners = new ArrayList<>(List.of(this.listener, listener));
             this.listener = null;
@@ -155,7 +155,7 @@ public class DefaultEventPromise<T> implements EventPromise<T> {
         maybeFireListeners();
     }
 
-    private void doAddListeners(Collection<EventStageListener<T>> listeners) {
+    private void doAddListeners(Collection<EventStageObserver<T>> listeners) {
         if (listener != null) {
             this.listeners = new ArrayList<>(listeners.size() + 1);
             this.listeners.add(listener);
@@ -173,10 +173,10 @@ public class DefaultEventPromise<T> implements EventPromise<T> {
         if (status != pending) {
             switch (status) {
                 case success:
-                    doFireListener((T) obj, EventStageListener::success);
+                    doFireListener((T) obj, EventStageObserver::success);
                     break;
                 case failure, cancel:
-                    doFireListener((Throwable) obj, EventStageListener::failure);
+                    doFireListener((Throwable) obj, EventStageObserver::failure);
                     break;
                 default:
                     throw new IllegalArgumentException("illegal status: " + status);
@@ -219,6 +219,15 @@ public class DefaultEventPromise<T> implements EventPromise<T> {
         return executor;
     }
 
+    @Override
+    public EventStage<T> executor(EventExecutor executor) {
+        if (executor.equals(this.executor)) {
+            return this;
+        } else {
+            return map(Function.identity(), executor);
+        }
+    }
+
     protected EventStage<T> toCompletedStage(EventExecutor executor) {
         assert getResult() != null;
         return switch (getResult()) {
@@ -234,7 +243,7 @@ public class DefaultEventPromise<T> implements EventPromise<T> {
             return toCompletedStage(executor).map(func);
         }
         EventPromise<P> promise = newPromise(executor);
-        addListener(new EventStageListener<>() {
+        observe(new EventStageObserver<>() {
             @Override
             public void success(T value) {
                 promise.success(func.apply(value));
@@ -254,10 +263,10 @@ public class DefaultEventPromise<T> implements EventPromise<T> {
             return toCompletedStage(executor).flatmap(func);
         }
         EventPromise<P> promise = newPromise(executor);
-        addListener(new EventStageListener<>() {
+        observe(new EventStageObserver<>() {
             @Override
             public void success(T value) {
-                func.apply(value).addListener(promise);
+                func.apply(value).observe(promise);
             }
 
             @Override
@@ -275,7 +284,7 @@ public class DefaultEventPromise<T> implements EventPromise<T> {
             return toCompletedStage(executor).transform(transformer);
         }
         EventPromise<P> promise = newPromise(executor);
-        addListener(new EventStageListener<>() {
+        observe(new EventStageObserver<>() {
             @Override
             public void success(T value) {
                 transformer.apply(Try.success(value)).notify(promise);
@@ -296,15 +305,15 @@ public class DefaultEventPromise<T> implements EventPromise<T> {
             return toCompletedStage(executor).flatTransform(transformer);
         }
         EventPromise<P> promise = newPromise(executor);
-        addListener(new EventStageListener<>() {
+        observe(new EventStageObserver<>() {
             @Override
             public void success(T value) {
-                transformer.apply(Try.success(value)).addListener(promise);
+                transformer.apply(Try.success(value)).observe(promise);
             }
 
             @Override
             public void failure(Throwable cause) {
-                transformer.apply(Try.failure(cause)).addListener(promise);
+                transformer.apply(Try.failure(cause)).observe(promise);
             }
         });
         return promise;

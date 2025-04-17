@@ -65,8 +65,8 @@ public final class SucceedEventFuture<T> extends SucceedEventStage<T> implements
     }
 
     @Override
-    public EventFuture<T> addListeners(Collection<EventStageListener<T>> eventStageListeners) {
-        return super.addListeners(eventStageListeners).toFuture();
+    public EventFuture<T> observe(Collection<EventStageObserver<T>> observers) {
+        return super.observe(observers).toFuture();
     }
 
     @Override

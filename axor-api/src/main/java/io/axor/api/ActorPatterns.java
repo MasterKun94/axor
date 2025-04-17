@@ -2,7 +2,7 @@ package io.axor.api;
 
 import io.axor.commons.concurrent.EventPromise;
 import io.axor.commons.concurrent.EventStage;
-import io.axor.commons.concurrent.EventStageListener;
+import io.axor.commons.concurrent.EventStageObserver;
 import io.axor.runtime.EventContext;
 import io.axor.runtime.EventDispatcher;
 import io.axor.runtime.MsgType;
@@ -90,7 +90,7 @@ public class ActorPatterns {
             this.promise = promise;
             this.resType = resType;
             context.dispatcher().timeout(promise, timeout.toMillis(), TimeUnit.MILLISECONDS);
-            promise.addListener(new EventStageListener<>() {
+            promise.observe(new EventStageObserver<>() {
                 @Override
                 public void success(RES res) {
                     assert context.dispatcher().inExecutor();
@@ -127,7 +127,7 @@ public class ActorPatterns {
             this.promise = promise;
             this.expectId = expectId;
             context.dispatcher().timeout(promise, timeout.toMillis(), TimeUnit.MILLISECONDS);
-            promise.addListener(new EventStageListener<>() {
+            promise.observe(new EventStageObserver<>() {
                 @Override
                 public void success(Void res) {
                     assert context.dispatcher().inExecutor();

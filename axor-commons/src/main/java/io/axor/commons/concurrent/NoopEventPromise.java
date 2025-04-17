@@ -61,6 +61,11 @@ public class NoopEventPromise<T> implements EventPromise<T> {
     }
 
     @Override
+    public EventStage<T> executor(EventExecutor executor) {
+        return new NoopEventPromise<>(executor);
+    }
+
+    @Override
     public <P> EventStage<P> map(Function<T, P> func, EventExecutor executor) {
         throw new UnsupportedOperationException("NoopEventPromise is not support");
     }
@@ -88,7 +93,7 @@ public class NoopEventPromise<T> implements EventPromise<T> {
     }
 
     @Override
-    public EventPromise<T> addListeners(Collection<EventStageListener<T>> eventListeners) {
+    public EventPromise<T> observe(Collection<EventStageObserver<T>> observers) {
         return this;
     }
 

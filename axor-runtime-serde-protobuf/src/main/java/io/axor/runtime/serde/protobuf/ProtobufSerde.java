@@ -43,8 +43,7 @@ public class ProtobufSerde<T extends MessageLite> implements Serde<T> {
 
     @Override
     public T deserialize(InputStream stream) {
-        if (stream instanceof ProtoInputStream) {
-            ProtoInputStream protoStream = (ProtoInputStream) stream;
+        if (stream instanceof ProtoInputStream protoStream) {
             // Optimization for in-memory transport. Returning provided object is safe since
             // protobufs
             // are immutable.
@@ -57,7 +56,7 @@ public class ProtobufSerde<T extends MessageLite> implements Serde<T> {
             if (protoStream.parser() == parser) {
                 try {
                     @SuppressWarnings("unchecked")
-                    T message = (T) ((ProtoInputStream) stream).message();
+                    T message = (T) protoStream.message();
                     return message;
                 } catch (IllegalStateException ignored) {
                     // Stream must have been read from, which is a strange state. Since the point

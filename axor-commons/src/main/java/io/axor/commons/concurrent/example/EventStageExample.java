@@ -3,7 +3,7 @@ package io.axor.commons.concurrent.example;
 import io.axor.commons.concurrent.DefaultSingleThreadEventExecutor;
 import io.axor.commons.concurrent.EventExecutor;
 import io.axor.commons.concurrent.EventStage;
-import io.axor.commons.concurrent.EventStageListener;
+import io.axor.commons.concurrent.EventStageObserver;
 import io.axor.commons.concurrent.Try;
 
 public class EventStageExample {
@@ -14,7 +14,7 @@ public class EventStageExample {
         Try<String> result = EventStage.supplyAsync(EventStageExample::runSyncTask1, executor1)
                 .map(EventStageExample::runSyncTask2)
                 .flatmap(EventStageExample::runAsyncTask)
-                .addListener(new EventStageListener<>() {
+                .observe(new EventStageObserver<>() {
                     @Override
                     public void success(String value) {
                         System.out.println("Output: " + value);

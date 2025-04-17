@@ -55,6 +55,11 @@ public sealed class FailedEventStage<T> implements EventStage<T> permits FailedE
     }
 
     @Override
+    public EventStage<T> executor(EventExecutor executor) {
+        return new FailedEventStage<>(cause, executor);
+    }
+
+    @Override
     public <P> EventStage<P> map(Function<T, P> func, EventExecutor executor) {
         return new FailedEventStage<>(cause, executor);
     }
@@ -101,7 +106,7 @@ public sealed class FailedEventStage<T> implements EventStage<T> permits FailedE
             EventPromise<P> future = newPromise(executor);
             executor.execute(() -> {
                 try {
-                    transformer.apply(Try.failure(cause)).addListener(future);
+                    transformer.apply(Try.failure(cause)).observe(future);
                 } catch (Throwable e) {
                     future.failure(e);
                 }
@@ -111,9 +116,9 @@ public sealed class FailedEventStage<T> implements EventStage<T> permits FailedE
     }
 
     @Override
-    public EventStage<T> addListeners(Collection<EventStageListener<T>> eventStageListeners) {
+    public EventStage<T> observe(Collection<EventStageObserver<T>> observers) {
         if (executor.inExecutor()) {
-            for (EventStageListener<T> listener : eventStageListeners) {
+            for (EventStageObserver<T> listener : observers) {
                 try {
                     listener.failure(cause);
                 } catch (Throwable e) {
@@ -122,7 +127,7 @@ public sealed class FailedEventStage<T> implements EventStage<T> permits FailedE
             }
 
         } else {
-            executor.execute(() -> addListeners(eventStageListeners));
+            executor.execute(() -> observe(observers));
         }
         return this;
     }

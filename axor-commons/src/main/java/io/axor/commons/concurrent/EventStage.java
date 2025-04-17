@@ -8,6 +8,8 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
@@ -21,8 +23,8 @@ import java.util.function.Function;
  *
  * @param <T> the type of the result of the asynchronous computation
  */
-public sealed interface EventStage<T> permits EventPromise, EventFuture, SucceedEventStage,
-        FailedEventStage {
+public sealed interface EventStage<T> permits EventPromise, EventFuture,
+        SucceedEventStage, FailedEventStage {
 
     /**
      * Creates a new {@code EventStage} that is immediately completed with the given value.
@@ -206,6 +208,8 @@ public sealed interface EventStage<T> permits EventPromise, EventFuture, Succeed
      */
     EventExecutor executor();
 
+    EventStage<T> executor(EventExecutor executor);
+
     /**
      * Applies a function to the result of this {@code EventStage} and returns a new
      * {@code EventStage} with the transformed result. The transformation is executed on the
@@ -326,26 +330,51 @@ public sealed interface EventStage<T> permits EventPromise, EventFuture, Succeed
                                     EventExecutor executor);
 
     /**
-     * Adds a single listener to this {@code EventStage}.
+     * Adds a single observer to this {@code EventStage}.
      *
-     * @param listener the listener to be added to this {@code EventStage}
-     * @return the current {@code EventStage} with the added listener
+     * @param observer the observer to be added to this {@code EventStage}
+     * @return the current {@code EventStage} with the added observer
      */
-    default EventStage<T> addListener(EventStageListener<T> listener) {
-        if (listener instanceof NoopEventPromise<T>) {
+    default EventStage<T> observe(EventStageObserver<T> observer) {
+        if (observer instanceof NoopEventPromise<T>) {
             return this;
         }
-        return addListeners(Collections.singletonList(listener));
+        return observe(Collections.singletonList(observer));
     }
 
     /**
-     * Adds multiple listeners to this {@code EventStage}.
+     * Attaches an observer to the event stage that will be notified for each event or error.
      *
-     * @param listeners a collection of {@code EventStageListener} instances to be added to this
-     *                  {@code EventStage}
-     * @return the current {@code EventStage} with the added listeners
+     * @param observer a BiConsumer where the first parameter is the event of type T and the second
+     *                 parameter is a Throwable in case of an error.
+     * @return a new EventStage with the observer attached, allowing for further chaining or
+     * processing.
      */
-    EventStage<T> addListeners(Collection<EventStageListener<T>> listeners);
+    default EventStage<T> observe(BiConsumer<T, Throwable> observer) {
+        return observe(EventStageObserver.create(observer));
+    }
+
+    /**
+     * Registers a callback to be executed when the event completes, either successfully or with a
+     * failure.
+     *
+     * @param onSuccess the consumer that will be called with the result if the event succeeds
+     * @param onFailure the consumer that will be called with the exception if the event fails
+     * @return an EventStage representing the stage of the event after the observer has been
+     * attached
+     */
+    default EventStage<T> observe(Consumer<T> onSuccess, Consumer<Throwable> onFailure) {
+        return observe(EventStageObserver.create(onSuccess, onFailure));
+    }
+
+    /**
+     * Adds multiple observers to this {@code EventStage}.
+     *
+     * @param observers a collection of {@code EventStageListener} instances to be added to this
+     *                  {@code EventStage}
+     * @return the current {@code EventStage} with the added observers
+     */
+    EventStage<T> observe(Collection<EventStageObserver<T>> observers);
 
     /**
      * Converts the current event stage to a {@link CompletableFuture} that will be completed when
@@ -356,7 +385,7 @@ public sealed interface EventStage<T> permits EventPromise, EventFuture, Succeed
      */
     default CompletableFuture<T> toCompletableFuture() {
         CompletableFuture<T> future = new CompletableFuture<>();
-        addListener(new EventStageListener<>() {
+        observe(new EventStageObserver<>() {
             @Override
             public void success(T value) {
                 future.complete(value);

@@ -29,7 +29,7 @@ public class ClusterMemberAggregatorTest {
             MetaInfo.EMPTY.transform(BuiltinMetaKeys.SELF_ROLES.upsert(Set.of("role1", "role2"))));
     private static final ClusterMember memberWithRole12WithKey = new ClusterMember(4, "test",
             new Address(
-            "localhost", 1003),
+                    "localhost", 1003),
             MetaInfo.EMPTY.transform(
                     BuiltinMetaKeys.SELF_ROLES.upsert(Set.of("role1", "role2")),
                     testKey.upsert("World")));

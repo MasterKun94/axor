@@ -5,7 +5,7 @@ import java.util.Collections;
 
 /**
  * An interface that represents a promise for an event, extending both {@link EventStage} and
- * {@link EventStageListener}. This interface allows for the creation of event promises that can be
+ * {@link EventStageObserver}. This interface allows for the creation of event promises that can be
  * listened to, canceled, and managed.
  *
  * <p>Implementations of this interface should provide the necessary functionality to handle the
@@ -15,7 +15,7 @@ import java.util.Collections;
  *
  * @param <T> the type of the result that the event promise will provide
  */
-public non-sealed interface EventPromise<T> extends EventStage<T>, EventStageListener<T> {
+public non-sealed interface EventPromise<T> extends EventStage<T>, EventStageObserver<T> {
     /**
      * Creates a new {@code EventPromise} with the specified {@code EventExecutor}.
      *
@@ -57,13 +57,13 @@ public non-sealed interface EventPromise<T> extends EventStage<T>, EventStageLis
      * {@inheritDoc}
      */
     @Override
-    default EventPromise<T> addListener(EventStageListener<T> listener) {
-        return addListeners(Collections.singletonList(listener));
+    default EventPromise<T> observe(EventStageObserver<T> observer) {
+        return observe(Collections.singletonList(observer));
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    EventPromise<T> addListeners(Collection<EventStageListener<T>> eventListeners);
+    EventPromise<T> observe(Collection<EventStageObserver<T>> observers);
 }

@@ -40,7 +40,7 @@ public class DefaultEventPromiseTest {
         EventExecutor executor = mock(SingleThreadEventExecutor.class);
         when(executor.inExecutor()).thenReturn(true);
 
-        EventStageListener<String> listener = mock(EventStageListener.class);
+        EventStageObserver<String> listener = mock(EventStageObserver.class);
         DefaultEventPromise<String> promise = new DefaultEventPromise<>(executor);
         promise.listeners = Collections.singletonList(listener);
 
@@ -70,7 +70,7 @@ public class DefaultEventPromiseTest {
         EventExecutor executor = mock(SingleThreadEventExecutor.class);
         when(executor.inExecutor()).thenReturn(true);
 
-        EventStageListener<String> listener = mock(EventStageListener.class);
+        EventStageObserver<String> listener = mock(EventStageObserver.class);
         DefaultEventPromise<String> promise = new DefaultEventPromise<>(executor);
         promise.listeners = Collections.singletonList(listener);
 

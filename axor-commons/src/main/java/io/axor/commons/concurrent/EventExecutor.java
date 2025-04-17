@@ -87,7 +87,7 @@ public sealed interface EventExecutor extends ScheduledExecutorService
         }
         ScheduledFuture<?> schedule = schedule(() -> promise.failure(new TimeoutException()),
                 timeout, unit);
-        return promise.addListener(new EventStageListener<T>() {
+        return promise.observe(new EventStageObserver<T>() {
             @Override
             public void success(T value) {
                 if (!schedule.isCancelled()) {

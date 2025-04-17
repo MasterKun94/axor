@@ -159,7 +159,7 @@ public non-sealed interface EventFuture<T> extends EventStage<T>, Future<T> {
                                      EventExecutor executor);
 
     @Override
-    EventFuture<T> addListeners(Collection<EventStageListener<T>> eventStageListeners);
+    EventFuture<T> observe(Collection<EventStageObserver<T>> observers);
 
     @Override
     default EventFuture<T> toFuture() {

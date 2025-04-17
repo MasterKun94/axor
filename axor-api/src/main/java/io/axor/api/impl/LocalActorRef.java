@@ -261,14 +261,14 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
             if (state == STOPPED_STATE) {
                 promise.success(null);
             } else {
-                requireNonNull(stoppingStage, "stoppingStage").addListener(promise);
+                requireNonNull(stoppingStage, "stoppingStage").observe(promise);
             }
             return;
         }
         state = STOPPING_STATE;
         EventPromise<Void> stoppingPromise = EventPromise.newPromise(executor);
         stoppingStage = stoppingPromise;
-        stoppingPromise.addListener(promise);
+        stoppingPromise.observe(promise);
         try {
             actor.preStop();
         } catch (Exception e) {
@@ -324,7 +324,7 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
                 systemErrorEvent(SystemEvent.ActorAction.ON_POST_STOP, e);
             }
             return Try.success((Void) null);
-        }, executor).addListener(stoppingPromise);
+        }, executor).observe(stoppingPromise);
     }
 
     @Internal

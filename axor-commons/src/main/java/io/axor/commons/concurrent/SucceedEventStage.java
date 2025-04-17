@@ -56,6 +56,11 @@ public sealed class SucceedEventStage<T> implements EventStage<T> permits Succee
     }
 
     @Override
+    public EventStage<T> executor(EventExecutor executor) {
+        return new SucceedEventStage<>(value, executor);
+    }
+
+    @Override
     public <P> EventStage<P> map(Function<T, P> func, EventExecutor executor) {
         if (executor.inExecutor()) {
             try {
@@ -88,7 +93,7 @@ public sealed class SucceedEventStage<T> implements EventStage<T> permits Succee
             EventPromise<P> future = newPromise(executor);
             executor.execute(() -> {
                 try {
-                    func.apply(value).addListener(future);
+                    func.apply(value).observe(future);
                 } catch (Throwable e) {
                     future.failure(e);
                 }
@@ -134,7 +139,7 @@ public sealed class SucceedEventStage<T> implements EventStage<T> permits Succee
             EventPromise<P> future = newPromise(executor);
             executor.execute(() -> {
                 try {
-                    transformer.apply(Try.success(value)).addListener(future);
+                    transformer.apply(Try.success(value)).observe(future);
                 } catch (Throwable e) {
                     future.failure(e);
                 }
@@ -144,9 +149,9 @@ public sealed class SucceedEventStage<T> implements EventStage<T> permits Succee
     }
 
     @Override
-    public EventStage<T> addListeners(Collection<EventStageListener<T>> eventStageListeners) {
+    public EventStage<T> observe(Collection<EventStageObserver<T>> observers) {
         if (executor.inExecutor()) {
-            for (EventStageListener<T> listener : eventStageListeners) {
+            for (EventStageObserver<T> listener : observers) {
                 try {
                     listener.success(value);
                 } catch (Throwable e) {
@@ -154,7 +159,7 @@ public sealed class SucceedEventStage<T> implements EventStage<T> permits Succee
                 }
             }
         } else {
-            executor.execute(() -> addListeners(eventStageListeners));
+            executor.execute(() -> observe(observers));
         }
         return this;
     }

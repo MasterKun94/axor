@@ -26,7 +26,7 @@ class DefaultEventFuture<T> extends DefaultEventPromise<T> implements EventFutur
 
     DefaultEventFuture(EventStage<T> stage) {
         super(stage.executor());
-        stage.addListener(this);
+        stage.observe(this);
     }
 
     @Override
@@ -105,13 +105,13 @@ class DefaultEventFuture<T> extends DefaultEventPromise<T> implements EventFutur
     }
 
     @Override
-    public DefaultEventFuture<T> addListeners(Collection<EventStageListener<T>> eventListeners) {
-        return (DefaultEventFuture<T>) super.addListeners(eventListeners);
+    public DefaultEventFuture<T> observe(Collection<EventStageObserver<T>> observers) {
+        return (DefaultEventFuture<T>) super.observe(observers);
     }
 
     @Override
-    public DefaultEventFuture<T> addListener(EventStageListener<T> listener) {
-        return (DefaultEventFuture<T>) super.addListener(listener);
+    public DefaultEventFuture<T> observe(EventStageObserver<T> observer) {
+        return (DefaultEventFuture<T>) super.observe(observer);
     }
 
     @Override

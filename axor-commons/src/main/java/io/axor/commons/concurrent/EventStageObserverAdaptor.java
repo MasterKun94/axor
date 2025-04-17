@@ -10,14 +10,14 @@ import java.util.concurrent.CompletableFuture;
  *
  * @param <T> the type of the value produced in case of success
  */
-public class EventStageListenerAdaptor<T> implements EventStageListener<T> {
+public class EventStageObserverAdaptor<T> implements EventStageObserver<T> {
     private final CompletableFuture<T> future;
 
-    public EventStageListenerAdaptor(CompletableFuture<T> future) {
+    public EventStageObserverAdaptor(CompletableFuture<T> future) {
         this.future = future;
     }
 
-    public EventStageListenerAdaptor() {
+    public EventStageObserverAdaptor() {
         this(new CompletableFuture<>());
     }
 
