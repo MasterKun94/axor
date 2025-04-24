@@ -15,6 +15,7 @@ import io.axor.runtime.impl.DefaultEventDispatcher;
 import io.axor.runtime.stream.grpc.proto.AxorProto.ActorAddress;
 import io.grpc.ServerBuilder;
 import org.junit.AfterClass;
+import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -59,20 +60,20 @@ public class GrpcStreamServerTest {
                     @Override
                     public void onEnd(Status status) {
                         LOG.info("{} received end stats: {}", selfDefinition.address(), status);
-                        assert executor.inExecutor();
+                        Assert.assertTrue(executor.inExecutor());
                         observer.onEnd(status);
                     }
 
                     @Override
                     public void onSignal(Signal signal) {
                         LOG.info("{} received signal: {}", selfDefinition.address(), signal);
-                        assert executor.inExecutor();
+                        Assert.assertTrue(executor.inExecutor());
                         observer.onSignal(signal);
                     }
 
                     @Override
                     public void onNext(ActorAddress testMessage) {
-                        assert executor.inExecutor();
+                        Assert.assertTrue(executor.inExecutor());
                         LOG.info("{} Received: {}", selfDefinition.address(),
                                 testMessage.getName());
                     }

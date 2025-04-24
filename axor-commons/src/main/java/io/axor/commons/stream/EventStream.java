@@ -55,13 +55,13 @@ public interface EventStream<T> extends EventFlow<T> {
     void subscribe(Subscriber<T> subscriber);
 
     @Override
-    default void subscribe(Consumer<T> onEvent, Consumer<Throwable> onError, Runnable onComplete) {
-        EventFlow.super.subscribe(onEvent, onError, onComplete);
+    default void subscribe(Consumer<T> onEvent, Consumer<Signal> onSignal, Runnable onComplete) {
+        EventFlow.super.subscribe(onEvent, onSignal, onComplete);
     }
 
     @Override
-    default void subscribe(Consumer<T> onEvent, Consumer<Throwable> onError, Runnable onComplete,
+    default void subscribe(Consumer<T> onEvent, Consumer<Signal> onSignal, Runnable onComplete,
                            BooleanSupplier continueFlag) {
-        EventFlow.super.subscribe(onEvent, onError, onComplete, continueFlag);
+        EventFlow.super.subscribe(onEvent, onSignal, onComplete, continueFlag);
     }
 }

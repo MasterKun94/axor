@@ -5,6 +5,7 @@ import io.axor.commons.concurrent.EventPromise;
 import io.axor.commons.concurrent.EventStage;
 import io.axor.commons.concurrent.Failure;
 import io.axor.commons.concurrent.Success;
+import io.axor.commons.stream.EventFlow.Signal;
 import io.axor.commons.stream.EventFlow.Subscriber;
 
 import java.util.ArrayList;
@@ -28,7 +29,7 @@ public class EventFlowOperators {
                     try {
                         internal.onEvent(event);
                     } catch (Throwable e) {
-                        internal.onErrorEvent(e);
+                        internal.onSignal(new ErrorSignal(e));
                     } finally {
                         //noinspection NonAtomicOperationOnVolatileField
                         continueFlag = continueFlag && internal.continueFlag();
@@ -37,10 +38,10 @@ public class EventFlowOperators {
             }
 
             @Override
-            public void onErrorEvent(Throwable error) {
+            public void onSignal(Signal signal) {
                 executor.execute(() -> {
                     try {
-                        internal.onErrorEvent(error);
+                        internal.onSignal(signal);
                     } finally {
                         //noinspection NonAtomicOperationOnVolatileField
                         continueFlag = continueFlag && internal.continueFlag();
@@ -69,13 +70,13 @@ public class EventFlowOperators {
                 try {
                     sink.onEvent(func.map(event));
                 } catch (Throwable e) {
-                    sink.onErrorEvent(e);
+                    sink.onSignal(new ErrorSignal(e));
                 }
             }
 
             @Override
-            public void onErrorEvent(Throwable error) {
-                sink.onErrorEvent(error);
+            public void onSignal(Signal signal) {
+                sink.onSignal(signal);
             }
 
             @Override
@@ -104,7 +105,7 @@ public class EventFlowOperators {
                         this.prevStage = func.map(event).transform(t -> {
                             switch (t) {
                                 case Success(var value) -> sink.onEvent(value);
-                                case Failure(var cause) -> sink.onErrorEvent(cause);
+                                case Failure(var cause) -> sink.onSignal(new ErrorSignal(cause));
                                 default -> throw new IllegalArgumentException();
                             }
                             return t;
@@ -125,11 +126,11 @@ public class EventFlowOperators {
                                 }
                                 case Failure(var cause) -> {
                                     if (prevStage.isDone()) {
-                                        sink.onErrorEvent(cause);
+                                        sink.onSignal(new ErrorSignal(cause));
                                         return EventStage.failed(cause, executor);
                                     } else {
                                         return prevStage.transform(t0 -> {
-                                            sink.onErrorEvent(cause);
+                                            sink.onSignal(new ErrorSignal(cause));
                                             return t0;
                                         });
                                     }
@@ -139,16 +140,16 @@ public class EventFlowOperators {
                         }, executor);
                     }
                 } catch (Throwable e) {
-                    sink.onErrorEvent(e);
+                    sink.onSignal(new ErrorSignal(e));
                 }
             }
 
             @Override
-            public void onErrorEvent(Throwable error) {
+            public void onSignal(Signal signal) {
                 if (prevStage == null || prevStage.isDone()) {
-                    sink.onErrorEvent(error);
+                    sink.onSignal(signal);
                 } else {
-                    prevStage.observe((p, e) -> sink.onErrorEvent(error));
+                    prevStage.observe((p, e) -> sink.onSignal(signal));
                 }
             }
 
@@ -188,7 +189,7 @@ public class EventFlowOperators {
                         }
                     }, cause -> {
                         try {
-                            sink.onErrorEvent(cause);
+                            sink.onSignal(new ErrorSignal(cause));
                         } finally {
                             if (numPending.decrementAndGet() == -1) {
                                 sink.onEnd();
@@ -197,7 +198,7 @@ public class EventFlowOperators {
                     });
                 } catch (Throwable e) {
                     try {
-                        sink.onErrorEvent(e);
+                        sink.onSignal(new ErrorSignal(e));
                     } finally {
                         if (numPending.decrementAndGet() == -1) {
                             sink.onEnd();
@@ -207,8 +208,8 @@ public class EventFlowOperators {
             }
 
             @Override
-            public void onErrorEvent(Throwable error) {
-                sink.onErrorEvent(error);
+            public void onSignal(Signal signal) {
+                sink.onSignal(signal);
             }
 
             @Override
@@ -238,7 +239,7 @@ public class EventFlowOperators {
                     if (prevStage == null || prevStage.isDone()) {
                         this.prevStage = func.map(event).whenCompleteAsync((v, e) -> {
                             if (e != null) {
-                                sink.onErrorEvent(e);
+                                sink.onSignal(new ErrorSignal(e));
                             } else {
                                 sink.onEvent(v);
                             }
@@ -249,11 +250,11 @@ public class EventFlowOperators {
                             try {
                                 if (e != null) {
                                     if (prevStage.isDone()) {
-                                        sink.onErrorEvent(e);
+                                        sink.onSignal(new ErrorSignal(e));
                                         currentStage.completeExceptionally(e);
                                     } else {
                                         prevStage.whenCompleteAsync((v0, e0) -> {
-                                            sink.onErrorEvent(e);
+                                            sink.onSignal(new ErrorSignal(e));
                                             currentStage.completeExceptionally(e);
                                         }, executor);
                                     }
@@ -275,16 +276,16 @@ public class EventFlowOperators {
                         this.prevStage = currentStage;
                     }
                 } catch (Throwable e) {
-                    sink.onErrorEvent(e);
+                    sink.onSignal(new ErrorSignal(e));
                 }
             }
 
             @Override
-            public void onErrorEvent(Throwable error) {
+            public void onSignal(Signal signal) {
                 if (prevStage == null || prevStage.isDone()) {
-                    sink.onErrorEvent(error);
+                    sink.onSignal(signal);
                 } else {
-                    prevStage.whenCompleteAsync((v, e) -> sink.onErrorEvent(error), executor);
+                    prevStage.whenCompleteAsync((v, e) -> sink.onSignal(signal), executor);
                 }
             }
 
@@ -317,7 +318,7 @@ public class EventFlowOperators {
                     func.map(event).whenCompleteAsync((v, e) -> {
                         try {
                             if (e != null) {
-                                sink.onErrorEvent(e);
+                                sink.onSignal(new ErrorSignal(e));
                             } else {
                                 sink.onEvent(v);
                             }
@@ -329,7 +330,7 @@ public class EventFlowOperators {
                     }, executor);
                 } catch (Throwable e) {
                     try {
-                        sink.onErrorEvent(e);
+                        sink.onSignal(new ErrorSignal(e));
                     } finally {
                         if (numPending.decrementAndGet() == -1) {
                             sink.onEnd();
@@ -339,8 +340,8 @@ public class EventFlowOperators {
             }
 
             @Override
-            public void onErrorEvent(Throwable error) {
-                sink.onErrorEvent(error);
+            public void onSignal(Signal signal) {
+                sink.onSignal(signal);
             }
 
             @Override
@@ -376,13 +377,13 @@ public class EventFlowOperators {
                 try {
                     stream = func.map(event).executor(executor);
                 } catch (Throwable e) {
-                    sink.onErrorEvent(e);
+                    sink.onSignal(new ErrorSignal(e));
                     return;
                 }
                 EventPromise<Void> promise = executor.newPromise();
                 this.prevStage = promise;
                 if (prevStage == null || prevStage.isDone()) {
-                    stream.subscribe(sink::onEvent, sink::onErrorEvent,
+                    stream.subscribe(sink::onEvent, sink::onSignal,
                             () -> promise.success(null));
                 } else {
                     List<Consumer<Subscriber<P>>> buffer = new ArrayList<>();
@@ -404,18 +405,18 @@ public class EventFlowOperators {
                     }, e -> {
                         if (safePrevStage.isDone()) {
                             assert buffer.isEmpty();
-                            sink.onErrorEvent(e);
-                        } else buffer.add(s -> s.onErrorEvent(e));
+                            sink.onSignal(e);
+                        } else buffer.add(s -> s.onSignal(e));
                     }, () -> safePrevStage.observe(promise));
                 }
             }
 
             @Override
-            public void onErrorEvent(Throwable error) {
+            public void onSignal(Signal signal) {
                 if (prevStage == null || prevStage.isDone()) {
-                    sink.onErrorEvent(error);
+                    sink.onSignal(signal);
                 } else {
-                    prevStage.observe((v, t) -> sink.onErrorEvent(error));
+                    prevStage.observe((v, t) -> sink.onSignal(signal));
                 }
             }
 
@@ -452,8 +453,8 @@ public class EventFlowOperators {
                         }
 
                         @Override
-                        public void onErrorEvent(Throwable error) {
-                            sink.onErrorEvent(error);
+                        public void onSignal(Signal signal) {
+                            sink.onSignal(signal);
                         }
 
                         @Override
@@ -470,7 +471,7 @@ public class EventFlowOperators {
                     });
                 } catch (Throwable e) {
                     try {
-                        sink.onErrorEvent(e);
+                        sink.onSignal(new ErrorSignal(e));
                     } finally {
                         if (numPending.decrementAndGet() == -1) {
                             sink.onEnd();
@@ -481,8 +482,8 @@ public class EventFlowOperators {
             }
 
             @Override
-            public void onErrorEvent(Throwable error) {
-                sink.onErrorEvent(error);
+            public void onSignal(Signal signal) {
+                sink.onSignal(signal);
             }
 
             @Override
@@ -509,13 +510,13 @@ public class EventFlowOperators {
                         sink.onEvent(event);
                     }
                 } catch (Throwable e) {
-                    sink.onErrorEvent(e);
+                    sink.onSignal(new ErrorSignal(e));
                 }
             }
 
             @Override
-            public void onErrorEvent(Throwable error) {
-                sink.onErrorEvent(error);
+            public void onSignal(Signal signal) {
+                sink.onSignal(signal);
             }
 
             @Override
@@ -544,15 +545,15 @@ public class EventFlowOperators {
                     try {
                         left = reducer.reduce(left, event);
                     } catch (Throwable e) {
-                        onErrorEvent(e);
+                        onSignal(new ErrorSignal(e));
                     }
                 }
             }
 
             @Override
-            public void onErrorEvent(Throwable error) {
+            public void onSignal(Signal signal) {
                 try {
-                    sink.onErrorEvent(error);
+                    sink.onSignal(signal);
                 } finally {
                     continueFlag = false;
                     sink.onEnd();
@@ -563,7 +564,7 @@ public class EventFlowOperators {
             public void onEnd() {
                 try {
                     if (left == null) {
-                        sink.onErrorEvent(new NoSuchElementException());
+                        sink.onSignal(new ErrorSignal(new NoSuchElementException()));
                     } else {
                         sink.onEvent(left);
                     }
@@ -594,15 +595,15 @@ public class EventFlowOperators {
                     try {
                         left = reducer.reduce(left, event);
                     } catch (Throwable e) {
-                        onErrorEvent(e);
+                        onSignal(new ErrorSignal(e));
                     }
                 }
             }
 
             @Override
-            public void onErrorEvent(Throwable error) {
+            public void onSignal(Signal signal) {
                 try {
-                    sink.onErrorEvent(error);
+                    sink.onSignal(signal);
                 } finally {
                     continueFlag = false;
                     sink.onEnd();
@@ -638,14 +639,14 @@ public class EventFlowOperators {
                 try {
                     left = folder.fold(left, event);
                 } catch (Throwable e) {
-                    onErrorEvent(e);
+                    onSignal(new ErrorSignal(e));
                 }
             }
 
             @Override
-            public void onErrorEvent(Throwable error) {
+            public void onSignal(Signal signal) {
                 try {
-                    sink.onErrorEvent(error);
+                    sink.onSignal(signal);
                 } finally {
                     continueFlag = false;
                     sink.onEnd();
@@ -656,7 +657,7 @@ public class EventFlowOperators {
             public void onEnd() {
                 try {
                     if (left == null) {
-                        sink.onErrorEvent(new NoSuchElementException());
+                        sink.onSignal(new ErrorSignal(new NoSuchElementException()));
                     } else {
                         sink.onEvent(left);
                     }

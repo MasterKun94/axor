@@ -45,6 +45,9 @@ public interface EventDispatcher extends SingleThreadEventExecutor {
      */
     EventContext getContext();
 
+    @Override
+    boolean inExecutor();
+
     /**
      * An interface that defines a contract for threads that are associated with an
      * {@link EventDispatcher}. Implementations of this interface must provide a way to retrieve the

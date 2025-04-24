@@ -210,8 +210,9 @@ public class EventUnaryTest {
         private CompletableFuture<Void> future = new CompletableFuture<>();
 
         @Override
-        public void onErrorEvent(Throwable error) {
-            future.completeExceptionally(error);
+        public void onSignal(EventFlow.Signal signal) {
+            if (signal instanceof ErrorSignal(var cause))
+                future.completeExceptionally(cause);
         }
 
         @Override

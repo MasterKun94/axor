@@ -90,18 +90,18 @@ public abstract class DefaultEventFlow<T> implements EventFlow<T> {
                 }
 
                 @Override
-                public void onErrorEvent(Throwable error) {
+                public void onSignal(Signal signal) {
                     for (Subscriber<T> sideSink : sideObservers) {
                         try {
                             if (sideSink.continueFlag()) {
-                                sideSink.onErrorEvent(error);
+                                sideSink.onSignal(signal);
                             }
                         } catch (Throwable e) {
                             LOG.error("Unexpected side sink error on error", e);
                         }
                     }
                     if (internal.continueFlag()) {
-                        internal.onErrorEvent(error);
+                        internal.onSignal(signal);
                     }
                 }
 

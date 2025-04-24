@@ -14,8 +14,8 @@ public abstract class DefaultEventUnary<T> extends DefaultEventFlow<T> implement
     protected abstract void doExecute(Subscriber<T> subscriber);
 
     @Override
-    protected <P> DefaultEventFlow<P> newInstance(EventExecutor executor, Function<Subscriber<P>,
-            Subscriber<T>> operator) {
+    protected <P> DefaultEventFlow<P> newInstance(EventExecutor executor,
+                                                  Function<Subscriber<P>, Subscriber<T>> operator) {
         return newUnaryInstance(executor, operator);
     }
 

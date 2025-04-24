@@ -18,7 +18,7 @@ public interface EventFlow<T> {
                         publisher.publishTo(subscriber);
                     } catch (Throwable e) {
                         try {
-                            subscriber.onErrorEvent(e);
+                            subscriber.onSignal(new ErrorSignal(e));
                         } finally {
                             subscriber.onEnd();
                         }
@@ -40,7 +40,7 @@ public interface EventFlow<T> {
                     }
                 }, e -> {
                     try {
-                        subscriber.onErrorEvent(e);
+                        subscriber.onSignal(new ErrorSignal(e));
                     } finally {
                         subscriber.onEnd();
                     }
@@ -57,7 +57,7 @@ public interface EventFlow<T> {
                     try {
                         subscriber.onEvent(supplier.get());
                     } catch (Throwable e) {
-                        subscriber.onErrorEvent(e);
+                        subscriber.onSignal(new ErrorSignal(e));
                     } finally {
                         subscriber.onEnd();
                     }
@@ -84,11 +84,11 @@ public interface EventFlow<T> {
 
     void subscribe(Subscriber<T> subscriber);
 
-    default void subscribe(Consumer<T> onEvent, Consumer<Throwable> onError, Runnable onComplete) {
-        subscribe(onEvent, onError, onComplete, () -> true);
+    default void subscribe(Consumer<T> onEvent, Consumer<Signal> onSignal, Runnable onComplete) {
+        subscribe(onEvent, onSignal, onComplete, () -> true);
     }
 
-    default void subscribe(Consumer<T> onEvent, Consumer<Throwable> onError, Runnable onComplete,
+    default void subscribe(Consumer<T> onEvent, Consumer<Signal> onSignal, Runnable onComplete,
                            BooleanSupplier continueFlag) {
         subscribe(new Subscriber<>() {
             @Override
@@ -97,8 +97,8 @@ public interface EventFlow<T> {
             }
 
             @Override
-            public void onErrorEvent(Throwable error) {
-                onError.accept(error);
+            public void onSignal(Signal signal) {
+                onSignal.accept(signal);
             }
 
             @Override
@@ -116,7 +116,7 @@ public interface EventFlow<T> {
     interface Subscriber<T> {
         void onEvent(T event);
 
-        void onErrorEvent(Throwable error);
+        void onSignal(Signal signal);
 
         void onEnd();
 
@@ -127,5 +127,8 @@ public interface EventFlow<T> {
 
     interface Publisher<T> {
         void publishTo(Subscriber<T> subscriber);
+    }
+
+    interface Signal {
     }
 }

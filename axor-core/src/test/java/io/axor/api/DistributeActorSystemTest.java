@@ -36,7 +36,7 @@ public class DistributeActorSystemTest {
             "test", "test", EventContextKeyMarshaller.STRING);
     private static final EventContext.Key<String> key2 = new EventContext.Key<>(3,
             "test2", "test2", EventContextKeyMarshaller.STRING);
-    private static ActorTestKit testKit = new ActorTestKit(Duration.ofMillis(100));
+    private static final ActorTestKit testKit = new ActorTestKit(Duration.ofMillis(100));
     private static ActorSystem system1;
     private static ActorSystem system2;
     private static ActorRef<String> simpleReply1;

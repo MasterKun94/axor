@@ -35,19 +35,23 @@ public interface EventUnary<T> extends EventFlow<T> {
     void subscribe(Subscriber<T> subscriber);
 
     @Override
-    default void subscribe(Consumer<T> onEvent, Consumer<Throwable> onError, Runnable onComplete) {
-        EventFlow.super.subscribe(onEvent, onError, onComplete);
+    default void subscribe(Consumer<T> onEvent, Consumer<Signal> onSignal, Runnable onComplete) {
+        EventFlow.super.subscribe(onEvent, onSignal, onComplete);
     }
 
     @Override
-    default void subscribe(Consumer<T> onEvent, Consumer<Throwable> onError, Runnable onComplete,
+    default void subscribe(Consumer<T> onEvent, Consumer<Signal> onSignal, Runnable onComplete,
                            BooleanSupplier continueFlag) {
-        EventFlow.super.subscribe(onEvent, onError, onComplete, continueFlag);
+        EventFlow.super.subscribe(onEvent, onSignal, onComplete, continueFlag);
     }
 
     default EventStage<T> subscribe() {
         var promise = executor().<T>newPromise();
-        subscribe(promise::success, promise::failure, () -> {
+        subscribe(promise::success, signal -> {
+            if (signal instanceof ErrorSignal(var cause)) {
+                promise.failure(cause);
+            }
+        }, () -> {
         });
         return promise;
     }

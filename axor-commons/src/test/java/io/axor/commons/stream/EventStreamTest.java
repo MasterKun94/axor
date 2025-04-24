@@ -373,11 +373,12 @@ public class EventStreamTest {
     }
 
     public static abstract class TestSubscriber<T> implements EventFlow.Subscriber<T> {
-        private CompletableFuture<Void> future = new CompletableFuture<>();
+        private final CompletableFuture<Void> future = new CompletableFuture<>();
 
         @Override
-        public void onErrorEvent(Throwable error) {
-            future.completeExceptionally(error);
+        public void onSignal(EventFlow.Signal signal) {
+            if (signal instanceof ErrorSignal(var cause))
+                future.completeExceptionally(cause);
         }
 
         @Override
@@ -460,8 +461,8 @@ public class EventStreamTest {
         }
 
         @Override
-        public void onErrorEvent(Throwable error) {
-            delegate.onErrorEvent(error);
+        public void onSignal(EventFlow.Signal signal) {
+            delegate.onSignal(signal);
         }
 
         @Override

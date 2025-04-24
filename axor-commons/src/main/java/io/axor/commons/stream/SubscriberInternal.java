@@ -19,9 +19,9 @@ class SubscriberInternal<T> implements Subscriber<T> {
     }
 
     @Override
-    public void onErrorEvent(Throwable error) {
+    public void onSignal(EventFlow.Signal signal) {
         if (delegate.continueFlag()) {
-            delegate.onErrorEvent(error);
+            delegate.onSignal(signal);
         }
     }
 
