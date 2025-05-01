@@ -4,7 +4,6 @@ import io.axor.api.ActorAddress;
 import io.axor.api.ActorContext;
 import io.axor.api.ActorRef;
 import io.axor.api.ActorSessions;
-import io.axor.api.ErrorMsgException;
 import io.axor.commons.concurrent.EventPromise;
 import io.axor.commons.concurrent.EventStage;
 import io.axor.runtime.MsgType;
@@ -32,7 +31,9 @@ public class ActorSessionsImpl<T> implements ActorSessions<T> {
     }
 
     @Override
-    public <P extends T> EventStage<P> expectReceive(ActorRef<?> from, MsgType<? extends P> msgType, Predicate<P> isMsg, Duration timeout) {
+    public <P extends T> EventStage<P> expectReceive(ActorRef<?> from,
+                                                     MsgType<? extends P> msgType,
+                                                     Predicate<P> isMsg, Duration timeout) {
         var ctx = new AskCtx<>(msgType, isMsg, context.dispatcher().newPromise());
         List<AskCtx<? extends T>> list = pendingAsks
                 .computeIfAbsent(from.address(), k -> new ArrayList<>());

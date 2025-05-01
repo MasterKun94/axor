@@ -6,7 +6,7 @@ import java.time.Duration;
 
 public record RaftConfig(
         Duration logAppendTimeout,
-        MemorySize logAppendBytesLimit,
+        MemorySize logAppendSizeLimit,
         Duration leaderHeartbeatInterval,
         Duration leaderHeartbeatTimeout,
         int followerIndexLagThreshold

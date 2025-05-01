@@ -28,13 +28,6 @@ public class MockActorRef<T> extends ForwardingActorRef<T> {
         this.pollTimeout = pollTimeout;
     }
 
-    public void setTimeout(Duration timeout) {
-        if (!timeout.isPositive()) {
-            throw new IllegalArgumentException("timeout is not positive");
-        }
-        pollTimeout = timeout.toMillis();
-    }
-
     private static <T> T take(BlockingQueue<T> queue, long timeout) {
         T poll;
         try {
@@ -46,6 +39,13 @@ public class MockActorRef<T> extends ForwardingActorRef<T> {
             throw new RuntimeException("timeout");
         }
         return poll;
+    }
+
+    public void setTimeout(Duration timeout) {
+        if (!timeout.isPositive()) {
+            throw new IllegalArgumentException("timeout is not positive");
+        }
+        pollTimeout = timeout.toMillis();
     }
 
     @Override

@@ -84,7 +84,7 @@ public class LeaderBehaviors {
         List<LogEntry> entries = new ArrayList<>();
         List<ClientTxnCtx> ctc = new ArrayList<>();
         LogEntryId commitId = null;
-        MemorySize logAppendBytesLimit = raftContext.config().logAppendBytesLimit();
+        MemorySize logAppendBytesLimit = raftContext.config().logAppendSizeLimit();
         var iter = clientTxnBuffer.poll(logAppendBytesLimit.toInt());
         while (iter.hasNext()) {
             var entry = iter.next();

@@ -1,6 +1,5 @@
 package io.axor.api;
 
-import io.axor.api.impl.ActorSessionsImpl;
 import io.axor.api.impl.ActorSystemImpl;
 import io.axor.runtime.EventDispatcher;
 import io.axor.runtime.MsgType;

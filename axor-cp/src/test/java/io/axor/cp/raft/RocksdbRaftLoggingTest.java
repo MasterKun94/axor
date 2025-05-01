@@ -21,7 +21,7 @@ public class RocksdbRaftLoggingTest {
 
     @BeforeClass
     public static void setup() throws Exception {
-        FileUtils.createDirectories(new File(".tmp"));
+        FileUtils.createDirectories(new File(".tmp/raftlog"));
         Options opt = new Options();
         opt.setCreateIfMissing(true);
         FileUtils.deleteFully(new File(".tmp/raftlog"));

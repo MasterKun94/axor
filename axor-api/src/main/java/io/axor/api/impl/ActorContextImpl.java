@@ -4,7 +4,6 @@ import io.axor.api.ActorContext;
 import io.axor.api.ActorCreator;
 import io.axor.api.ActorRef;
 import io.axor.api.ActorRefRich;
-import io.axor.api.ActorSessions;
 import io.axor.api.ActorSettings;
 import io.axor.api.ActorSystem;
 import io.axor.api.SystemEvent;

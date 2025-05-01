@@ -92,9 +92,9 @@ public class RocksdbRaftLoggingFactory implements RaftLoggingFactory {
                         }
                         List<ColumnFamilyDescriptor> cfDesc =
                                 OptimisticTransactionDB.listColumnFamilies(options, path)
-                                .stream()
-                                .map(b -> new ColumnFamilyDescriptor(b, cfOpt))
-                                .toList();
+                                        .stream()
+                                        .map(b -> new ColumnFamilyDescriptor(b, cfOpt))
+                                        .toList();
                         List<ColumnFamilyHandle> handles = new ArrayList<>();
                         db = OptimisticTransactionDB.open(dbOpt, path, cfDesc, handles);
                         for (int i = 0; i < cfDesc.size(); i++) {

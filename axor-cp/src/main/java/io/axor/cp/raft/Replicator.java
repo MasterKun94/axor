@@ -5,7 +5,6 @@ import io.axor.api.ActorContext;
 import io.axor.api.ActorRef;
 import io.axor.api.Behavior;
 import io.axor.api.Behaviors;
-import io.axor.api.InternalSignals;
 import io.axor.api.impl.ActorUnsafe;
 import io.axor.commons.concurrent.EventPromise;
 import io.axor.commons.concurrent.EventStage;
@@ -99,7 +98,7 @@ public class Replicator extends AbstractActor<RaftMessage> {
                 return Behaviors.same();
             } else if (msg instanceof LogCommit cmt) {
                 ActorRef<RaftMessage> leader = sender(RaftMessage.class);
-                assert leader.equals(nodeRef);
+                assert leader.equals(nodeRef) : "leader: " + leader + " is not nodeRef: " + nodeRef;
                 assert raftContext.isLeader(leader);
                 assert raftContext.isLeader(raftContext.selfPeer());
                 logCommit(cmt, cmt.commitId()).observe((status, e) -> {
@@ -144,8 +143,9 @@ public class Replicator extends AbstractActor<RaftMessage> {
                         LOG.error("[{}] commit error", msg, e);
                     } else {
                         LOG.debug("[{}] commit with status {}", msg, status);
-                        assert id.equals(msg.currentCommited());
-                        raftContext.updateCommited(id);
+                        if (status == CommitStatus.SUCCESS) {
+                            raftContext.updateCommited(id);
+                        }
                     }
                 });
     }
@@ -155,6 +155,9 @@ public class Replicator extends AbstractActor<RaftMessage> {
         return MsgType.of(RaftMessage.class);
     }
 
-    public record ReplicatorLoadSuccess() implements Signal {}
-    public record ReplicatorLoadFailure() implements Signal {}
+    public record ReplicatorLoadSuccess() implements Signal {
+    }
+
+    public record ReplicatorLoadFailure() implements Signal {
+    }
 }
