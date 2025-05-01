@@ -355,7 +355,7 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
         }
     }
 
-    private void doTell(T msg, ActorRef<?> sender1) {
+    private void doTell(T msg, ActorRef<?> sender) {
         assert executor.inExecutor();
         ActorContextImpl<T> context = (ActorContextImpl<T>) actor.context();
         try (var ignore = executor.getContext().propagate().openScope()) {
@@ -363,8 +363,10 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
                 context.deadLetter(msg);
                 return;
             }
-            context.sender(sender1);
-            actor.onReceive(msg);
+            context.sender(sender);
+            if (!context.sessions().maybeNotify(msg, sender)) {
+                actor.onReceive(msg);
+            }
             if (context.settings().isAutoAck()) {
                 ActorUnsafe.msgAck(context);
             }

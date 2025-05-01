@@ -23,6 +23,8 @@
         <module>axor-logging-log4j2</module>
         <module>axor-persistence</module>
         <module>axor-persistence-extensions/axor-persistence-jdbc</module>
+        <module>axor-persistence-extensions/axor-persistence-kafka</module>
+        <module>axor-cp</module>
     </modules>
 
     <repositories>
@@ -42,12 +44,13 @@
         <dist.name>${project.name}-${project.version}</dist.name>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
+        <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <typesafe.config.version>1.4.3</typesafe.config.version>
         <caffeine.version>3.1.8</caffeine.version>
         <hikaricp.version>5.1.0</hikaricp.version>
-        <rocksdbjni.version>9.7.3</rocksdbjni.version>
+        <rocksdbjni.version>10.0.1</rocksdbjni.version>
         <agrona.verison>1.23.0</agrona.verison>
         <jctools.version>4.0.5</jctools.version>
         <disruptor.version>3.4.4</disruptor.version>
@@ -60,7 +63,7 @@
         <log4j2.version>2.20.0</log4j2.version>
         <logback.verion>1.5.18</logback.verion>
         <junit.version>4.13.2</junit.version>
-        <mockito.version>5.14.2</mockito.version>
+        <mockito.version>5.16.1</mockito.version>
     </properties>
 
     <dependencyManagement>
@@ -275,11 +278,11 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.13.0</version>
+                <version>3.14.0</version>
                 <configuration>
                     <source>${maven.compiler.source}</source>
                     <target>${maven.compiler.target}</target>
-                    <release>${maven.compiler.target}</release>
+                    <release>${maven.compiler.release}</release>
                     <encoding>${project.build.sourceEncoding}</encoding>
                     <showDeprecation>true</showDeprecation>
                     <showWarnings>true</showWarnings>
@@ -288,7 +291,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.2.5</version>
+                <version>3.5.2</version>
                 <configuration>
                     <argLine>
                         -javaagent:"${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar"
@@ -299,7 +302,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
-                <version>3.4.1</version>
+                <version>3.4.2</version>
             </plugin>
         </plugins>
     </build>

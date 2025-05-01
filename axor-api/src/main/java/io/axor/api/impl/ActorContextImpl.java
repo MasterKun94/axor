@@ -4,6 +4,7 @@ import io.axor.api.ActorContext;
 import io.axor.api.ActorCreator;
 import io.axor.api.ActorRef;
 import io.axor.api.ActorRefRich;
+import io.axor.api.ActorSessions;
 import io.axor.api.ActorSettings;
 import io.axor.api.ActorSystem;
 import io.axor.api.SystemEvent;
@@ -17,12 +18,14 @@ class ActorContextImpl<T> implements ActorContext<T> {
     private final EventDispatcher executor;
     private final LocalActorRef<T> self;
     private final ActorSettings settings = new ActorSettings();
+    private final ActorSessionsImpl<T> sessions;
     private ActorRef<?> sender;
 
     public ActorContextImpl(ActorSystem system, EventDispatcher executor, LocalActorRef<T> self) {
         this.system = system;
         this.executor = executor;
         this.self = self;
+        this.sessions = new ActorSessionsImpl<>(this);
     }
 
     @Override
@@ -82,5 +85,10 @@ class ActorContextImpl<T> implements ActorContext<T> {
 
     public int state() {
         return self.getState();
+    }
+
+    @Override
+    public ActorSessionsImpl<T> sessions() {
+        return sessions;
     }
 }

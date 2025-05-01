@@ -1,5 +1,6 @@
 package io.axor.api;
 
+import io.axor.api.impl.ActorSessionsImpl;
 import io.axor.api.impl.ActorSystemImpl;
 import io.axor.runtime.EventDispatcher;
 import io.axor.runtime.MsgType;
@@ -34,6 +35,10 @@ public interface ActorContext<T> {
      *                                  type
      */
     <P> ActorRef<P> sender(MsgType<P> checkedType);
+
+    default <P> ActorRef<P> sender(Class<P> checkedType) {
+        return sender(MsgType.of(checkedType));
+    }
 
     /**
      * Returns the {@code ActorRef} for the current actor, which can be used to send messages to
@@ -135,4 +140,6 @@ public interface ActorContext<T> {
      * @return the {@code ActorSettings} object containing the current configuration of the actor
      */
     ActorSettings settings();
+
+    ActorSessions<T> sessions();
 }

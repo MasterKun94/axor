@@ -9,6 +9,7 @@ import io.axor.runtime.StreamDefinition;
 import io.axor.runtime.StreamManager;
 import org.junit.Assert;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -19,12 +20,19 @@ import static io.axor.testkit.actor.MsgAssertions.eq;
 public class MockActorRef<T> extends ForwardingActorRef<T> {
     private final BlockingQueue<MsgAndSender> queue = new LinkedBlockingQueue<>();
     private final BlockingQueue<Signal> signals = new LinkedBlockingQueue<>();
-    private final long pollTimeout;
+    private long pollTimeout;
     private ActorRefRich<T> combine;
 
     public MockActorRef(ActorRef<T> delegate, long pollTimeout) {
         super(delegate);
         this.pollTimeout = pollTimeout;
+    }
+
+    public void setTimeout(Duration timeout) {
+        if (!timeout.isPositive()) {
+            throw new IllegalArgumentException("timeout is not positive");
+        }
+        pollTimeout = timeout.toMillis();
     }
 
     private static <T> T take(BlockingQueue<T> queue, long timeout) {

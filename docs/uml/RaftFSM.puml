@@ -1,0 +1,18 @@
+@startuml
+'https://plantuml.com/state-diagram
+
+[*] --> CANDIDATE : 启动
+CANDIDATE --> LEADER : 超过半数follower返回ack
+CANDIDATE --> FOLLOWER : 发现leader
+FOLLOWER --> CANDIDATE : leader无响应
+LEADER --> FOLLOWER : 发现更高Term值的leader
+
+state FOLLOWER {
+ SYNCHRONIZER --> STRAGGLER: 日志延迟大于阈值
+ SYNCHRONIZER --> CHASER: 日志延迟小于阈值
+ STRAGGLER --> CHASER: 日志延迟小于阈值
+ CHASER --> SYNCHRONIZER: 日志同步
+ CHASER --> STRAGGLER: 日志同步
+}
+
+@enduml

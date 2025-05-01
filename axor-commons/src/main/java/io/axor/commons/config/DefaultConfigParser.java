@@ -55,6 +55,8 @@ public class DefaultConfigParser implements ConfigParser {
                 return config.getDuration(key);
             } else if (clazz.equals(ConfigMemorySize.class)) {
                 return config.getMemorySize(key);
+            } else if (clazz.equals(MemorySize.class)) {
+                return MemorySize.ofBytes(config.getMemorySize(key).toBytesBigInteger());
             } else if (clazz.equals(Period.class)) {
                 return config.getPeriod(key);
             } else if (clazz.equals(URI.class)) {

@@ -1,0 +1,150 @@
+syntax = "proto3";
+
+option java_package = "io.axor.cp.proto";
+option java_outer_classname = "KVStoreProto";
+
+package axor.cp;
+
+message Node {
+  int64 id = 1;
+  string name = 2;
+  int64 parentId = 3;
+  int64 createTime = 4;
+  bytes data = 5;
+}
+message NodeHeader {
+  int64 id = 1;
+  string name = 2;
+  int64 parentId = 3;
+  int64 createTime = 4;
+}
+
+message Nodes {
+  repeated Node nodes = 1;
+}
+
+message NodePath {
+  repeated string elem = 1;
+}
+
+message StoreReq {
+  oneof cmd {
+    GetById getById = 1;
+    GetByPath getByPath = 2;
+    GetParentById getParentById = 3;
+    GetParentByPath getParentByPath = 4;
+    GetChildById getChildById = 5;
+    GetChildByPath getChildByPath = 6;
+    ListChildrenById listChildrenById = 7;
+    ListChildrenByPath listChildrenByPath = 8;
+    CreateById createChildById = 9;
+    CreateByPath createChildByPath = 10;
+    UpdateById replaceById = 11;
+    UpdateByPath replaceByPath = 12;
+    DeleteById deleteById = 13;
+    DeleteByPath deleteByPath = 14;
+  }
+}
+
+message StoreRes {
+  int32 code = 1;
+  string error = 2;
+  oneof content {
+    GetRes get = 5;
+    ListRes list = 6;
+    CreateRes create = 7;
+    UpdateRes update = 8;
+  }
+}
+
+message GetById {
+  int64 id = 1;
+  bool ignoreData = 2;;
+}
+message GetByPath {
+  NodePath path = 1;
+  bool ignoreData = 2;;
+}
+message GetParentById {
+  int64 id = 1;
+  bool ignoreData = 2;;
+}
+message GetParentByPath {
+  NodePath path = 1;
+  bool ignoreData = 2;;
+}
+message GetChildById {
+  int64 id = 1;
+  bool ignoreData = 2;;
+  string childName = 3;
+}
+message GetChildByPath {
+  NodePath path = 1;
+  bool ignoreData = 2;;
+  string childName = 3;
+}
+message GetRes {
+  Node node = 1;
+  bool ignoreData = 2;
+}
+message ListChildrenById {
+  int64 id = 1;
+  bool ignoreData = 2;;
+}
+message ListChildrenByPath {
+  NodePath path = 1;
+  bool ignoreData = 2;;
+}
+message ListRes {
+  Nodes nodes = 1;
+  bool ignoreData = 2;
+}
+message CreateById {
+  int64 parentId = 1;
+  string name = 2;
+  bytes data = 4;
+  bool overwriteIfExists = 5;
+}
+message CreateByPath {
+  NodePath path = 1;
+  string name = 2;
+  map<int32, bytes> meta = 3;
+  bytes data = 4;
+  bool overwriteIfExists = 5;
+}
+message UpdateById {
+  int64 id = 1;
+  bytes data = 4;
+}
+message UpdateByPath {
+  NodePath path = 1;
+  bytes data = 4;
+}
+message DeleteById {
+  int64 id = 1;
+  bool recursive = 2;
+}
+message DeleteByPath {
+  NodePath path = 1;
+  bool recursive = 2;
+}
+message CreateRes {
+  NodeHeader createNode = 1;
+}
+message UpdateRes {
+}
+
+service KVStoreService {
+  rpc getById(GetById) returns (GetRes);
+  rpc getByPath(GetByPath) returns (GetRes);
+  rpc getChildById(GetChildById) returns (GetRes);
+  rpc getChildByPath(GetChildByPath) returns (GetRes);
+  rpc listChildById(ListChildrenById) returns (ListRes);
+  rpc listChildByPath(ListChildrenByPath) returns (ListChildrenByPath);
+  rpc createById(CreateById) returns (CreateRes);
+  rpc createByPath(CreateByPath) returns (CreateRes);
+  rpc updateById(UpdateById) returns (UpdateRes);
+  rpc updateByPath(UpdateByPath) returns (UpdateRes);
+  rpc deleteById(DeleteById) returns (UpdateRes);
+  rpc deleteByPath(DeleteByPath) returns (UpdateRes);
+}

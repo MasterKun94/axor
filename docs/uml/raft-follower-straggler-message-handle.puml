@@ -1,0 +1,45 @@
+@startuml
+!pragma useVerticalIf on
+start
+repeat : send [LogFetchRequest]
+
+    repeat : receive message
+        if (receive [LogFetchRequest]) then (yes)
+            :send [LogEntries] to sender;
+
+        elseif (receive [LeaderElection] or [LeaderState] from non leader peer) then (yes)
+            if (msg.term > self.term) then (yes)
+                :send [LeaderElectionAck] to sender;
+                if ({logLag} > threshold) then (yes)
+                    :stage change to FOLLOWER(STRAGGLER);
+                    stop
+                else (false)
+                    :stage change to FOLLOWER(CHASER);
+                    stop
+                endif
+            else (false)
+                :ignore;
+            endif
+        elseif (receive [CreateSnapshot]) then (yes)
+            :install snapshot;
+        elseif (leader heartbeat timeout) then (yes)
+            :ignore;
+        elseif (receive [LogFetchEntries])) then (yes)
+            while (iterate [LogFetchEntries])
+                if (applyTransaction) then (failure)
+                    :system failure;
+                    stop
+                else (success)
+                endif
+            endwhile
+            if ({logLag} > threshold) then (yes)
+                break
+            else
+                :stage change to FOLLOWER(CHASER);
+                stop
+            endif
+        endif
+    repeat while (running)
+repeat while (running)
+stop
+@enduml

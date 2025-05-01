@@ -1,0 +1,40 @@
+@startuml
+!pragma useVerticalIf on
+start
+repeat
+    :term += 1;
+    :send [LeaderElection] to all peers;
+
+    repeat : receive message
+        if (receive [LogFetchRequest]) then (yes)
+            :send [LogEntries] to sender;
+        elseif (receive [LeaderElectionAck] from peer) then (yes)
+            if (majority peer ack) then (yes)
+                :stage change to LEADER;
+                stop
+            endif
+
+        elseif (receive [LeaderElection] or [LeaderState] from peer) then (yes)
+            if (peer.term > self.term || (peer.term == self.term && peer.priority > self.priority)) then (yes)
+                :send [LeaderElectionAck] to sender;
+                if ({logLag} > threshold) then (yes)
+                    :stage change to FOLLOWER(STRAGGLER);
+                    stop
+                else (false)
+                    :stage change to FOLLOWER(CHASER);
+                    stop
+                endif
+            else (false)
+                :send [LeaderElection] to sender;
+            endif
+
+        elseif (receive [Transaction] from client) then (yes)
+            :send [TransactionReject] to client;
+        endif
+    repeat while (candidate running)
+
+repeat while (running)
+
+stop
+@enduml
+

@@ -36,7 +36,7 @@ public class DistributeActorSystemTest {
             "test", "test", EventContextKeyMarshaller.STRING);
     private static final EventContext.Key<String> key2 = new EventContext.Key<>(3,
             "test2", "test2", EventContextKeyMarshaller.STRING);
-    private static final ActorTestKit testKit = new ActorTestKit(Duration.ofMillis(100));
+    private static final ActorTestKit testKit = new ActorTestKit(Duration.ofMillis(500));
     private static ActorSystem system1;
     private static ActorSystem system2;
     private static ActorRef<String> simpleReply1;
@@ -236,6 +236,36 @@ public class DistributeActorSystemTest {
         systemEventListener2.clear();
     }
 
+    @Test
+    public void testSessionAsk() throws Exception {
+        MockActorRef<String> reply = testKit.mock("sessionReply", String.class, system1);
+        MockActorRef<String> clientRef = testKit.mock(system2.address("sessionClient"),
+                String.class);
+        clientRef.setTimeout(Duration.ofSeconds(2));
+        ActorRef<String> replayRef = system2.get(reply.address(), MsgType.of(String.class));
+        ActorRef<String> sessionAsk =
+                system2.start(actorContext -> new SessionAskActor(actorContext, replayRef),
+                        "sessionAsk");
+        ActorRef<String> sessionAskRef = system1.get(sessionAsk.address(), String.class);
+
+        sessionAsk.tell("Hello", clientRef);
+        reply.expectReceive("Hello");
+        sessionAskRef.tell("World", reply);
+        clientRef.expectReceive("Receive Success msg: World");
+
+        sessionAsk.tell("Hello2", clientRef);
+        reply.expectReceive("Hello2");
+        clientRef.expectReceive("Receive Error: " + new TimeoutException());
+
+        sessionAsk.tell("Hello3", clientRef);
+        reply.expectReceive("Hello3");
+        sessionAskRef.tell("World3", reply);
+        clientRef.expectReceive("Receive Success msg: World3");
+
+        sessionAsk.tell("Hello3", clientRef);
+        reply.expectReceive("Hello3");
+    }
+
     public void assertStreamEvent(SystemEvent event, Class<? extends SystemEvent.StreamEvent> type,
                                   ActorAddress remoteAddress, MsgType<?> remoteMsgType,
                                   ActorAddress selfAddress, MsgType<?> selfMsgType,
@@ -362,5 +392,35 @@ public class DistributeActorSystemTest {
     }
 
     public record TestSignal(String hello) implements Signal {
+    }
+
+    private static class SessionAskActor extends Actor<String> {
+        private final ActorRef<String> ref;
+
+        public SessionAskActor(ActorContext<String> actorContext,
+                               ActorRef<String> ref) {
+            super(actorContext);
+            this.ref = ref;
+        }
+
+        @Override
+        public void onReceive(String msg) {
+            ActorRef<String> sender = sender(String.class);
+            ref.tell(msg);
+            context().sessions().expectReceiveFrom(ref)
+                    .msgType(MsgType.of(String.class))
+                    .msgPredicate(s -> true)
+                    .listen(Duration.ofSeconds(1))
+                    .observe(s -> {
+                        sender.tell("Receive Success msg: " + s);
+                    }, e -> {
+                        sender.tell("Receive Error: " + e.toString());
+                    });
+        }
+
+        @Override
+        public MsgType<String> msgType() {
+            return MsgType.of(String.class);
+        }
     }
 }
