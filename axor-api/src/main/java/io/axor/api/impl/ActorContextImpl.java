@@ -6,11 +6,17 @@ import io.axor.api.ActorRef;
 import io.axor.api.ActorRefRich;
 import io.axor.api.ActorSettings;
 import io.axor.api.ActorSystem;
+import io.axor.api.EventStageSignal;
 import io.axor.api.SystemEvent;
+import io.axor.commons.concurrent.EventStage;
+import io.axor.commons.concurrent.Try;
 import io.axor.runtime.EventDispatcher;
 import io.axor.runtime.MsgType;
+import io.axor.runtime.scheduler.Scheduler;
 
 import java.util.List;
+
+import static io.axor.api.impl.ActorUnsafe.signal;
 
 class ActorContextImpl<T> implements ActorContext<T> {
     private final ActorSystem system;
@@ -57,6 +63,11 @@ class ActorContextImpl<T> implements ActorContext<T> {
     }
 
     @Override
+    public Scheduler scheduler() {
+        return system.getScheduler(executor);
+    }
+
+    @Override
     public <P> ActorRef<P> startChild(ActorCreator<P> creator, String name) {
         ActorRef<P> child = system.start(creator, name, executor);
         if (executor.inExecutor()) {
@@ -89,5 +100,11 @@ class ActorContextImpl<T> implements ActorContext<T> {
     @Override
     public ActorSessionsImpl<T> sessions() {
         return sessions;
+    }
+
+    @Override
+    public void signalWhenComplete(long tagId, EventStage<?> stage) {
+        stage.observe(m -> signal(self, new EventStageSignal<>(tagId, Try.success(m))),
+                e -> signal(self, new EventStageSignal<>(tagId, Try.failure(e))));
     }
 }

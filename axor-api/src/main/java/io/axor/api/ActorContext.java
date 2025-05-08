@@ -1,17 +1,32 @@
 package io.axor.api;
 
 import io.axor.api.impl.ActorSystemImpl;
+import io.axor.commons.concurrent.EventStage;
 import io.axor.runtime.EventDispatcher;
 import io.axor.runtime.MsgType;
+import io.axor.runtime.scheduler.Scheduler;
 
 import java.util.List;
 
 /**
- * Provides the context for an actor, encapsulating the environment in which the actor operates.
- * This includes references to the actor system, the event executor, and methods to interact with
- * other actors.
- *
- * @param <T> the type of messages this actor can handle
+ * Represents the context of an actor, providing access to essential components and operations
+ * required for the actor's lifecycle and communication. This interface defines methods for
+ * interacting with the actor system, managing child actors, handling messages, and observing system
+ * events.
+ * <p>
+ * The {@code ActorContext} is responsible for maintaining the actor's reference, sender
+ * information, and system-level services such as scheduling, dispatching, and event handling. It
+ * also provides mechanisms for starting and stopping actors, managing watchers, and accessing
+ * configuration settings.
+ * <p>
+ * Key functionalities include: - Retrieving references to the current actor, sender, and the actor
+ * system. - Managing child actors by starting or stopping them. - Accessing system services like
+ * the event dispatcher, scheduler, and dead letter queue. - Observing system events from other
+ * actors through watch mechanisms. - Configuring actor behavior using settings such as
+ * auto-acknowledgment. - Handling sessions associated with the actor.
+ * <p>
+ * This interface is designed to be implemented by concrete classes that provide the underlying
+ * functionality for actor execution and management within an actor system.
  */
 public interface ActorContext<T> {
     /**
@@ -63,6 +78,14 @@ public interface ActorContext<T> {
      * @return the {@code EventDispatcher} used by this actor to execute tasks
      */
     EventDispatcher dispatcher();
+
+    /**
+     * Returns the {@code Scheduler} associated with this actor. The scheduler is responsible for
+     * scheduling and executing tasks at specified intervals or after a certain delay.
+     *
+     * @return the {@code Scheduler} used by this actor for scheduling tasks
+     */
+    Scheduler scheduler();
 
     /**
      * Starts a new child actor with the specified creator and name.
@@ -141,4 +164,6 @@ public interface ActorContext<T> {
     ActorSettings settings();
 
     ActorSessions<T> sessions();
+
+    void signalWhenComplete(long tagId, EventStage<?> stage);
 }

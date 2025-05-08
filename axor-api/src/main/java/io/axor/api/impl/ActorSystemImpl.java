@@ -34,6 +34,10 @@ import io.axor.runtime.SerdeRegistry;
 import io.axor.runtime.StreamDefinition;
 import io.axor.runtime.StreamServer;
 import io.axor.runtime.StreamServerBuilderProvider;
+import io.axor.runtime.scheduler.HashedWheelScheduler;
+import io.axor.runtime.scheduler.HashedWheelTimer;
+import io.axor.runtime.scheduler.HashedWheelTimerConfig;
+import io.axor.runtime.scheduler.Scheduler;
 import io.micrometer.core.instrument.FunctionCounter;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -56,6 +60,7 @@ public class ActorSystemImpl implements ActorSystem, HasMeter {
     private final StreamServer streamServer;
     private final Address publishAddress;
     private final EventDispatcherGroup eventExecutorGroup;
+    private final HashedWheelTimer timer;
     private final Map<String, ActorRef<?>> localActorCache = new ConcurrentHashMap<>();
     private final ActorRefCache remoteActorCache =
             new MapActorRefCache(this::createRemoteActorRef, false);
@@ -103,6 +108,10 @@ public class ActorSystemImpl implements ActorSystem, HasMeter {
             throw new IllegalArgumentException("ActorSystem key already exists: " +
                                                ActorAddress.create(name, publishAddress, ""));
         }
+        var schedulerConfig = config.hasPath("axor.scheduler") ?
+                config.getConfig("axor.scheduler") : ConfigFactory.empty();
+        var parsedSchedulerConfig = ConfigMapper.map(schedulerConfig, HashedWheelTimerConfig.class);
+        this.timer = new HashedWheelTimer("Scheduler-" + name, parsedSchedulerConfig);
         this.name = name;
         this.streamServer = streamServer;
         this.publishAddress = publishAddress;
@@ -350,6 +359,11 @@ public class ActorSystemImpl implements ActorSystem, HasMeter {
     @Override
     public EventDispatcherGroup getDispatcherGroup() {
         return eventExecutorGroup;
+    }
+
+    @Override
+    public Scheduler getScheduler(EventDispatcher dispatcher) {
+        return new HashedWheelScheduler(timer, dispatcher);
     }
 
     @Override

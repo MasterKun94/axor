@@ -1,5 +1,7 @@
 package io.axor.runtime.scheduler;
 
+import io.axor.commons.concurrent.DefaultSingleThreadEventExecutor;
+import io.axor.commons.concurrent.EventExecutor;
 import org.junit.Test;
 
 import java.util.concurrent.CompletableFuture;
@@ -12,11 +14,12 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 public class HashedWheelSchedulerTest {
+    private static final EventExecutor executor = new DefaultSingleThreadEventExecutor();
 
     @Test
     public void testSetTimeoutCompletesNormally() throws Exception {
         HashedWheelTimer timer = new HashedWheelTimer();
-        HashedWheelScheduler scheduler = new HashedWheelScheduler(timer);
+        HashedWheelScheduler scheduler = new HashedWheelScheduler(timer, executor);
         CompletableFuture<String> future = new CompletableFuture<>();
         CompletableFuture<String> scheduledFuture = scheduler.setTimeout(future, 100,
                 TimeUnit.MILLISECONDS);
@@ -27,7 +30,7 @@ public class HashedWheelSchedulerTest {
     @Test
     public void testSetTimeoutWithException() throws Exception {
         HashedWheelTimer timer = new HashedWheelTimer();
-        HashedWheelScheduler scheduler = new HashedWheelScheduler(timer);
+        HashedWheelScheduler scheduler = new HashedWheelScheduler(timer, executor);
         CompletableFuture<String> future = new CompletableFuture<>();
         CompletableFuture<String> scheduledFuture = scheduler.setTimeout(future, 100,
                 TimeUnit.MILLISECONDS);
@@ -44,7 +47,7 @@ public class HashedWheelSchedulerTest {
     @Test
     public void testSetTimeoutAlreadyCompleted() throws Exception {
         HashedWheelTimer timer = new HashedWheelTimer();
-        HashedWheelScheduler scheduler = new HashedWheelScheduler(timer);
+        HashedWheelScheduler scheduler = new HashedWheelScheduler(timer, executor);
         CompletableFuture<String> future = CompletableFuture.completedFuture("Already Completed");
         CompletableFuture<String> scheduledFuture = scheduler.setTimeout(future, 100,
                 TimeUnit.MILLISECONDS);
@@ -54,7 +57,7 @@ public class HashedWheelSchedulerTest {
     @Test(expected = TimeoutException.class)
     public void testSetTimeoutWithTimeoutException() throws Exception {
         HashedWheelTimer timer = new HashedWheelTimer();
-        HashedWheelScheduler scheduler = new HashedWheelScheduler(timer);
+        HashedWheelScheduler scheduler = new HashedWheelScheduler(timer, executor);
         CompletableFuture<String> future = new CompletableFuture<>();
         CompletableFuture<String> scheduledFuture = scheduler.setTimeout(future, 100,
                 TimeUnit.MILLISECONDS);
@@ -65,7 +68,7 @@ public class HashedWheelSchedulerTest {
     @Test
     public void testSetTimeoutCancelledBeforeCompletion() throws Exception {
         HashedWheelTimer timer = new HashedWheelTimer();
-        HashedWheelScheduler scheduler = new HashedWheelScheduler(timer);
+        HashedWheelScheduler scheduler = new HashedWheelScheduler(timer, executor);
         CompletableFuture<String> future = new CompletableFuture<>();
         CompletableFuture<String> scheduledFuture = scheduler.setTimeout(future, 100,
                 TimeUnit.MILLISECONDS);

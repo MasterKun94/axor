@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * Provides a set of static methods to create and manage actor behaviors. Behaviors are the core
@@ -53,7 +54,6 @@ public class Behaviors {
      * @return a {@code Behavior<T>} that represents the unhandled behavior, indicating the message
      * is not processed
      */
-    @SuppressWarnings("unchecked")
     public static <T> Behavior<T> unhandled() {
         return new InternalBehavior<>(BehaviorType.UNHANDLED);
     }
@@ -229,7 +229,11 @@ public class Behaviors {
      * behavior
      */
     public static <T> ConsumeBuffer<T> consumeBuffer(Behavior<T> startBehavior) {
-        return new ConsumeBuffer<>(startBehavior);
+        return new ConsumeBuffer<>(() -> startBehavior);
+    }
+
+    public static <T> ConsumeBuffer<T> consumeBuffer(Supplier<Behavior<T>> behaviorSupplier) {
+        return new ConsumeBuffer<>(behaviorSupplier);
     }
 
     sealed interface MsgOrSignal<T> {
@@ -274,11 +278,11 @@ public class Behaviors {
      * @param <T> the type of messages this actor can handle
      */
     public static class ConsumeBuffer<T> {
-        private final Behavior<T> behavior;
+        private final Supplier<Behavior<T>> supplier;
         private final List<MsgOrSignal<T>> buffers = new ArrayList<>();
 
-        public ConsumeBuffer(Behavior<T> behavior) {
-            this.behavior = behavior;
+        public ConsumeBuffer(Supplier<Behavior<T>> supplier) {
+            this.supplier = supplier;
         }
 
         public ConsumeBuffer<T> addMsg(T msg, ActorRef<?> sender) {
@@ -292,7 +296,7 @@ public class Behaviors {
         }
 
         public Behavior<T> toBehavior() {
-            return new ConsumeBufferBehavior<>(behavior, buffers);
+            return new ConsumeBufferBehavior<>(supplier.get(), buffers);
         }
     }
 

@@ -14,7 +14,6 @@ import io.axor.cluster.config.MembershipConfig;
 import io.axor.commons.collection.LongObjectHashMap;
 import io.axor.commons.collection.LongObjectMap;
 import io.axor.exception.ActorException;
-import io.axor.runtime.EventDispatcher;
 import io.axor.runtime.MsgType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -151,7 +150,7 @@ public class MembershipActor extends AbstractActor<MembershipMessage> {
                 memberManager.internalIncAndGetClock()
         );
         memberManager.gossipEvent(Gossip.of(eventSupplier.get(), selfUid));
-        tmpScheduledFuture = context().dispatcher().scheduleWithFixedDelay(
+        tmpScheduledFuture = context().scheduler().scheduleWithFixedDelay(
                 () -> {
                     var gossip = Gossip.of(eventSupplier.get(), selfUid, true);
                     seeds.forEach(actor -> actor.tell(gossip, self()));
@@ -193,14 +192,13 @@ public class MembershipActor extends AbstractActor<MembershipMessage> {
 
     private Behavior<MembershipMessage> leaving() {
         failureDetector.stop();
-        EventDispatcher dispatcher = context().dispatcher();
         updateLocalMemberState(LocalMemberState.LEAVING);
         LongObjectMap<Member> map = memberManager.getMembers(MemberState.UP).collect(
                 LongObjectHashMap::new,
                 (m, e) -> m.put(e.uid(), e),
                 LongObjectMap::putAll);
         long timeout = System.currentTimeMillis() + config.leave().timeout().toMillis();
-        tmpScheduledFuture = dispatcher.scheduleWithFixedDelay(() -> {
+        tmpScheduledFuture = context().scheduler().scheduleWithFixedDelay(() -> {
             if (System.currentTimeMillis() > timeout) {
                 context().self().tell(MembershipMessage.FORCE_LEAVE, self());
                 return;

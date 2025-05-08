@@ -12,14 +12,18 @@ import io.axor.runtime.EventDispatcherGroup;
 import io.axor.runtime.MsgType;
 import io.axor.runtime.SerdeRegistry;
 import io.axor.runtime.StreamServer;
+import io.axor.runtime.scheduler.Scheduler;
 import org.slf4j.Logger;
 
 import java.util.concurrent.CompletableFuture;
 
 /**
- * The ActorSystem interface represents the core of an actor-based system, providing methods to
- * manage and interact with actors. It is responsible for creating, starting, stopping, and
- * retrieving actors, as well as handling system-level events and failures.
+ * Stops all actors within the actor system and shuts down the system itself. This method ensures
+ * that all resources are released and all actors are properly terminated before the system is fully
+ * shut down.
+ *
+ * @return an {@code EventStage<Void>} that can be used to track the completion of the shutdown
+ * process
  */
 public interface ActorSystem {
     static ActorSystem create(String name) {
@@ -280,6 +284,14 @@ public interface ActorSystem {
      * @return the {@code EventDispatcherGroup} instance associated with this actor system
      */
     EventDispatcherGroup getDispatcherGroup();
+
+    /**
+     * Retrieves the scheduler associated with the given event dispatcher.
+     *
+     * @param dispatcher the event dispatcher for which the scheduler is retrieved
+     * @return the scheduler linked to the provided event dispatcher
+     */
+    Scheduler getScheduler(EventDispatcher dispatcher);
 
     /**
      * Initiates the asynchronous shutdown of the actor system. This method will trigger the

@@ -1,0 +1,82 @@
+package io.axor.raft;
+
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+import io.axor.api.ActorRef;
+import io.axor.api.ActorSystem;
+import io.axor.api.impl.ActorUnsafe;
+import io.axor.commons.config.ConfigMapper;
+import io.axor.raft.logging.AsyncRaftLoggingFactoryAdaptor;
+import io.axor.raft.logging.RaftLoggingFactory;
+import io.axor.raft.logging.RocksdbRaftLoggingFactory;
+import io.axor.raft.messages.PeerMessage;
+import io.axor.runtime.EventDispatcher;
+import org.apache.commons.io.FileUtils;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Test;
+
+import java.io.File;
+import java.util.List;
+
+public class PeerTest {
+    private static List<Peer> peers;
+    private static RaftLoggingFactory factory;
+    private static ActorSystem system;
+    private static ActorRef<PeerMessage> peer1, peer2, peer3;
+
+    @BeforeClass
+    public static void setup() throws Exception {
+        Config config = ConfigFactory
+                .load(ConfigFactory.parseString("""
+                        axor.network.bind.host = localhost
+                        axor.network.bind.port = 4312
+                        """))
+                .resolve();
+        system = ActorSystem.create("PeerTest", config);
+        peers = List.of(
+                new Peer(1, system.address("Peer1")),
+                new Peer(2, system.address("Peer2")),
+                new Peer(3, system.address("Peer3"))
+        );
+        FileUtils.deleteDirectory(new File(".tmp/PeerTest"));
+        FileUtils.createParentDirectories(new File(".tmp/PeerTest"));
+        factory = new RocksdbRaftLoggingFactory(ConfigFactory.parseString("""
+                path = .tmp/PeerTest
+                bufferDirect = true
+                bufferMax = 4k
+                dbOptions {
+                  create_if_missing = true
+                }
+                """));
+        var asyncFactory = new AsyncRaftLoggingFactoryAdaptor(factory);
+        RaftConfig raftConfig = ConfigMapper.map(ConfigFactory.parseString("""
+                
+                """), RaftConfig.class);
+        EventDispatcher dispatcher = system.getDispatcherGroup().nextDispatcher();
+        var logging1 = asyncFactory.create("Peer1", dispatcher.newPromise()).toFuture().get();
+        var logging2 = asyncFactory.create("Peer2", dispatcher.newPromise()).toFuture().get();
+        var logging3 = asyncFactory.create("Peer3", dispatcher.newPromise()).toFuture().get();
+        peer1 = system.start(c -> new PeerActor(c, raftConfig, peers, 0, logging1), "Peer1");
+        peer2 = system.start(c -> new PeerActor(c, raftConfig, peers, 1, logging2), "Peer2");
+        peer3 = system.start(c -> new PeerActor(c, raftConfig, peers, 2, logging3), "Peer3");
+
+        ActorUnsafe.signal(peer1, PeerActor.START_SIGNAL);
+        Thread.sleep(500);
+        ActorUnsafe.signal(peer2, PeerActor.START_SIGNAL);
+        Thread.sleep(100);
+        ActorUnsafe.signal(peer3, PeerActor.START_SIGNAL);
+    }
+
+    @AfterClass
+    public static void cleanup() throws Exception {
+        system.shutdownAsync().get();
+        factory.close();
+    }
+
+    @Test
+    public void test() throws Exception {
+        Thread.sleep(40000);
+    }
+
+}

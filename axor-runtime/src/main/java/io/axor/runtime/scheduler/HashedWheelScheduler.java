@@ -1,5 +1,7 @@
 package io.axor.runtime.scheduler;
 
+import io.axor.commons.concurrent.EventExecutor;
+
 import java.io.Closeable;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
@@ -16,13 +18,47 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+/**
+ * A scheduler implementation that uses a hashed wheel timer for scheduling tasks. This class
+ * implements the Scheduler and Closeable interfaces, providing capabilities for scheduling tasks
+ * with delays, periodic execution, and timeout handling.
+ * <p>
+ * The HashedWheelScheduler leverages a hashed wheel timer to efficiently manage large numbers of
+ * scheduled tasks. It supports both one-time and recurring tasks, as well as integration with
+ * external executors for task execution.
+ * <p>
+ * Tasks can be scheduled with timeouts, fixed-rate execution, or fixed-delay execution. The
+ * scheduler ensures proper cleanup of resources when closed, stopping the underlying timer and
+ * preventing further task scheduling.
+ * <p>
+ * The implementation provides thread-safe operations for task scheduling and cancellation, ensuring
+ * consistency in concurrent environments. It also integrates with CompletableFuture for handling
+ * timeouts on asynchronous computations.
+ * <p>
+ * The scheduler supports custom execution contexts through the use of ExecutorService, allowing
+ * tasks to be executed in specific threads or thread pools.
+ * <p>
+ * When scheduling tasks, the scheduler ensures that expired or cancelled tasks are properly
+ * handled, avoiding unnecessary resource consumption. The internal mechanisms for task management
+ * are optimized for performance and scalability.
+ * <p>
+ * Note that this scheduler is designed for use cases where high-performance task scheduling is
+ * required, particularly when dealing with a large number of short-lived tasks.
+ */
 public class HashedWheelScheduler implements Scheduler, Closeable {
 
     private final Timer timer;
+    private final EventExecutor executor;
 
-    public HashedWheelScheduler(HashedWheelTimer timer) {
+    public HashedWheelScheduler(HashedWheelTimer timer, EventExecutor executor) {
         this.timer = timer;
+        this.executor = executor;
         timer.start();
+    }
+
+    @Override
+    public EventExecutor executor() {
+        return executor;
     }
 
     @Override

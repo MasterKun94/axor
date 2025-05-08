@@ -103,6 +103,22 @@ public class HashedWheelTimer implements Timer {
     private volatile long startTime;
 
     /**
+     * Creates a new {@link HashedWheelTimer} instance with the specified thread name and scheduler
+     * configuration. This constructor initializes the timer with a daemon thread using the provided
+     * thread name and configures the timer based on the settings in the
+     * {@link HashedWheelTimerConfig}.
+     *
+     * @param threadName the name of the background thread dedicated to executing scheduled tasks
+     * @param config     the configuration object containing tick duration, ticks per wheel, and
+     *                   maximum pending timeouts for the timer
+     */
+    public HashedWheelTimer(String threadName, HashedWheelTimerConfig config) {
+        this(Thread.ofPlatform().name(threadName).daemon(true).factory(),
+                config.tickDuration().toMillis(), TimeUnit.MILLISECONDS, config.ticksPerWheel(),
+                false, config.maxPendingTimeouts());
+    }
+
+    /**
      * Creates a new timer with the default thread factory
      * ({@link Executors#defaultThreadFactory()}), default tick duration, and default number of
      * ticks per wheel.
