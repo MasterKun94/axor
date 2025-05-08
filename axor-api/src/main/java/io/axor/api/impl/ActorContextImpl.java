@@ -14,7 +14,9 @@ import io.axor.runtime.EventDispatcher;
 import io.axor.runtime.MsgType;
 import io.axor.runtime.scheduler.Scheduler;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static io.axor.api.impl.ActorUnsafe.signal;
 
@@ -25,6 +27,7 @@ class ActorContextImpl<T> implements ActorContext<T> {
     private final ActorSettings settings = new ActorSettings();
     private final ActorSessionsImpl<T> sessions;
     private ActorRef<?> sender;
+    Map<String, String> mdcMap;
 
     public ActorContextImpl(ActorSystem system, EventDispatcher executor, LocalActorRef<T> self) {
         this.system = system;
@@ -106,5 +109,13 @@ class ActorContextImpl<T> implements ActorContext<T> {
     public void signalWhenComplete(long tagId, EventStage<?> stage) {
         stage.observe(m -> signal(self, new EventStageSignal<>(tagId, Try.success(m))),
                 e -> signal(self, new EventStageSignal<>(tagId, Try.failure(e))));
+    }
+
+    @Override
+    public Map<String, String> mdcMap() {
+        if (mdcMap == null) {
+            mdcMap = new HashMap<>();
+        }
+        return mdcMap;
     }
 }

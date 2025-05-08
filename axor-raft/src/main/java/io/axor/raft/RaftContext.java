@@ -125,7 +125,7 @@ public class RaftContext {
     public void changeSelfPeerState(PeerState peerState) {
         PeerState prev = raftState.getPeerState();
         if (prev != peerState) {
-            LOG.info("Peer stage changed from {} to {}", prev, peerState);
+            LOG.info("Peer state changed from {} to {}", prev, peerState);
             raftState.setPeerState(peerState);
             for (Runnable runnable : runOnPeerStateChange) {
                 runnable.run();

@@ -11,7 +11,7 @@
         <filter class="io.axor.logging.LogBackFilter"/>
         <encoder>
             <pattern>
-                ts="%d{ISO8601}" level=%-5level th=%thread logger=%logger actor=%X{actor} msg="%msg"%n
+                ts="%d{ISO8601}" level=%-5level th=%thread logger=%logger actor=%X{actor} extra=%X{extra} msg="%msg"%n
             </pattern>
         </encoder>
     </appender>

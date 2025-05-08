@@ -29,8 +29,7 @@ public class DefaultConfigParser implements ConfigParser {
             if (type.nullable() && !config.hasPath(key)) {
                 if (type.parentType().isPrimitive()) {
                     throw new ConfigParseException(type, "[%s] request primitive type but config " +
-                                                         "value " +
-                                                         "is null");
+                                                         "value is null");
                 } else {
                     return null;
                 }
