@@ -6,14 +6,14 @@ import io.axor.api.Behavior;
 import io.axor.api.Behaviors;
 import io.axor.raft.behaviors.FollowerBehavior;
 import io.axor.raft.logging.AsyncRaftLogging;
-import io.axor.raft.messages.PeerMessage;
+import io.axor.raft.proto.PeerProto.PeerMessage;
 import io.axor.runtime.MsgType;
 import io.axor.runtime.Signal;
 
 import java.util.List;
 import java.util.function.Supplier;
 
-public class PeerActor extends AbstractActor<PeerMessage> {
+public class RaftPeerActor extends AbstractActor<PeerMessage> {
     public static final Signal START_SIGNAL = new Signal() {
         @Override
         public String toString() {
@@ -22,11 +22,13 @@ public class PeerActor extends AbstractActor<PeerMessage> {
     };
     private Supplier<RaftContext> raftContextSupplier;
 
-    protected PeerActor(ActorContext<PeerMessage> context, RaftConfig config, List<Peer> peers,
-                        int peerOffset, AsyncRaftLogging raftLogging) {
+    protected RaftPeerActor(ActorContext<PeerMessage> context, RaftConfig config, List<Peer> peers,
+                            int peerOffset, AsyncRaftLogging raftLogging) {
         super(context);
-        raftContextSupplier = () -> new RaftContext(context, config, peers, peers.get(peerOffset)
-                , raftLogging);
+        raftContextSupplier = () -> {
+            Peer selfPeer = peers.get(peerOffset);
+            return new RaftContext(context, config, peers, selfPeer, raftLogging);
+        };
     }
 
     @Override

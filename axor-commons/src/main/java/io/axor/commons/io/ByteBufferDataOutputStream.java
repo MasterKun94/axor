@@ -20,6 +20,12 @@ public class ByteBufferDataOutputStream extends OutputStream implements DataOutp
                 ByteBuffer.allocate(initialCapacity);
     }
 
+    public ByteBufferDataOutputStream(ByteBuffer buffer) {
+        this.direct = buffer.isDirect();
+        this.maxCapacity = buffer.capacity();
+        this.buffer = buffer;
+    }
+
     private void ensureCapacity(int required) {
         if (buffer.remaining() < required) {
             ByteBuffer old = buffer;

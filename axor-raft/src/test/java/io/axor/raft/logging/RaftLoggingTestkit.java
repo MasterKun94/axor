@@ -1,10 +1,11 @@
 package io.axor.raft.logging;
 
 import com.google.protobuf.ByteString;
-import io.axor.raft.AppendStatus;
-import io.axor.raft.CommitStatus;
-import io.axor.raft.LogEntry;
-import io.axor.raft.LogId;
+import io.axor.raft.proto.PeerProto;
+import io.axor.raft.proto.PeerProto.AppendResult;
+import io.axor.raft.proto.PeerProto.CommitResult;
+import io.axor.raft.proto.PeerProto.LogEntry;
+import io.axor.raft.proto.PeerProto.LogId;
 import org.junit.Assert;
 
 import java.util.Arrays;
@@ -34,11 +35,17 @@ public class RaftLoggingTestkit {
     }
 
     private LogEntry logEntry(long index, long term, String data) {
-        return new LogEntry(logEntryId(index, term), ByteString.copyFromUtf8(data));
+        return LogEntry.newBuilder()
+                .setId(logEntryId(index, term))
+                .setValue(PeerProto.LogValue.newBuilder()
+                        .setData(ByteString.copyFromUtf8(data))
+                        .setClientTxnId(index)
+                        .setClientId(ByteString.copyFromUtf8("test")))
+                .build();
     }
 
     private LogId logEntryId(long index, long term) {
-        return new LogId(index, term);
+        return LogId.newBuilder().setIndex(index).setTerm(term).build();
     }
 
     private void testIter(int index, int term, int limit, LogEntry... entries) throws Exception {
@@ -59,46 +66,46 @@ public class RaftLoggingTestkit {
         }
     }
 
-    private void assertEqual(AppendStatus status, AppendResult result) {
-        Assert.assertEquals(status, result.status());
-        if (result.uncommited().isEmpty()) {
+    private void assertEqual(AppendResult.Status status, AppendResult result) {
+        Assert.assertEquals(status, result.getStatus());
+        if (result.getUncommitedList().isEmpty()) {
             Assert.assertEquals(logging.commitedId(), logging.logEndId());
         } else {
-            Assert.assertEquals(logging.logEndId(), result.uncommited().getLast());
+            Assert.assertEquals(logging.logEndId(), result.getUncommitedList().getLast());
         }
     }
 
-    private void assertEqual(CommitStatus status, CommitResult result) {
-        Assert.assertEquals(status, result.status());
-        Assert.assertEquals(logging.commitedId(), result.commited());
+    private void assertEqual(CommitResult.Status status, CommitResult result) {
+        Assert.assertEquals(status, result.getStatus());
+        Assert.assertEquals(logging.commitedId(), result.getCommited());
     }
 
     private void append1CommitFailure() throws Exception {
-        assertEqual(AppendStatus.INDEX_EXPIRED, logging.append(logEntry(0, 0,
+        assertEqual(AppendResult.Status.INDEX_EXPIRED, logging.append(logEntry(0, 0,
                 "Hello")));
-        assertEqual(AppendStatus.INDEX_EXCEEDED, logging.append(logEntry(2, 0,
+        assertEqual(AppendResult.Status.INDEX_EXCEEDED, logging.append(logEntry(2, 0,
                 "Hello")));
-        Assert.assertEquals(LogId.INITIAL, logging.startedId());
-        Assert.assertEquals(LogId.INITIAL, logging.commitedId());
-        Assert.assertEquals(LogId.INITIAL, logging.logEndId());
+        Assert.assertEquals(RaftLogging.INITIAL_LOG_ID, logging.startedId());
+        Assert.assertEquals(RaftLogging.INITIAL_LOG_ID, logging.commitedId());
+        Assert.assertEquals(RaftLogging.INITIAL_LOG_ID, logging.logEndId());
         LogEntry entry = logEntry(1, 0, "Hello");
         logging.append(entry);
         testIter(0, 0, 3);
-        Assert.assertEquals(LogId.INITIAL, logging.startedId());
-        Assert.assertEquals(LogId.INITIAL, logging.commitedId());
+        Assert.assertEquals(RaftLogging.INITIAL_LOG_ID, logging.startedId());
+        Assert.assertEquals(RaftLogging.INITIAL_LOG_ID, logging.commitedId());
         Assert.assertEquals(logEntryId(1, 0), logging.logEndId());
-        assertEqual(CommitStatus.NO_ACTION, logging.commit(logEntryId(0, 0)));
-        assertEqual(CommitStatus.ILLEGAL_STATE, logging.commit(logEntryId(2, 0)));
+        assertEqual(CommitResult.Status.NO_ACTION, logging.commit(logEntryId(0, 0)));
+        assertEqual(CommitResult.Status.ILLEGAL_STATE, logging.commit(logEntryId(2, 0)));
     }
 
     private void append1Commit1() throws Exception {
         LogEntry entry = logEntry(1, 0, "Hello2");
         logging.append(entry);
         testIter(0, 0, 3);
-        Assert.assertEquals(LogId.INITIAL, logging.startedId());
-        Assert.assertEquals(LogId.INITIAL, logging.commitedId());
+        Assert.assertEquals(RaftLogging.INITIAL_LOG_ID, logging.startedId());
+        Assert.assertEquals(RaftLogging.INITIAL_LOG_ID, logging.commitedId());
         Assert.assertEquals(logEntryId(1, 0), logging.logEndId());
-        assertEqual(CommitStatus.SUCCESS, logging.commit(entry.id()));
+        assertEqual(CommitResult.Status.SUCCESS, logging.commit(entry.getId()));
         testIter(1, 0, 3, entry);
         Assert.assertEquals(logEntryId(1, 0), logging.startedId());
         Assert.assertEquals(logEntryId(1, 0), logging.commitedId());
@@ -115,13 +122,13 @@ public class RaftLoggingTestkit {
         Assert.assertEquals(logEntryId(1, 0), logging.startedId());
         Assert.assertEquals(logEntryId(1, 0), logging.commitedId());
         Assert.assertEquals(logEntryId(2, 0), logging.logEndId());
-        assertEqual(AppendStatus.INDEX_EXCEEDED, logging.append(logEntry(4, 0,
+        assertEqual(AppendResult.Status.INDEX_EXCEEDED, logging.append(logEntry(4, 0,
                 "Error")));
-        assertEqual(AppendStatus.INDEX_EXPIRED, logging.append(logEntry(1, 0,
+        assertEqual(AppendResult.Status.INDEX_EXPIRED, logging.append(logEntry(1, 0,
                 "Error")));
         logging.append(entry2);
-        assertEqual(CommitStatus.NO_ACTION, logging.commit(logEntryId(1, 0)));
-        assertEqual(CommitStatus.ILLEGAL_STATE, logging.commit(logEntryId(4, 0)));
+        assertEqual(CommitResult.Status.NO_ACTION, logging.commit(logEntryId(1, 0)));
+        assertEqual(CommitResult.Status.ILLEGAL_STATE, logging.commit(logEntryId(4, 0)));
     }
 
     private void append2Commit1() throws Exception {
@@ -133,7 +140,7 @@ public class RaftLoggingTestkit {
         Assert.assertEquals(logEntryId(3, 0), logging.logEndId());
         testIter(2, 0, 1);
         testIter(2, 0, 3);
-        assertEqual(CommitStatus.SUCCESS, logging.commit(entry1.id()));
+        assertEqual(CommitResult.Status.SUCCESS, logging.commit(entry1.getId()));
         Assert.assertEquals(logEntryId(1, 0), logging.startedId());
         Assert.assertEquals(logEntryId(2, 0), logging.commitedId());
         Assert.assertEquals(logEntryId(3, 0), logging.logEndId());
@@ -141,7 +148,7 @@ public class RaftLoggingTestkit {
         testIter(2, 0, 3, entry1);
         testIter(2, 0, 1, entry1);
         testIter(2, 0, 3, entry1);
-        assertEqual(CommitStatus.SUCCESS, logging.commit(entry2.id()));
+        assertEqual(CommitResult.Status.SUCCESS, logging.commit(entry2.getId()));
         Assert.assertEquals(logEntryId(1, 0), logging.startedId());
         Assert.assertEquals(logEntryId(3, 0), logging.commitedId());
         Assert.assertEquals(logEntryId(3, 0), logging.logEndId());
@@ -155,7 +162,7 @@ public class RaftLoggingTestkit {
         logging.append(Arrays.asList(entry1, entry2));
         Assert.assertEquals(logEntryId(3, 0), logging.commitedId());
         Assert.assertEquals(logEntryId(5, 0), logging.logEndId());
-        assertEqual(CommitStatus.SUCCESS, logging.commit(entry2.id()));
+        assertEqual(CommitResult.Status.SUCCESS, logging.commit(entry2.getId()));
         Assert.assertEquals(logEntryId(1, 0), logging.startedId());
         Assert.assertEquals(logEntryId(5, 0), logging.commitedId());
         Assert.assertEquals(logEntryId(5, 0), logging.logEndId());
@@ -178,7 +185,7 @@ public class RaftLoggingTestkit {
         logging.append(List.of(entry1, entry2, entry3));
         Assert.assertEquals(logEntryId(5, 0), logging.commitedId());
         Assert.assertEquals(logEntryId(8, 0), logging.logEndId());
-        assertEqual(CommitStatus.SUCCESS, logging.commit(entry3.id()));
+        assertEqual(CommitResult.Status.SUCCESS, logging.commit(entry3.getId()));
         testIter(6, 0, 1, entry1);
         testIter(6, 0, 2, entry1, entry2);
         testIter(6, 0, 3, entry1, entry2, entry3);
@@ -190,20 +197,20 @@ public class RaftLoggingTestkit {
         LogEntry entry2 = logEntry(7, 0, "Hello2");
         LogEntry entry3 = logEntry(8, 0, "Hello3");
         AppendResult status = logging.append(List.of(entry1, entry2, entry3));
-        assertEqual(AppendStatus.NO_ACTION, status);
+        assertEqual(AppendResult.Status.NO_ACTION, status);
     }
 
 
     private void testCommitNoAction() throws Exception {
-        assertEqual(CommitStatus.NO_ACTION, logging.commit(new LogId(6, 0)));
-        assertEqual(CommitStatus.NO_ACTION, logging.commit(new LogId(7, 0)));
-        assertEqual(CommitStatus.NO_ACTION, logging.commit(new LogId(8, 0)));
+        assertEqual(CommitResult.Status.NO_ACTION, logging.commit(logEntryId(6, 0)));
+        assertEqual(CommitResult.Status.NO_ACTION, logging.commit(logEntryId(7, 0)));
+        assertEqual(CommitResult.Status.NO_ACTION, logging.commit(logEntryId(8, 0)));
     }
 
     private void testExpire() throws Exception {
         LogEntry entry2 = logEntry(7, 0, "Hello2");
         LogEntry entry3 = logEntry(8, 0, "Hello3");
-        logging.expire(entry2.id());
+        logging.expire(entry2.getId());
         testIter(7, 0, 1, entry2);
         testIter(7, 0, 2, entry2, entry3);
         testIter(7, 0, 3, entry2, entry3);
@@ -213,20 +220,20 @@ public class RaftLoggingTestkit {
 
         LogEntry entry1 = logEntry(9, 2, "Hello1");
         logging.append(entry1);
-        assertEqual(AppendStatus.TERM_EXPIRED, logging.append(logEntry(10, 1, "Hello2")));
+        assertEqual(AppendResult.Status.TERM_EXPIRED, logging.append(logEntry(10, 1, "Hello2")));
         Assert.assertEquals(logEntryId(8, 0), logging.commitedId());
         Assert.assertEquals(logEntryId(9, 2), logging.logEndId());
         LogEntry entry2 = logEntry(10, 2, "Hello2");
         logging.append(entry2);
         Assert.assertEquals(logEntryId(8, 0), logging.commitedId());
         Assert.assertEquals(logEntryId(10, 2), logging.logEndId());
-        assertEqual(AppendStatus.TERM_EXPIRED, logging.append(logEntry(10, 1, "Hello2")));
-        assertEqual(AppendStatus.TERM_EXPIRED, logging.append(logEntry(11, 1, "Hello2")));
+        assertEqual(AppendResult.Status.TERM_EXPIRED, logging.append(logEntry(10, 1, "Hello2")));
+        assertEqual(AppendResult.Status.TERM_EXPIRED, logging.append(logEntry(11, 1, "Hello2")));
         Assert.assertEquals(logEntryId(8, 0), logging.commitedId());
         Assert.assertEquals(logEntryId(10, 2), logging.logEndId());
         LogEntry entry3 = logEntry(11, 2, "Hello3");
         logging.append(List.of(entry3));
-        assertEqual(CommitStatus.SUCCESS, logging.commit(entry3.id()));
+        assertEqual(CommitResult.Status.SUCCESS, logging.commit(entry3.getId()));
     }
 
     private void testUncommited() throws Exception {
@@ -247,7 +254,7 @@ public class RaftLoggingTestkit {
         LogEntry entry3 = logEntry(14, 3, "Hello3");
         Assert.assertEquals(logEntryId(11, 2), logging.commitedId());
         Assert.assertEquals(logEntryId(14, 3), logging.logEndId());
-        assertEqual(CommitStatus.SUCCESS, logging.commit(logEntryId(14, 3)));
+        assertEqual(CommitResult.Status.SUCCESS, logging.commit(logEntryId(14, 3)));
         testIter(9, 0, 1, entry01);
         testIter(9, 0, 2, entry01, entry02);
         testIter(9, 0, 3, entry01, entry02, entry03);

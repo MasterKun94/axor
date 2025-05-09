@@ -26,8 +26,8 @@ class ActorContextImpl<T> implements ActorContext<T> {
     private final LocalActorRef<T> self;
     private final ActorSettings settings = new ActorSettings();
     private final ActorSessionsImpl<T> sessions;
-    private ActorRef<?> sender;
     Map<String, String> mdcMap;
+    private ActorRef<?> sender;
 
     public ActorContextImpl(ActorSystem system, EventDispatcher executor, LocalActorRef<T> self) {
         this.system = system;

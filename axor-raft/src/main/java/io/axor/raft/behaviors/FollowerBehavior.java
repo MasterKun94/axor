@@ -1,16 +1,21 @@
 package io.axor.raft.behaviors;
 
+import com.google.protobuf.ByteString;
 import io.axor.api.ActorRef;
 import io.axor.api.Behavior;
 import io.axor.api.Behaviors;
 import io.axor.api.impl.ActorUnsafe;
-import io.axor.raft.AppendStatus;
-import io.axor.raft.LogId;
+import io.axor.raft.PeerInstance;
 import io.axor.raft.PeerState;
 import io.axor.raft.RaftContext;
-import io.axor.raft.messages.PeerMessage;
-import io.axor.raft.messages.PeerMessage.LogAppend;
-import io.axor.raft.messages.PeerMessage.LogAppendAck;
+import io.axor.raft.proto.PeerProto.AppendResult;
+import io.axor.raft.proto.PeerProto.ClientTxnReq;
+import io.axor.raft.proto.PeerProto.ClientTxnRes;
+import io.axor.raft.proto.PeerProto.LeaderHeartbeat;
+import io.axor.raft.proto.PeerProto.LogAppend;
+import io.axor.raft.proto.PeerProto.LogAppendAck;
+import io.axor.raft.proto.PeerProto.LogId;
+import io.axor.raft.proto.PeerProto.PeerMessage;
 import io.axor.runtime.Signal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,25 +45,46 @@ public class FollowerBehavior extends AbstractPeerBehavior {
     }
 
     @Override
+    protected Behavior<PeerMessage> onClientTxnReq(ClientTxnReq msg) {
+        PeerInstance leader = raftState().getLeader();
+        ClientTxnRes res;
+        if (leader == null) {
+            res = ClientTxnRes.newBuilder()
+                    .setTxnId(msg.getTxnId())
+                    .setStatus(ClientTxnRes.Status.NO_LEADER)
+                    .build();
+        } else {
+            ByteString data = ByteString.copyFromUtf8(Integer.toString(leader.peer().id()));
+            res = ClientTxnRes.newBuilder()
+                    .setTxnId(msg.getTxnId())
+                    .setStatus(ClientTxnRes.Status.REDIRECT)
+                    .setData(data)
+                    .build();
+        }
+        clientSender().tell(clientMsg(res), self());
+        return Behaviors.same();
+    }
+
+    @Override
     protected Behavior<PeerMessage> onLogAppend(LogAppend msg) {
-        if (msg.term() != raftState().getCurrentTerm()) {
+        if (msg.getTerm() != raftState().getCurrentTerm()) {
             return super.onLogAppend(msg);
         }
         raftState().setLatestHeartbeatTimestamp(System.currentTimeMillis());
         ActorRef<PeerMessage> sender = peerSender();
-        long txnId = msg.txnId();
-        long term = msg.term();
-        LogId leaderCommited = msg.leaderCommited();
+        long txnId = msg.getTxnId();
+        long term = msg.getTerm();
+        LogId leaderCommited = msg.getLeaderCommited();
         logAppend(msg).observe((s, e) -> {
-            AppendStatus status;
+            AppendResult.Status status;
             if (e != null) {
-                status = AppendStatus.SYSTEM_ERROR;
+                status = AppendResult.Status.SYSTEM_ERROR;
                 LOG.error("LogAppend[txnId={}, commitedId={}, peer={}] error",
                         txnId, raftState().getCommitedId(),
                         raftContext().getSelfPeer().peer(), e);
             } else {
-                status = s.status();
-                if (status.isSuccess()) {
+                status = s.getStatus();
+                if (isAppendSuccess(status)) {
                     LOG.debug("LogAppend[txnId={}, commitedId={}, peer={}] success",
                             txnId, raftState().getCommitedId(),
                             raftContext().getSelfPeer().peer());
@@ -68,28 +94,35 @@ public class FollowerBehavior extends AbstractPeerBehavior {
                             raftContext().getSelfPeer().peer(), s);
                 }
             }
-            LogAppendAck m = new LogAppendAck(txnId, term, status,
-                    raftState().getCommitedId(), raftState().getUncommitedId());
-            sender.tell(m, self());
-            if (status.isSuccess()) {
+            LogAppendAck m = LogAppendAck.newBuilder()
+                    .setTxnId(txnId)
+                    .setTerm(term)
+                    .setResult(AppendResult.newBuilder()
+                            .setStatus(status)
+                            .setCommited(raftState().getCommitedId())
+                            .addAllUncommited(raftState().getUncommitedId()))
+                    .build();
+            sender.tell(peerMsg(m), self());
+            if (isAppendSuccess(status)) {
                 LogId logEndId = raftContext().getLogEndId();
-                logCommit(logEndId.index() < leaderCommited.index() ? logEndId : leaderCommited);
+                logCommit(logEndId.getIndex() < leaderCommited.getIndex() ? logEndId :
+                        leaderCommited);
             }
         });
         return Behaviors.same();
     }
 
     @Override
-    protected Behavior<PeerMessage> onLeaderHeartbeat(PeerMessage.LeaderHeartbeat msg) {
+    protected Behavior<PeerMessage> onLeaderHeartbeat(LeaderHeartbeat msg) {
         LOG.debug("Receive leader heartbeat {}", msg);
-        if (msg.term() != raftState().getCurrentTerm()) {
+        if (msg.getTerm() != raftState().getCurrentTerm()) {
             return super.onLeaderHeartbeat(msg);
         }
         raftState().setLatestHeartbeatTimestamp(System.currentTimeMillis());
-        if (raftState().getCommitedId().equals(msg.leaderCommited())) {
+        if (raftState().getCommitedId().equals(msg.getLeaderCommited())) {
             return Behaviors.same();
         }
-        tryCommit(msg.leaderCommited());
+        tryCommit(msg.getLeaderCommited());
         return super.onLeaderHeartbeat(msg);
     }
 
@@ -98,7 +131,7 @@ public class FollowerBehavior extends AbstractPeerBehavior {
             if (e != null) {
                 LOG.error("LogCommit[commitedId={}, peer={}] error",
                         raftState().getCommitedId(), raftContext().getSelfPeer().peer(), e);
-            } else if (m.status().isSuccess()) {
+            } else if (isCommitSuccess(m.getStatus())) {
                 LOG.debug("LogCommit[commitedId={}, peer={}] success",
                         raftState().getCommitedId(), raftContext().getSelfPeer().peer());
             } else {

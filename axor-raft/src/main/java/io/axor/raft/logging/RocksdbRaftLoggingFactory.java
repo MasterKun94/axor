@@ -1,7 +1,7 @@
 package io.axor.raft.logging;
 
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigMemorySize;
+import io.axor.commons.config.MemorySize;
 import io.axor.raft.RaftException;
 import io.axor.raft.RocksDBRaftException;
 import org.rocksdb.ColumnFamilyDescriptor;
@@ -16,7 +16,6 @@ import org.rocksdb.RocksDBException;
 import org.rocksdb.WriteOptions;
 
 import java.io.File;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +30,6 @@ public class RocksdbRaftLoggingFactory implements RaftLoggingFactory {
         RocksDB.loadLibrary();
     }
 
-    private final ThreadLocal<ByteBuffer> bufferTl;
     private final Config config;
     private final Map<String, ColumnFamilyHandle> cfHandles = new ConcurrentHashMap<>();
     private final Set<String> created = new ConcurrentSkipListSet<>();
@@ -41,17 +39,6 @@ public class RocksdbRaftLoggingFactory implements RaftLoggingFactory {
 
     public RocksdbRaftLoggingFactory(Config config) {
         this.config = config;
-        boolean direct = config.getBoolean("bufferDirect");
-        ConfigMemorySize bufferMax = config.getMemorySize("bufferMax");
-        if (bufferMax.toBytes() > Integer.MAX_VALUE) {
-            throw new IllegalArgumentException("illegal bufferMax: " + bufferMax);
-        }
-        int bufferMaxValue = (int) bufferMax.toBytes();
-        if (direct) {
-            bufferTl = ThreadLocal.withInitial(() -> ByteBuffer.allocateDirect(bufferMaxValue));
-        } else {
-            bufferTl = ThreadLocal.withInitial(() -> ByteBuffer.allocate(bufferMaxValue));
-        }
     }
 
     public void init() throws RaftException {
@@ -122,8 +109,10 @@ public class RocksdbRaftLoggingFactory implements RaftLoggingFactory {
                 ColumnFamilyHandle prev = cfHandles.put(name, handle);
                 assert prev == null;
             }
+            boolean direct = config.getBoolean("bufferDirect");
+            MemorySize bufferMax = MemorySize.ofBytes(config.getMemorySize("bufferMax"));
             return new RocksdbRaftLogging(name, db, handle, new WriteOptions(), new ReadOptions(),
-                    Thread.currentThread(), bufferTl);
+                    Thread.currentThread(), direct, bufferMax.toInt());
         } catch (RocksDBException e) {
             created.remove(name);
             throw new RocksDBRaftException(e);

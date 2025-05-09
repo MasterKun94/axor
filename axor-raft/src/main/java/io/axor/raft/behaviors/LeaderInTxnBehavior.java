@@ -4,19 +4,19 @@ import com.google.protobuf.ByteString;
 import io.axor.api.Behavior;
 import io.axor.api.Behaviors;
 import io.axor.api.impl.ActorUnsafe;
-import io.axor.raft.AppendStatus;
-import io.axor.raft.ClientTxnStatus;
-import io.axor.raft.CommitStatus;
-import io.axor.raft.LogId;
 import io.axor.raft.Peer;
 import io.axor.raft.PeerInstance;
 import io.axor.raft.RaftContext;
 import io.axor.raft.RaftContext.FollowerState;
-import io.axor.raft.messages.ClientMessage.ClientTxnRes;
-import io.axor.raft.messages.PeerMessage;
-import io.axor.raft.messages.PeerMessage.LeaderHeartbeat;
-import io.axor.raft.messages.PeerMessage.LogAppend;
-import io.axor.raft.messages.PeerMessage.LogAppendAck;
+import io.axor.raft.proto.PeerProto;
+import io.axor.raft.proto.PeerProto.AppendResult;
+import io.axor.raft.proto.PeerProto.ClientTxnReq;
+import io.axor.raft.proto.PeerProto.ClientTxnRes;
+import io.axor.raft.proto.PeerProto.CommitResult;
+import io.axor.raft.proto.PeerProto.LogAppend;
+import io.axor.raft.proto.PeerProto.LogAppendAck;
+import io.axor.raft.proto.PeerProto.LogId;
+import io.axor.raft.proto.PeerProto.PeerMessage;
 import io.axor.runtime.Signal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,28 +52,34 @@ public class LeaderInTxnBehavior extends AbstractLeaderBehavior {
         txnId = raftContext().generateTxnId();
         RaftContext.TxnContext txnContext = leaderContext().prepareForTxn(txnId);
         LogAppend append = txnContext.append();
-        commitedId = append.entries().getLast().id();
+        commitedId = append.getEntriesList().getLast().getId();
         clientTxnList = txnContext.clientTxnList();
-        term = append.term();
+        term = append.getTerm();
         // local append entries
         logAppend(append).observe((res, e) -> {
-            AppendStatus status;
+            AppendResult.Status status;
             if (e != null) {
                 LOG.error("LogAppend[txnId={}, commitedId={}, peer={}] error",
                         txnId, commitedId, raftContext().getSelfPeer().peer(), e);
-                status = AppendStatus.SYSTEM_ERROR;
+                status = AppendResult.Status.SYSTEM_ERROR;
             } else {
-                status = res.status();
+                status = res.getStatus();
             }
-            if (!status.isSuccess()) {
+            if (!isAppendSuccess(status)) {
                 LOG.error("LogAppend[txnId={}, commitedId={}, peer={}] failure with status {}",
                         txnId, commitedId, raftContext().getSelfPeer().peer(), status);
                 context().system()
                         .systemFailure(new RuntimeException("Leader local log append failure"));
             }
-            LogAppendAck ack = new LogAppendAck(txnId, term, status,
-                    raftState().getCommitedId(), raftState().getUncommitedId());
-            ActorUnsafe.tellInline(self(), ack, self());
+            LogAppendAck ack = LogAppendAck.newBuilder()
+                    .setTxnId(txnId)
+                    .setTerm(term)
+                    .setResult(AppendResult.newBuilder()
+                            .setStatus(status)
+                            .setCommited(raftState().getCommitedId())
+                            .addAllUncommited(raftState().getUncommitedId()))
+                    .build();
+            ActorUnsafe.tellInline(self(), peerMsg(ack), self());
         });
         // append entries to peer
         Map<Peer, FollowerState> followerStates = leaderContext().getFollowerStates();
@@ -84,9 +90,9 @@ public class LeaderInTxnBehavior extends AbstractLeaderBehavior {
             FollowerState followerState = followerStates.get(peer.peer());
             followerState.setLatestTxnId(txnId);
             LogId followerLogEndId = followerState.getLogEndId();
-            LogId appendFirstId = append.entries().getFirst().id();
-            if (followerLogEndId == null || followerLogEndId.index() == appendFirstId.index() - 1) {
-                peer.peerRef().tell(append, self());
+            LogId appendFirstId = append.getEntries(0).getId();
+            if (followerLogEndId == null || followerLogEndId.getIndex() == appendFirstId.getIndex() - 1) {
+                peer.peerRef().tell(peerMsg(append), self());
             } else {
                 logReadForSync(followerState.getCommited(), followerState.getUncommited())
                         .observe((l, e) -> {
@@ -95,8 +101,13 @@ public class LeaderInTxnBehavior extends AbstractLeaderBehavior {
                                         peer.peer(), e);
                                 return;
                             }
-                            var msg = new LogAppend(txnId, term, l, raftState().getCommitedId());
-                            peer.peerRef().tell(msg, self());
+                            var msg = LogAppend.newBuilder()
+                                    .setTxnId(txnId)
+                                    .setTerm(term)
+                                    .addAllEntries(l)
+                                    .setLeaderCommited(raftState().getCommitedId())
+                                    .build();
+                            peer.peerRef().tell(peerMsg(msg), self());
                         });
             }
         }
@@ -108,14 +119,14 @@ public class LeaderInTxnBehavior extends AbstractLeaderBehavior {
     }
 
     @Override
-    protected Behavior<PeerMessage> onClientTxn(PeerMessage.ClientTxnReq msg) {
+    protected Behavior<PeerMessage> onClientTxnReq(ClientTxnReq msg) {
         leaderContext().bufferClientCtx(msg);
         return Behaviors.same();
     }
 
     @Override
     protected Behavior<PeerMessage> onLogAppendAck(LogAppendAck msg) {
-        if (msg.txnId() != txnId) {
+        if (msg.getTxnId() != txnId) {
             return Behaviors.unhandled();
         }
         RaftContext raftContext = raftContext();
@@ -123,21 +134,26 @@ public class LeaderInTxnBehavior extends AbstractLeaderBehavior {
         Peer peer = peerOfSender.peer();
         FollowerState followerState = leaderContext().getFollowerStates().get(peer);
         assert followerState.getLatestTxnId() == txnId;
-        followerState.setCommited(msg.commited());
-        followerState.setUncommited(msg.uncommited());
+        AppendResult result = msg.getResult();
+        followerState.setCommited(result.getCommited());
+        followerState.setUncommited(result.getUncommitedList());
 
         if (!peerOfSender.isSelf()) {
             // follower存在延迟，还要继续追加写数据
-            if ((msg.success() || msg.status() == AppendStatus.INDEX_EXCEEDED) &&
-                msg.logEndId().index() < commitedId.index()) {
+            if (needContinueAppend(result)) {
                 logReadForSync(followerState.getCommited(), followerState.getUncommited())
                         .observe((l, e) -> {
                             if (e != null) {
                                 LOG.error("Read for sync error, {} state suspicious", peer, e);
                                 return;
                             }
-                            var m = new LogAppend(txnId, term, l, raftState().getCommitedId());
-                            peerOfSender.peerRef().tell(m, self());
+                            var m = PeerProto.LogAppend.newBuilder()
+                                    .setTxnId(msg.getTxnId())
+                                    .setTerm(term)
+                                    .addAllEntries(l)
+                                    .setLeaderCommited(commitedId)
+                                    .build();
+                            peerOfSender.peerRef().tell(peerMsg(m), self());
                         });
                 return Behaviors.same();
             }
@@ -148,8 +164,7 @@ public class LeaderInTxnBehavior extends AbstractLeaderBehavior {
             return Behaviors.same();
         }
 
-        if (msg.success()) {
-            assert msg.logEndId().index() < commitedId.index();
+        if (isAppendSuccess(result.getStatus())) {
             successCnt++;
             if (peerOfSender.isSelf()) {
                 leaderSuccess = true;
@@ -162,9 +177,9 @@ public class LeaderInTxnBehavior extends AbstractLeaderBehavior {
                     if (e != null) {
                         LOG.error("LogCommit[txnId={}, commitedId={}, peer={}] error",
                                 txnId, commitedId, raftContext.getSelfPeer().peer(), e);
-                        signal = new CommitSignal(txnId, CommitStatus.SYSTEM_ERROR);
+                        signal = new CommitSignal(txnId, CommitResult.Status.SYSTEM_ERROR);
                     } else {
-                        signal = new CommitSignal(txnId, s.status());
+                        signal = new CommitSignal(txnId, s.getStatus());
                     }
                     ActorUnsafe.signalInline(self(), signal);
                 });
@@ -177,7 +192,7 @@ public class LeaderInTxnBehavior extends AbstractLeaderBehavior {
             }
             // leader失败或者总失败数量达到多数
             if ((leaderSuccess != null && !leaderSuccess) || failureCnt >= majorityCount) {
-                return finishTxnAndReturn(ClientTxnStatus.APPEND_FAILURE, ByteString.empty());
+                return finishTxnAndReturn(ClientTxnRes.Status.APPEND_FAILURE, ByteString.empty());
             }
         }
         return Behaviors.same();
@@ -186,19 +201,23 @@ public class LeaderInTxnBehavior extends AbstractLeaderBehavior {
     @Override
     protected Behavior<PeerMessage> onSignal(Signal signal) {
         if (signal instanceof CommitSignal(var id, var status) && id == txnId) {
-            if (status.isSuccess()) {
+            if (isCommitSuccess(status)) {
                 long term = raftState().getCurrentTerm();
                 LogId commitedId = raftState().getCommitedId();
-                LeaderHeartbeat heartbeat = new LeaderHeartbeat(term, commitedId);
+                PeerProto.LeaderHeartbeat heartbeat = PeerProto.LeaderHeartbeat.newBuilder()
+                        .setTerm(term)
+                        .setLeaderCommited(commitedId)
+                        .build();
                 for (PeerInstance peer : raftContext().getPeers()) {
                     if (peer.isSelf()) {
                         continue;
                     }
-                    peer.peerRef().tell(heartbeat, self());
+                    peer.peerRef().tell(peerMsg(heartbeat), self());
                 }
-                return finishTxnAndReturn(ClientTxnStatus.SUCCESS, ByteString.empty());
+                return finishTxnAndReturn(ClientTxnRes.Status.SUCCESS, ByteString.empty());
             } else {
-                Behavior<PeerMessage> behavior = finishTxnAndReturn(ClientTxnStatus.COMMIT_FAILURE,
+                Behavior<PeerMessage> behavior =
+                        finishTxnAndReturn(ClientTxnRes.Status.COMMIT_FAILURE,
                         ByteString.copyFromUtf8(status.name()));
                 LOG.error("LogCommit[txnId={}, commitedId={}, peer={}] failure with status {}",
                         txnId, commitedId, raftContext().getSelfPeer().peer(), status);
@@ -208,29 +227,34 @@ public class LeaderInTxnBehavior extends AbstractLeaderBehavior {
             }
         }
         if (signal instanceof TimeoutSignal(var id) && id == txnId) {
-            return finishTxnAndReturn(ClientTxnStatus.APPEND_TIMEOUT, ByteString.empty());
+            return finishTxnAndReturn(ClientTxnRes.Status.APPEND_TIMEOUT, ByteString.empty());
         }
         return Behaviors.unhandled();
     }
 
     @Override
     protected void onBehaviorChanged() {
-        finishTxn(ClientTxnStatus.NO_LEADER, ByteString.empty());
+        finishTxn(ClientTxnRes.Status.CANCELED, ByteString.empty());
     }
 
-    private void finishTxn(ClientTxnStatus resStatus, ByteString msg) {
+    private void finishTxn(ClientTxnRes.Status resStatus, ByteString msg) {
         if (txnFinished) {
             return;
         }
         timeoutFuture.cancel(false);
         for (RaftContext.ClientTxn clientTxn : clientTxnList) {
-            var reply = new ClientTxnRes(clientTxn.txnId(), resStatus, msg);
-            clientTxn.clientRef().tell(reply, self());
+            var reply = ClientTxnRes.newBuilder()
+                    .setTxnId(clientTxn.txnId())
+                    .setStatus(resStatus)
+                    .setData(msg)
+                    .build();
+            clientTxn.clientRef().tell(clientMsg(reply), self());
         }
         txnFinished = true;
     }
 
-    private Behavior<PeerMessage> finishTxnAndReturn(ClientTxnStatus resStatus, ByteString msg) {
+    private Behavior<PeerMessage> finishTxnAndReturn(ClientTxnRes.Status resStatus,
+                                                     ByteString msg) {
         finishTxn(resStatus, msg);
         if (leaderContext().bufferIsEmpty()) {
             return new LeaderIdleBehavior(raftContext());
@@ -242,6 +266,6 @@ public class LeaderInTxnBehavior extends AbstractLeaderBehavior {
     private record TimeoutSignal(long txnId) implements Signal {
     }
 
-    private record CommitSignal(long txnId, CommitStatus commitStatus) implements Signal {
+    private record CommitSignal(long txnId, CommitResult.Status commitStatus) implements Signal {
     }
 }

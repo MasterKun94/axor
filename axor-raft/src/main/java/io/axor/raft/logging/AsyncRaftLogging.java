@@ -2,8 +2,10 @@ package io.axor.raft.logging;
 
 import io.axor.commons.concurrent.EventPromise;
 import io.axor.commons.concurrent.EventStage;
-import io.axor.raft.LogEntry;
-import io.axor.raft.LogId;
+import io.axor.raft.proto.PeerProto.AppendResult;
+import io.axor.raft.proto.PeerProto.CommitResult;
+import io.axor.raft.proto.PeerProto.LogEntry;
+import io.axor.raft.proto.PeerProto.LogId;
 
 import java.util.List;
 

@@ -6,28 +6,20 @@ import io.axor.api.Behavior;
 import io.axor.api.Behaviors;
 import io.axor.commons.concurrent.EventPromise;
 import io.axor.commons.concurrent.EventStage;
-import io.axor.raft.AppendStatus;
-import io.axor.raft.CommitStatus;
-import io.axor.raft.LogEntry;
-import io.axor.raft.LogId;
-import io.axor.raft.Peer;
 import io.axor.raft.PeerInstance;
 import io.axor.raft.RaftConfig;
 import io.axor.raft.RaftContext;
 import io.axor.raft.RaftState;
-import io.axor.raft.logging.AppendResult;
 import io.axor.raft.logging.AsyncRaftLogging;
-import io.axor.raft.logging.CommitResult;
-import io.axor.raft.messages.ClientMessage;
-import io.axor.raft.messages.PeerMessage;
-import io.axor.raft.messages.PeerMessage.ClientTxnReq;
-import io.axor.raft.messages.PeerMessage.LeaderHeartbeat;
-import io.axor.raft.messages.PeerMessage.LogAppend;
-import io.axor.raft.messages.PeerMessage.LogAppendAck;
-import io.axor.raft.messages.PeerMessage.LogFetch;
-import io.axor.raft.messages.PeerMessage.LogFetchRes;
-import io.axor.raft.messages.PeerMessage.RequestVote;
-import io.axor.raft.messages.PeerMessage.RequestVoteAck;
+import io.axor.raft.proto.PeerProto;
+import io.axor.raft.proto.PeerProto.AppendResult;
+import io.axor.raft.proto.PeerProto.ClientMessage;
+import io.axor.raft.proto.PeerProto.CommitResult;
+import io.axor.raft.proto.PeerProto.LogAppend;
+import io.axor.raft.proto.PeerProto.LogAppendAck;
+import io.axor.raft.proto.PeerProto.LogEntry;
+import io.axor.raft.proto.PeerProto.LogId;
+import io.axor.raft.proto.PeerProto.PeerMessage;
 import io.axor.runtime.Signal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -77,24 +69,22 @@ public abstract class AbstractPeerBehavior implements Behavior<PeerMessage> {
 
     protected EventStage<AppendResult> logAppend(LogAppend append) {
         return raftLogging()
-                .append(append.entries(), context().dispatcher().newPromise())
+                .append(append.getEntriesList(), context().dispatcher().newPromise())
                 .map(res -> {
                     RaftState raftState = raftState();
-                    raftState.setUncommitedId(res.uncommited());
+                    raftState.setCommitedId(res.getCommited());
+                    raftState.setUncommitedId(res.getUncommitedList());
                     return res;
                 });
     }
 
     protected EventStage<CommitResult> logCommit(LogId commitId) {
-        if (raftState().getCommitedId().equals(commitId)) {
-            var res = new CommitResult(CommitStatus.NO_ACTION, commitId);
-            return EventStage.succeed(res, context().dispatcher());
-        }
         return raftLogging()
                 .commit(commitId, context().dispatcher().newPromise())
                 .map(res -> {
                     RaftState raftState = raftState();
-                    raftState.setCommitedId(res.commited());
+                    raftState.setCommitedId(res.getCommited());
+                    raftState.setUncommitedId(res.getUncommitedList());
                     return res;
                 });
     }
@@ -112,18 +102,63 @@ public abstract class AbstractPeerBehavior implements Behavior<PeerMessage> {
                !behavior.equals(this);
     }
 
+    protected PeerMessage peerMsg(PeerProto.ClientTxnReq msg) {
+        return PeerMessage.newBuilder().setClientTxnReq(msg).build();
+    }
+
+    protected PeerMessage peerMsg(PeerProto.LogAppend msg) {
+        return PeerMessage.newBuilder().setLogAppend(msg).build();
+    }
+
+    protected PeerMessage peerMsg(LogAppendAck msg) {
+        return PeerMessage.newBuilder().setLogAppendAck(msg).build();
+    }
+
+    protected PeerMessage peerMsg(PeerProto.LeaderHeartbeat msg) {
+        return PeerMessage.newBuilder().setLeaderHeartbeat(msg).build();
+    }
+
+    protected PeerMessage peerMsg(PeerProto.LogFetch msg) {
+        return PeerMessage.newBuilder().setLogFetch(msg).build();
+    }
+
+    protected PeerMessage peerMsg(PeerProto.LogFetchRes msg) {
+        return PeerMessage.newBuilder().setLogFetchRes(msg).build();
+    }
+
+    protected PeerMessage peerMsg(PeerProto.RequestVote msg) {
+        return PeerMessage.newBuilder().setRequestVote(msg).build();
+    }
+
+    protected PeerMessage peerMsg(PeerProto.RequestVoteAck msg) {
+        return PeerMessage.newBuilder().setRequestVoteAck(msg).build();
+    }
+
+    protected ClientMessage clientMsg(PeerProto.ClientTxnRes msg) {
+        return ClientMessage.newBuilder().setClientTxnRes(msg).build();
+    }
+
+    protected boolean isAppendSuccess(AppendResult.Status status) {
+        return status == AppendResult.Status.SUCCESS || status == AppendResult.Status.NO_ACTION;
+    }
+
+    protected boolean isCommitSuccess(CommitResult.Status status) {
+        return status == CommitResult.Status.SUCCESS || status == CommitResult.Status.NO_ACTION;
+    }
+
     @Override
     public final Behavior<PeerMessage> onReceive(ActorContext<PeerMessage> context,
                                                  PeerMessage message) {
-        Behavior<PeerMessage> behavior = switch (message) {
-            case ClientTxnReq msg -> onClientTxn(msg);
-            case LogAppend msg -> onLogAppend(msg);
-            case LogAppendAck msg -> onLogAppendAck(msg);
-            case LeaderHeartbeat msg -> onLeaderHeartbeat(msg);
-            case LogFetch msg -> onLogFetch(msg);
-            case LogFetchRes msg -> onLogFetchRes(msg);
-            case RequestVote msg -> onRequestVote(msg);
-            case RequestVoteAck msg -> onRequestVoteAck(msg);
+        Behavior<PeerMessage> behavior = switch (message.getMsgCase()) {
+            case CLIENTTXNREQ -> onClientTxnReq(message.getClientTxnReq());
+            case LOGAPPEND -> onLogAppend(message.getLogAppend());
+            case LOGAPPENDACK -> onLogAppendAck(message.getLogAppendAck());
+            case LEADERHEARTBEAT -> onLeaderHeartbeat(message.getLeaderHeartbeat());
+            case LOGFETCH -> onLogFetch(message.getLogFetch());
+            case LOGFETCHRES -> onLogFetchRes(message.getLogFetchRes());
+            case REQUESTVOTE -> onRequestVote(message.getRequestVote());
+            case REQUESTVOTEACK -> onRequestVoteAck(message.getRequestVoteAck());
+            default -> throw new IllegalStateException("illegal msg type: " + message.getMsgCase());
         };
         checkBehaviorChanged(behavior);
         return behavior;
@@ -136,43 +171,58 @@ public abstract class AbstractPeerBehavior implements Behavior<PeerMessage> {
         return behavior;
     }
 
-    protected final Behavior<PeerMessage> onLogFetch(LogFetch msg) {
-        int entryLimit = Math.min(msg.limit(), config().logFetchEntryLimit());
+    protected final Behavior<PeerMessage> onLogFetch(PeerProto.LogFetch msg) {
+        int entryLimit = Math.min(msg.getLimit(), config().logFetchEntryLimit());
         int bytesLimit = config().logFetchBytesLimit().toInt();
         ActorRef<PeerMessage> sender = peerSender();
         raftLogging()
-                .read(msg.startAt(), true, false, entryLimit, bytesLimit,
+                .read(msg.getStartAt(), true, false, entryLimit, bytesLimit,
                         context().dispatcher().newPromise())
                 .observe(l -> {
-                    var res = new LogFetchRes(msg.txnId(), l, raftState().getCommitedId());
-                    sender.tell(res, self());
+                    var res = PeerProto.LogFetchRes.newBuilder()
+                            .setTxnId(msg.getTxnId())
+                            .setSuccess(true)
+                            .addAllEntries(l)
+                            .setLeaderCommited(raftState().getCommitedId())
+                            .build();
+                    sender.tell(peerMsg(res), self());
                 }, e -> {
                     LOG.error("LogFetch failure", e);
-                    var res = new LogFetchRes(msg.txnId(), e.toString(),
-                            raftState().getCommitedId());
-                    sender.tell(res, self());
+                    var res = PeerProto.LogFetchRes.newBuilder()
+                            .setTxnId(msg.getTxnId())
+                            .setSuccess(false)
+                            .setErrMsg(e.toString())
+                            .setLeaderCommited(raftState().getCommitedId())
+                            .build();
+                    sender.tell(peerMsg(res), self());
                 });
         return Behaviors.same();
     }
 
-    protected Behavior<PeerMessage> onClientTxn(ClientTxnReq msg) {
+    protected Behavior<PeerMessage> onClientTxnReq(PeerProto.ClientTxnReq msg) {
         return Behaviors.unhandled();
     }
 
     protected Behavior<PeerMessage> onLogAppend(LogAppend msg) {
         long currentTerm = raftState().getCurrentTerm();
         ActorRef<PeerMessage> sender = peerSender();
-        if (msg.term() < currentTerm) {
+        if (msg.getTerm() < currentTerm) {
             // 返回自己的当前Term，提示Leader更新
-            LogAppendAck ack = new LogAppendAck(msg.txnId(), currentTerm, AppendStatus.TERM_DENY,
-                    raftState().getCommitedId(), raftState().getUncommitedId());
-            sender.tell(ack, self());
+            LogAppendAck ack = LogAppendAck.newBuilder()
+                    .setTxnId(msg.getTxnId())
+                    .setTerm(currentTerm)
+                    .setResult(AppendResult.newBuilder()
+                            .setStatus(AppendResult.Status.TERM_DENY)
+                            .setCommited(raftState().getCommitedId())
+                            .addAllUncommited(raftState().getUncommitedId()))
+                    .build();
+            sender.tell(peerMsg(ack), self());
             return Behaviors.same();
         }
-        updateLeader(msg, msg.term());
-        if (msg.term() > currentTerm) {
+        updateLeader(msg.getTerm());
+        if (msg.getTerm() > currentTerm) {
             return Behaviors.consumeBuffer(new FollowerBehavior(raftContext()))
-                    .addMsg(msg, sender)
+                    .addMsg(peerMsg(msg), sender)
                     .toBehavior();
         }
         return Behaviors.unhandled();
@@ -182,28 +232,27 @@ public abstract class AbstractPeerBehavior implements Behavior<PeerMessage> {
         return Behaviors.unhandled();
     }
 
-    protected Behavior<PeerMessage> onLeaderHeartbeat(LeaderHeartbeat msg) {
+    protected Behavior<PeerMessage> onLeaderHeartbeat(PeerProto.LeaderHeartbeat msg) {
         RaftState raftState = raftState();
         long currentTerm = raftState.getCurrentTerm();
         ActorRef<PeerMessage> sender = peerSender();
-        if (msg.term() < currentTerm) {
+        if (msg.getTerm() < currentTerm) {
             // TODO 返回自己的当前Term，提示Leader更新
             return Behaviors.same();
         }
-        updateLeader(msg, msg.term());
-        if (msg.term() > currentTerm) {
+        updateLeader(msg.getTerm());
+        if (msg.getTerm() > currentTerm) {
             return Behaviors.consumeBuffer(new FollowerBehavior(raftContext()))
-                    .addMsg(msg, sender)
+                    .addMsg(peerMsg(msg), sender)
                     .toBehavior();
         }
         return Behaviors.unhandled();
     }
 
-    protected void updateLeader(PeerMessage leaderMsg, long term) {
+    protected void updateLeader(long term) {
         RaftState raftState = raftState();
         long currentTerm = raftState.getCurrentTerm();
-        PeerInstance peerOfSender = raftContext().getPeerOfSender();
-        Peer leaderPeer = peerOfSender.peer();
+        PeerInstance leaderPeer = raftContext().getPeerOfSender();
         if (term > currentTerm) {
             raftState.setCurrentTerm(term);
             raftState.setVotedFor(leaderPeer);
@@ -220,28 +269,30 @@ public abstract class AbstractPeerBehavior implements Behavior<PeerMessage> {
         }
     }
 
-    protected Behavior<PeerMessage> onLogFetchRes(LogFetchRes msg) {
+    protected Behavior<PeerMessage> onLogFetchRes(PeerProto.LogFetchRes msg) {
         return Behaviors.unhandled();
     }
 
-    protected Behavior<PeerMessage> onRequestVote(RequestVote msg) {
+    protected Behavior<PeerMessage> onRequestVote(PeerProto.RequestVote msg) {
         RaftState raftState = raftState();
         long currentTerm = raftState.getCurrentTerm();
-        Peer peerOfSender = raftContext().getPeerOfSender().peer();
-        Peer votedFor = raftState.getVotedFor();
-        if (msg.term() < currentTerm) {
+        PeerInstance peerOfSender = raftContext().getPeerOfSender();
+        PeerInstance votedFor = raftState.getVotedFor();
+        if (msg.getTerm() < currentTerm) {
             // 如果请求中的任期号小于当前服务器的任期，则拒绝
-            peerSender().tell(new RequestVoteAck(msg.txnId(), currentTerm, false), self());
+            peerSender().tell(peerMsg(PeerProto.RequestVoteAck.newBuilder()
+                    .setTxnId(msg.getTxnId())
+                    .setTerm(currentTerm)
+                    .setVoteGranted(false).build()), self());
             return Behaviors.same();
         }
         Behavior<PeerMessage> behavior;
         boolean voteGranted;
-        int compare = msg.logEndId().compareTo(raftContext().getLogEndId());
-        if (msg.term() > currentTerm) {
+        if (msg.getTerm() > currentTerm) {
             // 如果请求中的任期号大于当前服务器的任期，则更新自己的任期，并转换为Follower
-            raftState.setCurrentTerm(msg.term());
+            raftState.setCurrentTerm(msg.getTerm());
             behavior = new FollowerBehavior(raftContext);
-            if (compare < 0) {
+            if (msg.getLogEndId().getIndex() < raftContext().getLogEndId().getIndex()) {
                 // 候选人的日志不够新，则拒绝
                 voteGranted = false;
             } else {
@@ -254,7 +305,7 @@ public abstract class AbstractPeerBehavior implements Behavior<PeerMessage> {
                 // 如果任期相同，但当前服务器已经投票给另一个候选人，则拒绝
                 voteGranted = false;
                 behavior = Behaviors.same();
-            } else if (compare < 0) {
+            } else if (msg.getLogEndId().getIndex() < raftContext().getLogEndId().getIndex()) {
                 // 候选人的日志不够新，则拒绝
                 voteGranted = false;
                 behavior = Behaviors.same();
@@ -265,11 +316,14 @@ public abstract class AbstractPeerBehavior implements Behavior<PeerMessage> {
                 behavior = new FollowerBehavior(raftContext);
             }
         }
-        peerSender().tell(new RequestVoteAck(msg.txnId(), currentTerm, voteGranted), self());
+        peerSender().tell(peerMsg(PeerProto.RequestVoteAck.newBuilder()
+                .setTxnId(msg.getTxnId())
+                .setTerm(currentTerm)
+                .setVoteGranted(voteGranted).build()), self());
         return behavior;
     }
 
-    protected Behavior<PeerMessage> onRequestVoteAck(RequestVoteAck msg) {
+    protected Behavior<PeerMessage> onRequestVoteAck(PeerProto.RequestVoteAck msg) {
         return Behaviors.unhandled();
     }
 

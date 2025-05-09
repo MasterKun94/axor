@@ -1,15 +1,17 @@
 package io.axor.raft;
 
+import io.axor.raft.proto.PeerProto.LogId;
+
 import java.util.List;
 
 public class RaftState {
     private long currentTerm;
-    private Peer votedFor;
+    private PeerInstance votedFor;
     private List<LogId> uncommitedId;
     private LogId commitedId;
     private PeerState peerState;
     private long latestHeartbeatTimestamp;
-    private Peer leader;
+    private PeerInstance leader;
 
     public long getCurrentTerm() {
         return currentTerm;
@@ -19,11 +21,11 @@ public class RaftState {
         this.currentTerm = currentTerm;
     }
 
-    public Peer getVotedFor() {
+    public PeerInstance getVotedFor() {
         return votedFor;
     }
 
-    public void setVotedFor(Peer votedFor) {
+    public void setVotedFor(PeerInstance votedFor) {
         this.votedFor = votedFor;
     }
 
@@ -59,11 +61,11 @@ public class RaftState {
         this.latestHeartbeatTimestamp = latestHeartbeatTimestamp;
     }
 
-    public Peer getLeader() {
+    public PeerInstance getLeader() {
         return leader;
     }
 
-    public void setLeader(Peer leader) {
+    public void setLeader(PeerInstance leader) {
         this.leader = leader;
     }
 }

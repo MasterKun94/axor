@@ -7,10 +7,13 @@ import io.axor.api.ActorSystem;
 import io.axor.exception.ActorNotFoundException;
 import io.axor.exception.IllegalMsgTypeException;
 import io.axor.raft.logging.AsyncRaftLogging;
-import io.axor.raft.messages.ClientMessage;
-import io.axor.raft.messages.PeerMessage;
-import io.axor.raft.messages.PeerMessage.LeaderHeartbeat;
-import io.axor.raft.messages.PeerMessage.LogAppend;
+import io.axor.raft.proto.PeerProto;
+import io.axor.raft.proto.PeerProto.ClientMessage;
+import io.axor.raft.proto.PeerProto.ClientTxnReq;
+import io.axor.raft.proto.PeerProto.LogAppend;
+import io.axor.raft.proto.PeerProto.LogEntry;
+import io.axor.raft.proto.PeerProto.LogId;
+import io.axor.raft.proto.PeerProto.PeerMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,7 +74,7 @@ public class RaftContext {
         this.raftState = new RaftState();
         raftState.setCommitedId(raftLogging.commitedId());
         raftState.setUncommitedId(raftLogging.uncommitedId());
-        raftState.setCurrentTerm(raftLogging.logEndId().term());
+        raftState.setCurrentTerm(raftLogging.logEndId().getTerm());
         raftState.setLatestHeartbeatTimestamp(System.currentTimeMillis());
     }
 
@@ -152,7 +155,7 @@ public class RaftContext {
 
     public static class LeaderContext {
         private final RaftContext raftContext;
-        private final SequencedMap<ClientTxn, PeerMessage.ClientTxnReq> bufferedClientReqs =
+        private final SequencedMap<ClientTxn, ClientTxnReq> bufferedClientReqs =
                 new LinkedHashMap<>();
         private final Map<Peer, FollowerState> followerStates;
         private final ScheduledFuture<?> scheduleHeartbeat;
@@ -173,7 +176,12 @@ public class RaftContext {
                     RaftState raftState = raftContext.getRaftState();
                     long currentTerm = raftState.getCurrentTerm();
                     LogId commitedId = raftState.getCommitedId();
-                    peer.peerRef().tell(new LeaderHeartbeat(currentTerm, commitedId));
+                    ActorRef<PeerMessage> self = raftContext.context.self();
+                    peer.peerRef().tell(PeerMessage.newBuilder()
+                            .setLeaderHeartbeat(PeerProto.LeaderHeartbeat.newBuilder()
+                                    .setTerm(currentTerm)
+                                    .setLeaderCommited(commitedId))
+                            .build(), self);
                 }
             }, 0, interval.toMillis(), TimeUnit.MILLISECONDS);
         }
@@ -186,8 +194,8 @@ public class RaftContext {
             return bufferedClientReqs.isEmpty();
         }
 
-        public void bufferClientCtx(PeerMessage.ClientTxnReq req) {
-            var key = new ClientTxn(req.txnId(),
+        public void bufferClientCtx(ClientTxnReq req) {
+            var key = new ClientTxn(req.getTxnId(),
                     raftContext.getContext().sender(ClientMessage.class));
             bufferedClientReqs.put(key, req);
         }
@@ -200,22 +208,31 @@ public class RaftContext {
             long term = raftContext.getRaftState().getCurrentTerm();
             int bytesLimit = raftContext.getConfig().logAppendBytesLimit().toInt();
             int entryLimit = raftContext.getConfig().logAppendEntryLimit();
-            List<LogEntry> entries = new ArrayList<>();
             LogId commitedId = raftContext.getRaftState().getCommitedId();
             int bytes = 0;
             int cnt = 0;
+            LogAppend.Builder builder = LogAppend.newBuilder()
+                    .setTxnId(txnId)
+                    .setTerm(term)
+                    .setLeaderCommited(commitedId);
             while (!bufferedClientReqs.isEmpty() && cnt < entryLimit && bytes < bytesLimit) {
                 var entry = bufferedClientReqs.pollFirstEntry();
-                commitedId = new LogId(commitedId.index() + 1, term);
+                commitedId = commitedId.toBuilder().setIndex(commitedId.getIndex() + 1).build();
                 ClientTxn key = entry.getKey();
                 clientTxnList.add(key);
-                PeerMessage.ClientTxnReq value = entry.getValue();
-                entries.add(new LogEntry(commitedId, value.data()));
+                ClientTxnReq value = entry.getValue();
+                builder.addEntries(LogEntry.newBuilder()
+                        .setId(commitedId)
+                        .setValue(PeerProto.LogValue.newBuilder()
+                                .setData(value.getData())
+                                .setClientId(value.getClientId())
+                                .setClientTxnId(value.getTxnId()))
+                        .build());
+                ;
                 entryLimit++;
-                bytesLimit += value.data().size();
+                bytesLimit += value.getData().size();
             }
-            LogAppend append = new LogAppend(txnId, term, entries, commitedId);
-            return new TxnContext(append, clientTxnList);
+            return new TxnContext(builder.build(), clientTxnList);
         }
 
         public void close() {

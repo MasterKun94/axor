@@ -1,0 +1,143 @@
+syntax = "proto3";
+
+option java_package = "io.axor.raft.proto";
+option java_outer_classname = "PeerProto";
+
+package axor.raft;
+
+message PeerMessage {
+  oneof msg {
+    ClientTxnReq clientTxnReq = 1;
+    LogAppend logAppend = 2;
+    LogAppendAck logAppendAck = 3;
+    LeaderHeartbeat leaderHeartbeat = 4;
+    LogFetch logFetch = 5;
+    LogFetchRes logFetchRes = 6;
+    RequestVote requestVote = 7;
+    RequestVoteAck requestVoteAck = 8;
+  }
+}
+
+message ClientMessage {
+  oneof msg {
+    ClientTxnRes clientTxnRes = 1;
+  }
+}
+
+message ClientTxnReq {
+  int64 txnId = 1;
+  bytes clientId = 2;
+  bytes data = 3;
+}
+message ClientTxnRes {
+  int64 txnId = 1;
+  Status status = 2;
+  bytes data = 3;
+
+  enum Status {
+    NONE = 0;
+    SUCCESS = 1;
+    NO_LEADER = 2;
+    REDIRECT = 3;
+    SYS_ERROR = 4;
+    APPEND_TIMEOUT = 5;
+    APPEND_FAILURE = 6;
+    COMMIT_FAILURE = 7;
+    CANCELED = 8;
+  }
+}
+
+message LogId {
+  int64 index = 1;
+  int64 term = 2;
+}
+
+message LogValue {
+  bytes data = 1;
+  int64 clientTxnId = 2;
+  bytes clientId = 3;
+}
+
+message LogEntry {
+  LogId id = 1;
+  LogValue value = 2;
+}
+
+message AppendResult {
+  Status status = 1;
+  LogId commited = 2;
+  repeated LogId uncommited = 3;
+
+  enum Status {
+    NONE = 0;
+    SUCCESS = 1;
+    NO_ACTION = 2;
+    TERM_DENY = 3;
+    SYSTEM_ERROR = 4;
+    TERM_EXPIRED = 5;
+    INDEX_EXPIRED = 6;
+    INDEX_EXCEEDED = 7;
+  }
+}
+
+message CommitResult {
+  Status status = 1;
+  LogId commited = 2;
+  repeated LogId uncommited = 3;
+
+  enum Status {
+    NONE = 0;
+    SUCCESS = 1;
+    NO_ACTION = 2;
+    NO_VALUE = 3;
+    SYSTEM_ERROR = 4;
+    NOT_ENOUGH_DATA = 5;
+    ILLEGAL_STATE = 6;
+    INDEX_EXCEEDED = 7;
+  }
+}
+
+message LogAppend {
+  int64 txnId = 1;
+  int64 term = 2;
+  repeated LogEntry entries = 3;
+  LogId leaderCommited = 4;
+}
+
+message LogAppendAck {
+  int64 txnId = 1;
+  int64 term = 2;
+  AppendResult result = 3;
+}
+
+message LeaderHeartbeat {
+  int64 term = 2;
+  LogId leaderCommited = 4;
+}
+
+message LogFetch {
+  int64 txnId = 1;
+  LogId startAt = 2;
+  bool includeStartAt = 3;
+  int32 limit = 4;
+}
+
+message LogFetchRes {
+  int64 txnId = 1;
+  bool success = 2;
+  repeated LogEntry entries = 3;
+  string errMsg = 4;
+  LogId leaderCommited = 5;
+}
+
+message RequestVote {
+  int64 txnId = 1;
+  int64 term = 2;
+  LogId logEndId = 3;
+}
+
+message RequestVoteAck {
+  int64 txnId = 1;
+  int64 term = 2;
+  bool voteGranted = 3;
+}

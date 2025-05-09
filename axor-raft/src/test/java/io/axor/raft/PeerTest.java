@@ -9,7 +9,7 @@ import io.axor.commons.config.ConfigMapper;
 import io.axor.raft.logging.AsyncRaftLoggingFactoryAdaptor;
 import io.axor.raft.logging.RaftLoggingFactory;
 import io.axor.raft.logging.RocksdbRaftLoggingFactory;
-import io.axor.raft.messages.PeerMessage;
+import io.axor.raft.proto.PeerProto.PeerMessage;
 import io.axor.runtime.EventDispatcher;
 import org.apache.commons.io.FileUtils;
 import org.junit.AfterClass;
@@ -57,15 +57,15 @@ public class PeerTest {
         var logging1 = asyncFactory.create("Peer1", dispatcher.newPromise()).toFuture().get();
         var logging2 = asyncFactory.create("Peer2", dispatcher.newPromise()).toFuture().get();
         var logging3 = asyncFactory.create("Peer3", dispatcher.newPromise()).toFuture().get();
-        peer1 = system.start(c -> new PeerActor(c, raftConfig, peers, 0, logging1), "Peer1");
-        peer2 = system.start(c -> new PeerActor(c, raftConfig, peers, 1, logging2), "Peer2");
-        peer3 = system.start(c -> new PeerActor(c, raftConfig, peers, 2, logging3), "Peer3");
+        peer1 = system.start(c -> new RaftPeerActor(c, raftConfig, peers, 0, logging1), "Peer1");
+        peer2 = system.start(c -> new RaftPeerActor(c, raftConfig, peers, 1, logging2), "Peer2");
+        peer3 = system.start(c -> new RaftPeerActor(c, raftConfig, peers, 2, logging3), "Peer3");
 
-        ActorUnsafe.signal(peer1, PeerActor.START_SIGNAL);
+        ActorUnsafe.signal(peer1, RaftPeerActor.START_SIGNAL);
         Thread.sleep(500);
-        ActorUnsafe.signal(peer2, PeerActor.START_SIGNAL);
+        ActorUnsafe.signal(peer2, RaftPeerActor.START_SIGNAL);
         Thread.sleep(100);
-        ActorUnsafe.signal(peer3, PeerActor.START_SIGNAL);
+        ActorUnsafe.signal(peer3, RaftPeerActor.START_SIGNAL);
     }
 
     @AfterClass
@@ -76,7 +76,7 @@ public class PeerTest {
 
     @Test
     public void test() throws Exception {
-        Thread.sleep(40000);
+        Thread.sleep(10000);
     }
 
 }

@@ -1,5 +1,7 @@
 package io.axor.commons.config;
 
+import com.typesafe.config.ConfigMemorySize;
+
 import java.math.BigInteger;
 
 /**
@@ -17,6 +19,10 @@ public final class MemorySize {
             throw new IllegalArgumentException("Attempt to construct ConfigMemorySize with " +
                                                "negative number: " + bytes);
         this.bytes = bytes;
+    }
+
+    public static MemorySize ofBytes(ConfigMemorySize memorySize) {
+        return ofBytes(memorySize.toBytesBigInteger());
     }
 
     /**

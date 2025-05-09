@@ -1,12 +1,14 @@
 package io.axor.raft.logging;
 
-import com.google.protobuf.ByteString;
-import io.axor.raft.AppendStatus;
-import io.axor.raft.CommitStatus;
-import io.axor.raft.LogEntry;
-import io.axor.raft.LogId;
+import com.google.protobuf.InvalidProtocolBufferException;
+import io.axor.raft.LogUtils;
 import io.axor.raft.RaftException;
 import io.axor.raft.RocksDBRaftException;
+import io.axor.raft.proto.PeerProto.AppendResult;
+import io.axor.raft.proto.PeerProto.CommitResult;
+import io.axor.raft.proto.PeerProto.LogEntry;
+import io.axor.raft.proto.PeerProto.LogId;
+import io.axor.raft.proto.PeerProto.LogValue;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.OptimisticTransactionDB;
 import org.rocksdb.ReadOptions;
@@ -29,17 +31,23 @@ public class RocksdbRaftLogging implements RaftLogging {
     private final WriteOptions writeOpt;
     private final ReadOptions readOpt;
     private final Thread writerThread;
-    private final ThreadLocal<ByteBuffer> reuseBufferTl;
+    private final ByteBuffer keyBuffer;
+    private final ByteBuffer valueBuffer;
     private volatile List<LogId> uncommitedIdList = new ArrayList<>();
     private volatile LogId commitedId;
     private volatile LogId startedId;
 
     public RocksdbRaftLogging(String name, OptimisticTransactionDB db, ColumnFamilyHandle cfHandle,
                               WriteOptions writeOpt, ReadOptions readOpt, Thread writerThread,
-                              ThreadLocal<ByteBuffer> reuseBufferTl) throws RaftException {
+                              boolean bufferDirect, int valueBufferLimit) throws RaftException {
         this.name = name;
         this.db = db;
-        this.reuseBufferTl = reuseBufferTl;
+        this.keyBuffer = bufferDirect ?
+                ByteBuffer.allocateDirect(16) :
+                ByteBuffer.allocate(16);
+        this.valueBuffer = bufferDirect ?
+                ByteBuffer.allocateDirect(valueBufferLimit) :
+                ByteBuffer.allocate(valueBufferLimit);
         this.cfHandle = cfHandle;
         this.writeOpt = writeOpt;
         this.readOpt = readOpt;
@@ -50,12 +58,13 @@ public class RocksdbRaftLogging implements RaftLogging {
         } catch (RocksDBException e) {
             throw new RocksDBRaftException(e);
         }
-        commitedId = bytes == null ? LogId.INITIAL : LogUtils.toId(bytes);
+        commitedId = bytes == null ? INITIAL_LOG_ID : LogUtils.toId(bytes);
         refreshStartedId();
-        try (RocksIterator iter = db.newIterator(cfHandle)) {
+        try (RocksIterator iter = db.newIterator(cfHandle, readOpt)) {
             List<LogId> uncommited = new ArrayList<>();
-            for (iter.seek(LogUtils.toBytes(commitedId)); iter.isValid(); iter.next()) {
-                uncommited.add(LogUtils.toId(iter.key()));
+            for (iter.seek(commitedId.toByteArray()); iter.isValid(); iter.next()) {
+                iter.key(keyBuffer.clear());
+                uncommited.add(LogUtils.toId(keyBuffer));
             }
             if (!uncommited.isEmpty()) {
                 uncommitedIdList = Collections.unmodifiableList(uncommited);
@@ -63,14 +72,18 @@ public class RocksdbRaftLogging implements RaftLogging {
         }
     }
 
-    private void refreshStartedId() {
+    private void refreshStartedId() throws RaftException {
         LogId commitedId = this.commitedId;
-        if (commitedId == LogId.INITIAL) {
+        if (commitedId == INITIAL_LOG_ID) {
             startedId = commitedId;
         }
         try (RocksIterator iter = db.newIterator(cfHandle, readOpt)) {
             iter.seekToFirst();
-            startedId = iter.isValid() ? LogUtils.toId(iter.key()) : LogId.INITIAL;
+            try {
+                startedId = iter.isValid() ? LogId.parseFrom(iter.key()) : INITIAL_LOG_ID;
+            } catch (InvalidProtocolBufferException e) {
+                throw new RaftException(e);
+            }
         }
     }
 
@@ -100,10 +113,11 @@ public class RocksdbRaftLogging implements RaftLogging {
         return append(Collections.singletonList(entry));
     }
 
-    private void putEntry(Transaction txn, LogEntry entry, ByteBuffer reuse) throws RocksDBException {
-        reuse.clear();
-        ByteBuffer key = LogUtils.toBytes(entry.id(), reuse);
-        ByteBuffer value = LogUtils.dataBytes(entry, reuse);
+    private void putEntry(Transaction txn, LogEntry entry) throws RocksDBException, RaftException {
+        keyBuffer.clear();
+        valueBuffer.clear();
+        ByteBuffer key = LogUtils.toBytes(entry.getId(), keyBuffer);
+        ByteBuffer value = LogUtils.toBytes(entry.getValue(), valueBuffer);
         txn.put(cfHandle, key, value);
     }
 
@@ -111,13 +125,24 @@ public class RocksdbRaftLogging implements RaftLogging {
         txn.delete(cfHandle, LogUtils.toBytes(id));
     }
 
-    private AppendResult result(AppendStatus status) {
-        return new AppendResult(status, commitedId, uncommitedId());
+    private AppendResult result(AppendResult.Status status) {
+        AppendResult.Builder builder = AppendResult.newBuilder()
+                .setStatus(status)
+                .setCommited(commitedId);
+        if (uncommitedIdList != null) {
+            builder.addAllUncommited(uncommitedIdList);
+        }
+        return builder.build();
     }
 
-
-    private CommitResult result(CommitStatus status) {
-        return new CommitResult(status, commitedId);
+    private CommitResult result(CommitResult.Status status) {
+        CommitResult.Builder builder = CommitResult.newBuilder()
+                .setStatus(status)
+                .setCommited(commitedId);
+        if (uncommitedIdList != null) {
+            builder.addAllUncommited(uncommitedIdList);
+        }
+        return builder.build();
     }
 
     @Override
@@ -132,38 +157,39 @@ public class RocksdbRaftLogging implements RaftLogging {
                 this.uncommitedIdList == null || this.uncommitedIdList.isEmpty() ?
                         new ArrayList<>(entries.size()) : new ArrayList<>(this.uncommitedIdList);
         List<TxnAction> actionList = new ArrayList<>();
-        ByteBuffer reuse = reuseBufferTl.get();
+        ByteBuffer keyBuffer = this.keyBuffer;
+        ByteBuffer valueBuffer = this.valueBuffer;
         for (LogEntry entry : entries) {
-            LogId id = entry.id();
-            if (id.index() <= commitedId.index()) {
-                reuse.clear();
-                ByteBuffer bKey = LogUtils.toBytes(id, reuse);
-                ByteBuffer slice = reuse.slice(16, reuse.remaining());
+            LogId id = entry.getId();
+            LogValue value = entry.getValue();
+            if (id.getIndex() <= commitedId.getIndex()) {
+                keyBuffer.clear();
+                valueBuffer.clear();
                 try {
-                    int i = db.get(cfHandle, readOpt, bKey, slice);
+                    int i = db.get(cfHandle, readOpt, LogUtils.toBytes(id, keyBuffer), valueBuffer);
                     if (i == RocksDB.NOT_FOUND) {
-                        return result(AppendStatus.INDEX_EXPIRED);
+                        return result(AppendResult.Status.INDEX_EXPIRED);
                     }
-                    if (entry.data().equals(ByteString.copyFrom(slice))) {
-                        // append a commited entry, ignore
+                    if (LogUtils.toValue(valueBuffer).equals(value)) {
+                        // already commited, ignore
                         continue;
                     }
                 } catch (RocksDBException e) {
                     throw new RocksDBRaftException(e);
                 }
-                return result(AppendStatus.INDEX_EXPIRED);
+                return result(AppendResult.Status.INDEX_EXPIRED);
             }
-            if (id.term() < commitedId.term()) {
-                return result(AppendStatus.TERM_EXPIRED);
+            if (id.getTerm() < commitedId.getTerm()) {
+                return result(AppendResult.Status.TERM_EXPIRED);
             }
             LogId uncommitedId = uncommitedIdList.isEmpty() ? commitedId :
                     uncommitedIdList.getLast();
-            long l = id.index() - uncommitedId.index();
+            long l = id.getIndex() - uncommitedId.getIndex();
             if (l > 1) {
-                return result(AppendStatus.INDEX_EXCEEDED);
+                return result(AppendResult.Status.INDEX_EXCEEDED);
             }
             if (l != 1) {
-                int off = (int) (id.index() - commitedId.index());
+                int off = (int) (id.getIndex() - commitedId.getIndex());
                 while (uncommitedIdList.size() >= off) {
                     LogId removedId = uncommitedIdList.removeLast();
                     actionList.add(txn -> removeEntry(txn, removedId));
@@ -171,15 +197,15 @@ public class RocksdbRaftLogging implements RaftLogging {
                 uncommitedId = uncommitedIdList.isEmpty() ? commitedId :
                         uncommitedIdList.getLast();
             }
-            if (id.term() < uncommitedId.term()) {
-                return result(AppendStatus.TERM_EXPIRED);
+            if (id.getTerm() < uncommitedId.getTerm()) {
+                return result(AppendResult.Status.TERM_EXPIRED);
             }
-            uncommitedIdList.add(entry.id());
-            actionList.add(txn -> putEntry(txn, entry, reuse));
+            uncommitedIdList.add(entry.getId());
+            actionList.add(txn -> putEntry(txn, entry));
         }
         if (actionList.isEmpty()) {
             resetUncommited();
-            return result(AppendStatus.NO_ACTION);
+            return result(AppendResult.Status.NO_ACTION);
         }
         try (var txn = db.beginTransaction(writeOpt)) {
             for (TxnAction action : actionList) {
@@ -190,7 +216,7 @@ public class RocksdbRaftLogging implements RaftLogging {
             throw new RocksDBRaftException(e);
         }
         this.uncommitedIdList = Collections.unmodifiableList(uncommitedIdList);
-        return result(AppendStatus.SUCCESS);
+        return result(AppendResult.Status.SUCCESS);
     }
 
     @Override
@@ -200,22 +226,22 @@ public class RocksdbRaftLogging implements RaftLogging {
         }
         LogId prev = commitedId;
         if (prev.equals(commitAtId)) {
-            return result(CommitStatus.NO_ACTION);
+            return result(CommitResult.Status.NO_ACTION);
         }
-        if (prev.index() > commitAtId.index()) {
+        if (prev.getIndex() > commitAtId.getIndex()) {
             if (db.keyExists(cfHandle, readOpt, LogUtils.toBytes(commitAtId))) {
-                return result(CommitStatus.NO_ACTION);
+                return result(CommitResult.Status.NO_ACTION);
             }
         }
         if (uncommitedIdList.isEmpty()) {
-            return result(CommitStatus.NO_VALUE);
+            return result(CommitResult.Status.NO_VALUE);
         }
         int idx = this.uncommitedIdList.indexOf(commitAtId);
         if (idx == -1) {
-            if (uncommitedIdList.getLast().index() < commitedId.index()) {
-                return result(CommitStatus.INDEX_EXCEEDED);
+            if (uncommitedIdList.getLast().getIndex() < commitedId.getIndex()) {
+                return result(CommitResult.Status.INDEX_EXCEEDED);
             }
-            return result(CommitStatus.ILLEGAL_STATE);
+            return result(CommitResult.Status.ILLEGAL_STATE);
         }
         try {
             db.put(name.getBytes(), LogUtils.toBytes(commitAtId));
@@ -230,26 +256,25 @@ public class RocksdbRaftLogging implements RaftLogging {
         } catch (RocksDBException e) {
             throw new RocksDBRaftException(e);
         }
-        if (prev.equals(LogId.INITIAL)) {
+        if (prev.equals(INITIAL_LOG_ID)) {
             refreshStartedId();
         }
-        return result(CommitStatus.SUCCESS);
+        return result(CommitResult.Status.SUCCESS);
     }
 
     @Override
     public List<LogEntry> read(LogId start, boolean includeStart, boolean includeUncommited,
-                               int entryLimit, int sizeLimit) {
-        long endIndex = includeUncommited ? logEndId().index() : commitedId.index();
-        long available = endIndex == LogId.INITIAL.index() ? 0 :
-                includeStart ? endIndex - start.index() + 1 : endIndex - start.index();
+                               int entryLimit, int sizeLimit) throws RaftException {
+        long endIndex = includeUncommited ? logEndId().getIndex() : commitedId.getIndex();
+        long available = endIndex == INITIAL_LOG_ID.getIndex() ? 0 :
+                includeStart ? endIndex - start.getIndex() + 1 : endIndex - start.getIndex();
         int limit = Math.min((int) available, entryLimit);
         if (limit <= 0) {
             return Collections.emptyList();
         }
-        ByteBuffer reuse = reuseBufferTl.get();
-        reuse.clear();
         RocksIterator iter = db.newIterator(cfHandle, readOpt);
-        iter.seek(LogUtils.toBytes(start, reuse));
+        keyBuffer.clear();
+        iter.seek(LogUtils.toBytes(start, keyBuffer));
         List<LogEntry> entries = new ArrayList<>();
         int cnt = 0;
         int size = 0;
@@ -257,23 +282,23 @@ public class RocksdbRaftLogging implements RaftLogging {
             iter.next();
         }
         while (iter.isValid() && cnt < limit && size < sizeLimit) {
-            reuse.clear();
-            iter.key(reuse);
-            LogId id = LogUtils.toId(reuse);
-            reuse.clear();
-            iter.value(reuse);
-            LogEntry entry = new LogEntry(id, ByteString.copyFrom(reuse));
-            entries.add(entry);
+            keyBuffer.clear();
+            iter.key(keyBuffer);
+            LogId id = LogUtils.toId(keyBuffer);
+            valueBuffer.clear();
+            iter.value(valueBuffer);
+            LogValue value = LogUtils.toValue(valueBuffer);
+            entries.add(LogEntry.newBuilder().setId(id).setValue(value).build());
             cnt++;
             iter.next();
-            size += entry.data().size();
+            size += value.getData().size();
         }
         return entries;
     }
 
     @Override
     public List<LogEntry> readForSync(LogId commited, List<LogId> uncommited, int entryLimit,
-                                      int sizeLimit) {
+                                      int sizeLimit) throws RaftException {
         List<LogId> list;
         if (uncommited.isEmpty()) {
             list = Collections.singletonList(commited);
@@ -283,21 +308,21 @@ public class RocksdbRaftLogging implements RaftLogging {
             list.add(commited);
         }
         LogId logEndId = logEndId();
-        if (logEndId.index() < commited.index()) {
+        if (logEndId.getIndex() < commited.getIndex()) {
             throw new IllegalArgumentException("illegal input logId");
         }
         long prevIndex = -1;
         long prevTerm = -1;
         for (LogId logId : list) {
 
-            if (prevIndex != -1 && prevIndex <= logId.index()) {
+            if (prevIndex != -1 && prevIndex <= logId.getIndex()) {
                 throw new IllegalArgumentException("illegal input logId index");
             }
-            if (prevTerm != -1 && prevTerm <= logId.term()) {
+            if (prevTerm != -1 && prevTerm <= logId.getTerm()) {
                 throw new IllegalArgumentException("illegal input logId term");
             }
-            prevIndex = logId.index();
-            prevTerm = logId.term();
+            prevIndex = logId.getIndex();
+            prevTerm = logId.getTerm();
             if (db.keyExists(cfHandle, readOpt, LogUtils.toBytes(logId))) {
                 return read(logId, false, true, entryLimit, sizeLimit);
             }
@@ -328,7 +353,7 @@ public class RocksdbRaftLogging implements RaftLogging {
             throw new IllegalArgumentException(before + " not exists");
         }
         try {
-            List<byte[]> range = List.of(LogUtils.toBytes(LogId.INITIAL), b);
+            List<byte[]> range = List.of(LogUtils.toBytes(INITIAL_LOG_ID), b);
             db.deleteFilesInRanges(cfHandle, range, false);
         } catch (RocksDBException e) {
             throw new RocksDBRaftException(e);

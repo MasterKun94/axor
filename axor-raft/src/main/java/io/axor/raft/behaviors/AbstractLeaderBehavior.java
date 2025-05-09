@@ -2,18 +2,19 @@ package io.axor.raft.behaviors;
 
 import io.axor.api.Behavior;
 import io.axor.api.Behaviors;
-import io.axor.raft.Peer;
+import io.axor.raft.PeerInstance;
 import io.axor.raft.PeerState;
 import io.axor.raft.RaftContext;
-import io.axor.raft.messages.PeerMessage;
+import io.axor.raft.proto.PeerProto;
+import io.axor.raft.proto.PeerProto.PeerMessage;
 
 public class AbstractLeaderBehavior extends AbstractPeerBehavior {
 
     protected AbstractLeaderBehavior(RaftContext raftContext) {
         super(raftContext);
         raftContext.changeSelfPeerState(PeerState.LEADER);
-        Peer leader = raftState().getLeader();
-        Peer selfPeer = raftContext.getSelfPeer().peer();
+        PeerInstance leader = raftState().getLeader();
+        PeerInstance selfPeer = raftContext.getSelfPeer();
         if (leader == null) {
             raftState().setLeader(selfPeer);
         } else if (!leader.equals(selfPeer)) {
@@ -26,8 +27,8 @@ public class AbstractLeaderBehavior extends AbstractPeerBehavior {
     }
 
     @Override
-    protected Behavior<PeerMessage> onLeaderHeartbeat(PeerMessage.LeaderHeartbeat msg) {
-        if (msg.term() == raftState().getCurrentTerm()) {
+    protected Behavior<PeerMessage> onLeaderHeartbeat(PeerProto.LeaderHeartbeat msg) {
+        if (msg.getTerm() == raftState().getCurrentTerm()) {
             throw new IllegalStateException("Multiple leader at the same term! this should never " +
                                             "happen!");
         }
@@ -35,8 +36,8 @@ public class AbstractLeaderBehavior extends AbstractPeerBehavior {
     }
 
     @Override
-    protected Behavior<PeerMessage> onLogAppend(PeerMessage.LogAppend msg) {
-        if (msg.term() == raftState().getCurrentTerm()) {
+    protected Behavior<PeerMessage> onLogAppend(PeerProto.LogAppend msg) {
+        if (msg.getTerm() == raftState().getCurrentTerm()) {
             throw new IllegalStateException("Multiple leader at the same term! this should never " +
                                             "happen!");
         }
@@ -44,11 +45,25 @@ public class AbstractLeaderBehavior extends AbstractPeerBehavior {
     }
 
     @Override
-    protected Behavior<PeerMessage> onRequestVoteAck(PeerMessage.RequestVoteAck msg) {
-        if (msg.term() == raftState().getCurrentTerm()) {
+    protected Behavior<PeerMessage> onRequestVoteAck(PeerProto.RequestVoteAck msg) {
+        if (msg.getTerm() == raftState().getCurrentTerm()) {
             return Behaviors.same();
         } else {
             return Behaviors.unhandled();
+        }
+    }
+
+    protected boolean needContinueAppend(PeerProto.AppendResult result) {
+        PeerProto.AppendResult.Status status = result.getStatus();
+        if (status == PeerProto.AppendResult.Status.SUCCESS ||
+            status == PeerProto.AppendResult.Status.NO_ACTION ||
+            status == PeerProto.AppendResult.Status.INDEX_EXCEEDED) {
+            int cnt = result.getUncommitedCount();
+            PeerProto.LogId logEndId = cnt > 0 ? result.getUncommited(cnt - 1) :
+                    result.getCommited();
+            return logEndId.getIndex() < raftState().getCommitedId().getIndex();
+        } else {
+            return false;
         }
     }
 }

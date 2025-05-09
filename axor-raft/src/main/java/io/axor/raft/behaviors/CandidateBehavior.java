@@ -8,8 +8,8 @@ import io.axor.raft.PeerInstance;
 import io.axor.raft.PeerState;
 import io.axor.raft.RaftContext;
 import io.axor.raft.RaftState;
-import io.axor.raft.messages.PeerMessage;
-import io.axor.raft.messages.PeerMessage.RequestVote;
+import io.axor.raft.proto.PeerProto;
+import io.axor.raft.proto.PeerProto.PeerMessage;
 import io.axor.runtime.Signal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,13 +39,17 @@ public class CandidateBehavior extends AbstractPeerBehavior {
         txnId = raftContext.generateTxnId();
         majority = raftContext.getPeers().size() / 2 + 1;
         ackedPeer = new HashSet<>(raftContext.getPeers().size());
-        raftState.setVotedFor(raftContext.getSelfPeer().peer());
+        raftState.setVotedFor(raftContext.getSelfPeer());
         raftState.setCurrentTerm(term);
         for (PeerInstance peer : raftContext.getPeers()) {
             if (peer.isSelf()) {
                 continue;
             }
-            peer.peerRef().tell(new RequestVote(txnId, term, raftState.getCommitedId()), self());
+            peer.peerRef().tell(peerMsg(PeerProto.RequestVote.newBuilder()
+                    .setTxnId(txnId)
+                    .setTerm(term)
+                    .setLogEndId(raftContext.getLogEndId())
+                    .build()), self());
         }
         long timeout = config().candidateTimeoutBase().toMillis();
         double ratio = timeout * config().candidateTimeoutRandomRatio();
@@ -56,19 +60,23 @@ public class CandidateBehavior extends AbstractPeerBehavior {
     }
 
     @Override
-    protected Behavior<PeerMessage> onClientTxn(PeerMessage.ClientTxnReq msg) {
-        return super.onClientTxn(msg);
+    protected Behavior<PeerMessage> onClientTxnReq(PeerProto.ClientTxnReq msg) {
+        clientSender().tell(clientMsg(PeerProto.ClientTxnRes.newBuilder()
+                .setTxnId(txnId)
+                .setStatus(PeerProto.ClientTxnRes.Status.NO_LEADER)
+                .build()), self());
+        return Behaviors.same();
     }
 
     @Override
-    protected Behavior<PeerMessage> onLogAppend(PeerMessage.LogAppend msg) {
-        if (msg.term() == raftState().getCurrentTerm()) {
-            Peer leaderPeer = raftContext().getPeerOfSender().peer();
+    protected Behavior<PeerMessage> onLogAppend(PeerProto.LogAppend msg) {
+        if (msg.getTerm() == raftState().getCurrentTerm()) {
+            PeerInstance leaderPeer = raftContext().getPeerOfSender();
             raftState().setVotedFor(leaderPeer);
             raftState().setLeader(leaderPeer);
             candidateTimeoutFuture.cancel(false);
             return Behaviors.consumeBuffer(new FollowerBehavior(raftContext()))
-                    .addMsg(msg, peerSender())
+                    .addMsg(peerMsg(msg), peerSender())
                     .toBehavior();
         } else {
             return super.onLogAppend(msg);
@@ -76,14 +84,14 @@ public class CandidateBehavior extends AbstractPeerBehavior {
     }
 
     @Override
-    protected Behavior<PeerMessage> onLeaderHeartbeat(PeerMessage.LeaderHeartbeat msg) {
-        if (msg.term() == raftState().getCurrentTerm()) {
-            Peer leaderPeer = raftContext().getPeerOfSender().peer();
+    protected Behavior<PeerMessage> onLeaderHeartbeat(PeerProto.LeaderHeartbeat msg) {
+        if (msg.getTerm() == raftState().getCurrentTerm()) {
+            PeerInstance leaderPeer = raftContext().getPeerOfSender();
             raftState().setVotedFor(leaderPeer);
             raftState().setLeader(leaderPeer);
             candidateTimeoutFuture.cancel(false);
             return Behaviors.consumeBuffer(new FollowerBehavior(raftContext()))
-                    .addMsg(msg, peerSender())
+                    .addMsg(peerMsg(msg), peerSender())
                     .toBehavior();
         } else {
             return super.onLeaderHeartbeat(msg);
@@ -91,15 +99,15 @@ public class CandidateBehavior extends AbstractPeerBehavior {
     }
 
     @Override
-    protected Behavior<PeerMessage> onRequestVoteAck(PeerMessage.RequestVoteAck msg) {
-        if (msg.txnId() == txnId) {
+    protected Behavior<PeerMessage> onRequestVoteAck(PeerProto.RequestVoteAck msg) {
+        if (msg.getTxnId() == txnId) {
             RaftContext raftContext = raftContext();
             PeerInstance peerOfSender = raftContext.getPeerOfSender();
             if (!ackedPeer.add(peerOfSender.peer())) {
                 LOG.warn("Already receive ack from {}, ignore", peerOfSender.peer());
                 return Behaviors.same();
             }
-            if (msg.voteGranted()) {
+            if (msg.getVoteGranted()) {
                 LOG.info("{} from {} at term {}", msg, peerOfSender.peer(), term);
                 grantedCnt++;
                 if (grantedCnt >= majority) {

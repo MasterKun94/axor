@@ -1,13 +1,16 @@
 package io.axor.raft.logging;
 
-
-import io.axor.raft.LogEntry;
-import io.axor.raft.LogId;
 import io.axor.raft.RaftException;
+import io.axor.raft.proto.PeerProto.AppendResult;
+import io.axor.raft.proto.PeerProto.CommitResult;
+import io.axor.raft.proto.PeerProto.LogEntry;
+import io.axor.raft.proto.PeerProto.LogId;
 
 import java.util.List;
 
 public interface RaftLogging {
+    LogId INITIAL_LOG_ID = LogId.getDefaultInstance();
+
     LogId startedId();
 
     LogId commitedId();
