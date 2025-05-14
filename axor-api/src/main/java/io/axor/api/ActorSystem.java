@@ -12,7 +12,6 @@ import io.axor.runtime.EventDispatcherGroup;
 import io.axor.runtime.MsgType;
 import io.axor.runtime.SerdeRegistry;
 import io.axor.runtime.StreamServer;
-import io.axor.runtime.scheduler.Scheduler;
 import org.slf4j.Logger;
 
 import java.util.concurrent.CompletableFuture;

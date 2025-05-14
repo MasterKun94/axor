@@ -1,6 +1,7 @@
 package io.axor.raft.logging;
 
 import io.axor.raft.RaftException;
+import io.axor.raft.proto.PeerProto;
 import io.axor.raft.proto.PeerProto.AppendResult;
 import io.axor.raft.proto.PeerProto.CommitResult;
 import io.axor.raft.proto.PeerProto.LogEntry;
@@ -19,9 +20,9 @@ public interface RaftLogging {
 
     LogId logEndId();
 
-    AppendResult append(LogEntry entry) throws RaftException;
+    AppendResult append(LogId prevLogId, LogEntry entry) throws RaftException;
 
-    AppendResult append(List<LogEntry> entries) throws RaftException;
+    AppendResult append(LogId prevLogId, List<LogEntry> entries) throws RaftException;
 
     CommitResult commit(LogId commitAtId) throws RaftException;
 
@@ -34,4 +35,16 @@ public interface RaftLogging {
     void resetUncommited() throws RaftException;
 
     void expire(LogId before) throws RaftException;
+
+    void installSnapshot(PeerProto.InstallSnapshot installSnapshot) throws RaftException;
+
+    void addListener(LogEntryListener listener);
+
+    interface LogEntryListener {
+        void appended(LogEntry entry);
+
+        void removed(LogId id);
+
+        void commited(LogId id);
+    }
 }

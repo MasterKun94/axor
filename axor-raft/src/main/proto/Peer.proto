@@ -5,34 +5,43 @@ option java_outer_classname = "PeerProto";
 
 package axor.raft;
 
+import "axor/axor.proto";
+
 message PeerMessage {
   oneof msg {
     ClientTxnReq clientTxnReq = 1;
-    LogAppend logAppend = 2;
-    LogAppendAck logAppendAck = 3;
-    LeaderHeartbeat leaderHeartbeat = 4;
-    LogFetch logFetch = 5;
-    LogFetchRes logFetchRes = 6;
-    RequestVote requestVote = 7;
-    RequestVoteAck requestVoteAck = 8;
+    LogAppend logAppend = 12;
+    LogAppendAck logAppendAck = 13;
+    LeaderHeartbeat leaderHeartbeat = 14;
+    LogFetch logFetch = 15;
+    LogFetchRes logFetchRes = 16;
+    RequestVote requestVote = 17;
+    RequestVoteAck requestVoteAck = 18;
   }
 }
 
 message ClientMessage {
   oneof msg {
-    ClientTxnRes clientTxnRes = 1;
+    ClientTxnRes txnRes = 1;
+    ClientQueryRes queryRes = 2;
   }
 }
-
+enum ControlFlag {
+  NONE = 0;
+  IGNORE = 1;
+}
 message ClientTxnReq {
-  int64 txnId = 1;
-  bytes clientId = 2;
+  int64 seqId = 1;
+  int64 clientId = 2;
   bytes data = 3;
+  repeated int64 ackedSeqId = 4;
+  ControlFlag controlFlag = 5;
 }
 message ClientTxnRes {
-  int64 txnId = 1;
+  int64 seqId = 1;
   Status status = 2;
   bytes data = 3;
+  LogId commitedId = 4;
 
   enum Status {
     NONE = 0;
@@ -47,6 +56,25 @@ message ClientTxnRes {
   }
 }
 
+message ClientQueryReq {
+  int64 seqId = 1;
+  int64 clientId = 2;
+  LogId logId = 3;
+  bytes data = 4;
+}
+
+message ClientQueryRes {
+  int64 seqId = 1;
+  Status status = 2;
+  bytes data = 3;
+
+  enum Status {
+    NONE = 0;
+    SUCCESS = 1;
+    FAILURE = 2;
+  }
+}
+
 message LogId {
   int64 index = 1;
   int64 term = 2;
@@ -54,8 +82,11 @@ message LogId {
 
 message LogValue {
   bytes data = 1;
-  int64 clientTxnId = 2;
-  bytes clientId = 3;
+  int64 seqId = 2;
+  int64 clientId = 3;
+  int64 timestamp = 4;
+  repeated int64 ackedSeqId = 5;
+  ControlFlag controlFlag = 6;
 }
 
 message LogEntry {
@@ -77,6 +108,7 @@ message AppendResult {
     TERM_EXPIRED = 5;
     INDEX_EXPIRED = 6;
     INDEX_EXCEEDED = 7;
+    PREV_ID_NOT_MATCH = 8;
   }
 }
 
@@ -101,7 +133,8 @@ message LogAppend {
   int64 txnId = 1;
   int64 term = 2;
   repeated LogEntry entries = 3;
-  LogId leaderCommited = 4;
+  LogId prevLogId = 4;
+  LogId leaderCommited = 5;
 }
 
 message LogAppendAck {
@@ -140,4 +173,31 @@ message RequestVoteAck {
   int64 txnId = 1;
   int64 term = 2;
   bool voteGranted = 3;
+}
+
+message Snapshot {
+  int64 id = 1;
+  bytes data = 2;
+  repeated string files = 3;
+  LogId logId = 4;
+  repeated UnfinishedTxn unfinishedTxn = 5;
+
+  message UnfinishedTxn {
+    int64 seqId = 1;
+    int64 clientId = 2;
+    int64 createTime = 3;
+    LogId appliedLogId = 5;
+    repeated int64 ackedSeqId = 6;
+  }
+}
+
+message InstallSnapshot {
+  Snapshot snapshot = 1;
+  LogId commitedLogId = 2;
+  axor.ActorAddress fileServerAddress = 3;
+}
+
+message InstallSnapshotAck {
+  bool success = 1;
+  string cause = 2;
 }

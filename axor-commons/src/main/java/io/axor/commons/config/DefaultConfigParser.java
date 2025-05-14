@@ -4,6 +4,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigMemorySize;
 
+import java.io.File;
 import java.net.URI;
 import java.time.Duration;
 import java.time.Period;
@@ -60,6 +61,8 @@ public class DefaultConfigParser implements ConfigParser {
                 return config.getPeriod(key);
             } else if (clazz.equals(URI.class)) {
                 return URI.create(config.getString(key));
+            } else if (clazz.equals(File.class)) {
+                return new File(config.getString(key)).getAbsoluteFile();
             } else if (Enum.class.isAssignableFrom(clazz)) {
                 //noinspection unchecked,rawtypes
                 return config.getEnum((Class<? extends Enum>) clazz, key);

@@ -4,8 +4,9 @@ import io.axor.api.AbstractActor;
 import io.axor.api.ActorContext;
 import io.axor.api.Behavior;
 import io.axor.api.Behaviors;
+import io.axor.api.FailureStrategy;
 import io.axor.raft.behaviors.FollowerBehavior;
-import io.axor.raft.logging.AsyncRaftLogging;
+import io.axor.raft.logging.RaftLogging;
 import io.axor.raft.proto.PeerProto.PeerMessage;
 import io.axor.runtime.MsgType;
 import io.axor.runtime.Signal;
@@ -23,7 +24,7 @@ public class RaftPeerActor extends AbstractActor<PeerMessage> {
     private Supplier<RaftContext> raftContextSupplier;
 
     protected RaftPeerActor(ActorContext<PeerMessage> context, RaftConfig config, List<Peer> peers,
-                            int peerOffset, AsyncRaftLogging raftLogging) {
+                            int peerOffset, RaftLogging raftLogging) {
         super(context);
         raftContextSupplier = () -> {
             Peer selfPeer = peers.get(peerOffset);
@@ -42,6 +43,11 @@ public class RaftPeerActor extends AbstractActor<PeerMessage> {
                 return Behaviors.unhandled();
             }
         });
+    }
+
+    @Override
+    public FailureStrategy failureStrategy(Throwable throwable) {
+        return FailureStrategy.SYSTEM_ERROR;
     }
 
     @Override

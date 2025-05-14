@@ -13,7 +13,7 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package io.axor.runtime.scheduler;
+package io.axor.runtime.timer;
 
 import io.axor.commons.MathUtil;
 import io.axor.runtime.impl.PlatformDependent;
@@ -22,7 +22,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
@@ -79,8 +78,7 @@ public class HashedWheelTimer implements Timer {
     public static final int WORKER_STATE_INIT = 0;
     public static final int WORKER_STATE_STARTED = 1;
     public static final int WORKER_STATE_SHUTDOWN = 2;
-    static final Logger logger =
-            LoggerFactory.getLogger(HashedWheelTimer.class);
+    static final Logger logger = LoggerFactory.getLogger(HashedWheelTimer.class);
     private static final AtomicInteger INSTANCE_COUNTER = new AtomicInteger();
     private static final AtomicBoolean WARNED_TOO_MANY_INSTANCES = new AtomicBoolean();
     private static final int INSTANCE_COUNT_LIMIT = 64;
@@ -115,7 +113,7 @@ public class HashedWheelTimer implements Timer {
     public HashedWheelTimer(String threadName, HashedWheelTimerConfig config) {
         this(Thread.ofPlatform().name(threadName).daemon(true).factory(),
                 config.tickDuration().toMillis(), TimeUnit.MILLISECONDS, config.ticksPerWheel(),
-                false, config.maxPendingTimeouts());
+                config.leakDetection(), config.maxPendingTimeouts());
     }
 
     /**
@@ -235,8 +233,9 @@ public class HashedWheelTimer implements Timer {
      *                           thread.
      * @param maxPendingTimeouts The maximum number of pending timeouts after which call to
      *                           {@code newTimeout} will result in
-     *                           {@link RejectedExecutionException} being thrown. No maximum pending
-     *                           timeouts limit is assumed if this value is 0 or negative.
+     *                           {@link java.util.concurrent.RejectedExecutionException} being
+     *                           thrown. No maximum pending timeouts limit is assumed if this value
+     *                           is 0 or negative.
      * @throws NullPointerException     if either of {@code threadFactory} and {@code unit} is
      *                                  {@code null}
      * @throws IllegalArgumentException if either of {@code tickDuration} and {@code ticksPerWheel}
@@ -263,8 +262,9 @@ public class HashedWheelTimer implements Timer {
      *                           thread.
      * @param maxPendingTimeouts The maximum number of pending timeouts after which call to
      *                           {@code newTimeout} will result in
-     *                           {@link RejectedExecutionException} being thrown. No maximum pending
-     *                           timeouts limit is assumed if this value is 0 or negative.
+     *                           {@link java.util.concurrent.RejectedExecutionException} being
+     *                           thrown. No maximum pending timeouts limit is assumed if this value
+     *                           is 0 or negative.
      * @param taskExecutor       The {@link Executor} that is used to execute the submitted
      *                           {@link TimerTask}s. The caller is responsible to shutdown the
      *                           {@link Executor} once it is not needed anymore.
@@ -278,15 +278,11 @@ public class HashedWheelTimer implements Timer {
             long tickDuration, TimeUnit unit, int ticksPerWheel, boolean leakDetection,
             long maxPendingTimeouts, Executor taskExecutor) {
 
-        Objects.requireNonNull(threadFactory, "threadFactory");
-        Objects.requireNonNull(unit, "unit");
-        if (tickDuration <= 0) {
-            throw new IllegalArgumentException("tickDuration must be greater than zero");
-        }
-        if (ticksPerWheel <= 0) {
-            throw new IllegalArgumentException("ticksPerWheel must be greater than zero");
-        }
-        this.taskExecutor = Objects.requireNonNull(taskExecutor, "taskExecutor");
+        ObjectUtil.checkNotNull(threadFactory, "threadFactory");
+        ObjectUtil.checkNotNull(unit, "unit");
+        ObjectUtil.checkPositive(tickDuration, "tickDuration");
+        ObjectUtil.checkPositive(ticksPerWheel, "ticksPerWheel");
+        this.taskExecutor = ObjectUtil.checkNotNull(taskExecutor, "taskExecutor");
 
         // Normalize ticksPerWheel to power of two and initialize the wheel.
         wheel = createWheel(ticksPerWheel);
@@ -436,8 +432,8 @@ public class HashedWheelTimer implements Timer {
 
     @Override
     public Timeout newTimeout(TimerTask task, long delay, TimeUnit unit) {
-        Objects.requireNonNull(task, "task");
-        Objects.requireNonNull(unit, "unit");
+        ObjectUtil.checkNotNull(task, "task");
+        ObjectUtil.checkNotNull(unit, "unit");
 
         long pendingTimeoutsCount = pendingTimeouts.incrementAndGet();
 
@@ -445,8 +441,7 @@ public class HashedWheelTimer implements Timer {
             pendingTimeouts.decrementAndGet();
             throw new RejectedExecutionException("Number of pending timeouts ("
                                                  + pendingTimeoutsCount + ") is greater than or " +
-                                                 "equal to maximum allowed " +
-                                                 "pending "
+                                                 "equal to maximum allowed pending "
                                                  + "timeouts (" + maxPendingTimeouts + ")");
         }
 

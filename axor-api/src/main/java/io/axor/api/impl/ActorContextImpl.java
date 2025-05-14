@@ -7,16 +7,14 @@ import io.axor.api.ActorRefRich;
 import io.axor.api.ActorSettings;
 import io.axor.api.ActorSystem;
 import io.axor.api.EventStageSignal;
+import io.axor.api.Scheduler;
 import io.axor.api.SystemEvent;
 import io.axor.commons.concurrent.EventStage;
 import io.axor.commons.concurrent.Try;
 import io.axor.runtime.EventDispatcher;
 import io.axor.runtime.MsgType;
-import io.axor.runtime.scheduler.Scheduler;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import static io.axor.api.impl.ActorUnsafe.signal;
 
@@ -26,7 +24,7 @@ class ActorContextImpl<T> implements ActorContext<T> {
     private final LocalActorRef<T> self;
     private final ActorSettings settings = new ActorSettings();
     private final ActorSessionsImpl<T> sessions;
-    Map<String, String> mdcMap;
+    String mdcExtra;
     private ActorRef<?> sender;
 
     public ActorContextImpl(ActorSystem system, EventDispatcher executor, LocalActorRef<T> self) {
@@ -112,10 +110,7 @@ class ActorContextImpl<T> implements ActorContext<T> {
     }
 
     @Override
-    public Map<String, String> mdcMap() {
-        if (mdcMap == null) {
-            mdcMap = new HashMap<>();
-        }
-        return mdcMap;
+    public void mdcExtra(String value) {
+        mdcExtra = value;
     }
 }

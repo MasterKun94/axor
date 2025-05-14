@@ -13,7 +13,7 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package io.axor.runtime.scheduler;
+package io.axor.runtime.timer;
 
 import java.util.concurrent.Executor;
 

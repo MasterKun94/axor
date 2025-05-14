@@ -6,7 +6,6 @@ import io.axor.api.ActorRef;
 import io.axor.api.ActorSystem;
 import io.axor.api.impl.ActorUnsafe;
 import io.axor.commons.config.ConfigMapper;
-import io.axor.raft.logging.AsyncRaftLoggingFactoryAdaptor;
 import io.axor.raft.logging.RaftLoggingFactory;
 import io.axor.raft.logging.RocksdbRaftLoggingFactory;
 import io.axor.raft.proto.PeerProto.PeerMessage;
@@ -49,14 +48,13 @@ public class PeerTest {
                   create_if_missing = true
                 }
                 """));
-        var asyncFactory = new AsyncRaftLoggingFactoryAdaptor(factory);
         RaftConfig raftConfig = ConfigMapper.map(ConfigFactory.parseString("""
                 
                 """), RaftConfig.class);
         EventDispatcher dispatcher = system.getDispatcherGroup().nextDispatcher();
-        var logging1 = asyncFactory.create("Peer1", dispatcher.newPromise()).toFuture().get();
-        var logging2 = asyncFactory.create("Peer2", dispatcher.newPromise()).toFuture().get();
-        var logging3 = asyncFactory.create("Peer3", dispatcher.newPromise()).toFuture().get();
+        var logging1 = factory.create("Peer1");
+        var logging2 = factory.create("Peer2");
+        var logging3 = factory.create("Peer3");
         peer1 = system.start(c -> new RaftPeerActor(c, raftConfig, peers, 0, logging1), "Peer1");
         peer2 = system.start(c -> new RaftPeerActor(c, raftConfig, peers, 1, logging2), "Peer2");
         peer3 = system.start(c -> new RaftPeerActor(c, raftConfig, peers, 2, logging3), "Peer3");
@@ -76,7 +74,7 @@ public class PeerTest {
 
     @Test
     public void test() throws Exception {
-        Thread.sleep(10000);
+        Thread.sleep(20000);
     }
 
 }

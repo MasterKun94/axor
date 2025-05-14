@@ -57,11 +57,12 @@ public class AbstractLeaderBehavior extends AbstractPeerBehavior {
         PeerProto.AppendResult.Status status = result.getStatus();
         if (status == PeerProto.AppendResult.Status.SUCCESS ||
             status == PeerProto.AppendResult.Status.NO_ACTION ||
-            status == PeerProto.AppendResult.Status.INDEX_EXCEEDED) {
+            status == PeerProto.AppendResult.Status.INDEX_EXCEEDED ||
+            status == PeerProto.AppendResult.Status.PREV_ID_NOT_MATCH) {
             int cnt = result.getUncommitedCount();
             PeerProto.LogId logEndId = cnt > 0 ? result.getUncommited(cnt - 1) :
                     result.getCommited();
-            return logEndId.getIndex() < raftState().getCommitedId().getIndex();
+            return logEndId.getIndex() < raftLogging().commitedId().getIndex();
         } else {
             return false;
         }

@@ -27,7 +27,6 @@ import io.axor.exception.ActorRuntimeException;
 import io.axor.exception.IllegalMsgTypeException;
 import io.axor.runtime.MsgType;
 import io.axor.runtime.Signal;
-import io.axor.runtime.serde.protobuf.ProtobufUtil;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,6 +45,7 @@ import static io.axor.api.Behaviors.log;
 import static io.axor.api.Behaviors.receive;
 import static io.axor.api.Behaviors.same;
 import static io.axor.api.Behaviors.unhandled;
+import static io.axor.api.MessageUtils.loggable;
 
 class ClusterSingletonProxy<T> extends Actor<T> {
     private static final Logger LOG = LoggerFactory.getLogger(ClusterSingletonProxy.class);
@@ -297,7 +297,7 @@ class ClusterSingletonProxy<T> extends Actor<T> {
                 assert !healthy;
                 if (msg.getType() == SingletonManagerMessage.Type.INSTANCE_READY) {
                     LOG.warn("Receive instance ready but self not healthy, ignore msg {}",
-                            ProtobufUtil.toString(msg));
+                            loggable(msg));
                     return same();
                 }
                 return unhandled();
@@ -351,11 +351,11 @@ class ClusterSingletonProxy<T> extends Actor<T> {
                 if (msg.getType() == SingletonManagerMessage.Type.INSTANCE_READY) {
                     if (leaderMember == null) {
                         LOG.warn("Receive instance ready but self detect no leader " +
-                                 "member, ignore msg: {}", ProtobufUtil.toString(msg));
+                                 "member, ignore msg: {}", loggable(msg));
                     } else if (leaderMember.uid() != msg.getUid()) {
-                        LOG.warn("Receive instance ready but self detect different leader " +
-                                 "member, expect: {}, ignore msg: {}", leaderMember,
-                                ProtobufUtil.toString(msg));
+                        LOG.warn("Receive instance ready but self detect different leader member," +
+                                 " " +
+                                 "expect: {}, ignore msg: {}", leaderMember, loggable(msg));
                     } else {
                         tryLeaderAck(sender(MANAGER_MSG_TYPE));
                     }
@@ -571,7 +571,7 @@ class ClusterSingletonProxy<T> extends Actor<T> {
             return log(receive(msg -> {
                 if (msg.getType() == SingletonManagerMessage.Type.INSTANCE_READY) {
                     LOG.warn("Receive instance ready but self Instance is still stopping and " +
-                             "unhealthy, ignore msg {}", ProtobufUtil.toString(msg));
+                             "unhealthy, ignore msg {}", loggable(msg));
                     return same();
                 }
                 return unhandled();
@@ -598,7 +598,7 @@ class ClusterSingletonProxy<T> extends Actor<T> {
             return log(receive(msg -> {
                 if (msg.getType() == SingletonManagerMessage.Type.INSTANCE_READY) {
                     LOG.warn("Receive instance ready but self Instance is still stopping, ignore " +
-                             "msg {}", ProtobufUtil.toString(msg));
+                             "msg {}", loggable(msg));
                     return same();
                 }
                 return unhandled();

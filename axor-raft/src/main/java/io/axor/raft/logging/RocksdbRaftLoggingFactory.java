@@ -112,7 +112,7 @@ public class RocksdbRaftLoggingFactory implements RaftLoggingFactory {
             boolean direct = config.getBoolean("bufferDirect");
             MemorySize bufferMax = MemorySize.ofBytes(config.getMemorySize("bufferMax"));
             return new RocksdbRaftLogging(name, db, handle, new WriteOptions(), new ReadOptions(),
-                    Thread.currentThread(), direct, bufferMax.toInt());
+                    direct, bufferMax.toInt());
         } catch (RocksDBException e) {
             created.remove(name);
             throw new RocksDBRaftException(e);

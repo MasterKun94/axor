@@ -4,13 +4,12 @@ import io.axor.api.ActorContext;
 import io.axor.api.ActorRef;
 import io.axor.api.Behavior;
 import io.axor.api.Behaviors;
-import io.axor.commons.concurrent.EventPromise;
-import io.axor.commons.concurrent.EventStage;
+import io.axor.api.MessageUtils;
 import io.axor.raft.PeerInstance;
 import io.axor.raft.RaftConfig;
 import io.axor.raft.RaftContext;
 import io.axor.raft.RaftState;
-import io.axor.raft.logging.AsyncRaftLogging;
+import io.axor.raft.logging.RaftLogging;
 import io.axor.raft.proto.PeerProto;
 import io.axor.raft.proto.PeerProto.AppendResult;
 import io.axor.raft.proto.PeerProto.ClientMessage;
@@ -63,37 +62,14 @@ public abstract class AbstractPeerBehavior implements Behavior<PeerMessage> {
         return context().sender(ClientMessage.class);
     }
 
-    protected AsyncRaftLogging raftLogging() {
+    protected RaftLogging raftLogging() {
         return raftContext.getRaftLogging();
     }
 
-    protected EventStage<AppendResult> logAppend(LogAppend append) {
-        return raftLogging()
-                .append(append.getEntriesList(), context().dispatcher().newPromise())
-                .map(res -> {
-                    RaftState raftState = raftState();
-                    raftState.setCommitedId(res.getCommited());
-                    raftState.setUncommitedId(res.getUncommitedList());
-                    return res;
-                });
-    }
-
-    protected EventStage<CommitResult> logCommit(LogId commitId) {
-        return raftLogging()
-                .commit(commitId, context().dispatcher().newPromise())
-                .map(res -> {
-                    RaftState raftState = raftState();
-                    raftState.setCommitedId(res.getCommited());
-                    raftState.setUncommitedId(res.getUncommitedList());
-                    return res;
-                });
-    }
-
-    protected EventStage<List<LogEntry>> logReadForSync(LogId commited, List<LogId> uncommited) {
+    protected List<LogEntry> logReadForSync(LogId commited, List<LogId> uncommited) throws Exception {
         int entryLimit = config().logAppendEntryLimit();
         var bytesLimit = config().logAppendBytesLimit().toInt();
-        EventPromise<List<LogEntry>> promise = context().dispatcher().newPromise();
-        return raftLogging().readForSync(commited, uncommited, entryLimit, bytesLimit, promise);
+        return raftLogging().readForSync(commited, uncommited, entryLimit, bytesLimit);
     }
 
     protected boolean isBehaviorDifferent(Behavior<?> behavior) {
@@ -135,7 +111,7 @@ public abstract class AbstractPeerBehavior implements Behavior<PeerMessage> {
     }
 
     protected ClientMessage clientMsg(PeerProto.ClientTxnRes msg) {
-        return ClientMessage.newBuilder().setClientTxnRes(msg).build();
+        return ClientMessage.newBuilder().setTxnRes(msg).build();
     }
 
     protected boolean isAppendSuccess(AppendResult.Status status) {
@@ -149,6 +125,7 @@ public abstract class AbstractPeerBehavior implements Behavior<PeerMessage> {
     @Override
     public final Behavior<PeerMessage> onReceive(ActorContext<PeerMessage> context,
                                                  PeerMessage message) {
+        LOG.info("Receive msg: {}", MessageUtils.loggable(message));
         Behavior<PeerMessage> behavior = switch (message.getMsgCase()) {
             case CLIENTTXNREQ -> onClientTxnReq(message.getClientTxnReq());
             case LOGAPPEND -> onLogAppend(message.getLogAppend());
@@ -175,27 +152,27 @@ public abstract class AbstractPeerBehavior implements Behavior<PeerMessage> {
         int entryLimit = Math.min(msg.getLimit(), config().logFetchEntryLimit());
         int bytesLimit = config().logFetchBytesLimit().toInt();
         ActorRef<PeerMessage> sender = peerSender();
-        raftLogging()
-                .read(msg.getStartAt(), true, false, entryLimit, bytesLimit,
-                        context().dispatcher().newPromise())
-                .observe(l -> {
-                    var res = PeerProto.LogFetchRes.newBuilder()
-                            .setTxnId(msg.getTxnId())
-                            .setSuccess(true)
-                            .addAllEntries(l)
-                            .setLeaderCommited(raftState().getCommitedId())
-                            .build();
-                    sender.tell(peerMsg(res), self());
-                }, e -> {
-                    LOG.error("LogFetch failure", e);
-                    var res = PeerProto.LogFetchRes.newBuilder()
-                            .setTxnId(msg.getTxnId())
-                            .setSuccess(false)
-                            .setErrMsg(e.toString())
-                            .setLeaderCommited(raftState().getCommitedId())
-                            .build();
-                    sender.tell(peerMsg(res), self());
-                });
+        RaftLogging raftLogging = raftLogging();
+        try {
+            List<LogEntry> read = raftLogging
+                    .read(msg.getStartAt(), true, false, entryLimit, bytesLimit);
+            var res = PeerProto.LogFetchRes.newBuilder()
+                    .setTxnId(msg.getTxnId())
+                    .setSuccess(true)
+                    .addAllEntries(read)
+                    .setLeaderCommited(raftLogging().commitedId())
+                    .build();
+            sender.tell(peerMsg(res), self());
+        } catch (Exception e) {
+            LOG.error("LogFetch failure", e);
+            var res = PeerProto.LogFetchRes.newBuilder()
+                    .setTxnId(msg.getTxnId())
+                    .setSuccess(false)
+                    .setErrMsg(e.toString())
+                    .setLeaderCommited(raftLogging().commitedId())
+                    .build();
+            sender.tell(peerMsg(res), self());
+        }
         return Behaviors.same();
     }
 
@@ -208,23 +185,25 @@ public abstract class AbstractPeerBehavior implements Behavior<PeerMessage> {
         ActorRef<PeerMessage> sender = peerSender();
         if (msg.getTerm() < currentTerm) {
             // 返回自己的当前Term，提示Leader更新
+            RaftLogging raftLogging = raftLogging();
             LogAppendAck ack = LogAppendAck.newBuilder()
                     .setTxnId(msg.getTxnId())
                     .setTerm(currentTerm)
                     .setResult(AppendResult.newBuilder()
                             .setStatus(AppendResult.Status.TERM_DENY)
-                            .setCommited(raftState().getCommitedId())
-                            .addAllUncommited(raftState().getUncommitedId()))
+                            .setCommited(raftLogging.commitedId())
+                            .addAllUncommited(raftLogging.uncommitedId()))
                     .build();
             sender.tell(peerMsg(ack), self());
             return Behaviors.same();
         }
-        updateLeader(msg.getTerm());
         if (msg.getTerm() > currentTerm) {
+            updateLeaderAndTerm(msg.getTerm());
             return Behaviors.consumeBuffer(new FollowerBehavior(raftContext()))
                     .addMsg(peerMsg(msg), sender)
                     .toBehavior();
         }
+        updateLeader();
         return Behaviors.unhandled();
     }
 
@@ -240,32 +219,37 @@ public abstract class AbstractPeerBehavior implements Behavior<PeerMessage> {
             // TODO 返回自己的当前Term，提示Leader更新
             return Behaviors.same();
         }
-        updateLeader(msg.getTerm());
         if (msg.getTerm() > currentTerm) {
+            updateLeaderAndTerm(msg.getTerm());
             return Behaviors.consumeBuffer(new FollowerBehavior(raftContext()))
                     .addMsg(peerMsg(msg), sender)
                     .toBehavior();
         }
+        updateLeader();
         return Behaviors.unhandled();
     }
 
-    protected void updateLeader(long term) {
+    private void updateLeaderAndTerm(long term) {
+        assert term > raftState().getCurrentTerm();
         RaftState raftState = raftState();
-        long currentTerm = raftState.getCurrentTerm();
         PeerInstance leaderPeer = raftContext().getPeerOfSender();
-        if (term > currentTerm) {
-            raftState.setCurrentTerm(term);
-            raftState.setVotedFor(leaderPeer);
+        LOG.info("Update leader: {}, term: {}", leaderPeer.peer(), term);
+        raftState.setCurrentTerm(term);
+        raftState.setVotedFor(leaderPeer);
+        raftState.setLeader(leaderPeer);
+    }
+
+    protected void updateLeader() {
+        RaftState raftState = raftState();
+        PeerInstance leaderPeer = raftContext().getPeerOfSender();
+        if (raftState.getLeader() == null) {
+            LOG.info("Update leader: {}", leaderPeer.peer());
             raftState.setLeader(leaderPeer);
-        } else if (term == currentTerm) {
-            if (raftState.getLeader() == null) {
-                raftState.setLeader(leaderPeer);
-            } else if (!raftState.getLeader().equals(leaderPeer)) {
-                throw new IllegalStateException("multiple leader with same term");
-            }
-            if (raftState.getVotedFor() == null) {
-                raftState.setVotedFor(leaderPeer);
-            }
+        } else if (!raftState.getLeader().equals(leaderPeer)) {
+            throw new IllegalStateException("multiple leader with same term");
+        }
+        if (raftState.getVotedFor() == null) {
+            raftState.setVotedFor(leaderPeer);
         }
     }
 
@@ -318,7 +302,7 @@ public abstract class AbstractPeerBehavior implements Behavior<PeerMessage> {
         }
         peerSender().tell(peerMsg(PeerProto.RequestVoteAck.newBuilder()
                 .setTxnId(msg.getTxnId())
-                .setTerm(currentTerm)
+                .setTerm(raftState.getCurrentTerm())
                 .setVoteGranted(voteGranted).build()), self());
         return behavior;
     }

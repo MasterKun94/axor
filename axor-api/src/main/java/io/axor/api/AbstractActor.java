@@ -97,11 +97,11 @@ public abstract class AbstractActor<T> extends Actor<T> {
             case STOP -> context().stop();
             case UNHANDLED -> {
                 if (obj instanceof Signal) {
-                    context().system().getLogger()
-                            .warn("{} receive unhandled signal: {}", context().self(), obj);
+                    context().system().getLogger().warn("{} receive unhandled signal: {}",
+                            context().self(), MessageUtils.loggable(obj));
                 } else {
-                    context().system().getLogger()
-                            .warn("{} receive unhandled message: {}", context().self(), obj);
+                    context().system().getLogger().warn("{} receive unhandled message: {}",
+                            context().self(), MessageUtils.loggable(obj));
                 }
             }
             default ->

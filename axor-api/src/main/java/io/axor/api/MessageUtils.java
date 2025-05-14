@@ -1,30 +1,31 @@
 package io.axor.api;
 
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
+import java.lang.reflect.InvocationTargetException;
 
 public class MessageUtils {
-    private static final MethodHandle PROTO_TOSTRING;
+    private static final MsgPrinter PROTO_PRINTER;
 
     static {
-        MethodHandle handle;
+        MsgPrinter printer;
         try {
-            Class<?> cls = Class.forName("io.axor.runtime.serde.protobuf.ProtobufUtil");
-            MethodHandles.Lookup lookup = MethodHandles.lookup();
-            handle = lookup.findStatic(cls, "loggable", MethodType.methodType(Object.class,
-                    Object.class));
-        } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException e) {
-            handle = null;
+            Class<?> cls = Class.forName("io.axor.runtime.serde.protobuf.ProtoPrinter");
+            printer = (MsgPrinter) cls.getConstructor().newInstance();
+        } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException |
+                 InstantiationException | InvocationTargetException e) {
+            printer = null;
         }
-        PROTO_TOSTRING = handle;
+        PROTO_PRINTER = printer;
     }
 
     public static Object loggable(Object obj) {
         try {
-            return PROTO_TOSTRING == null ? obj : PROTO_TOSTRING.invoke(obj);
+            return PROTO_PRINTER == null ? obj : PROTO_PRINTER.loggable(obj);
         } catch (Throwable e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public interface MsgPrinter {
+        Object loggable(Object obj);
     }
 }

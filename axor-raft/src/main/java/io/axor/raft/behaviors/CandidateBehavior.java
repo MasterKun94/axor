@@ -1,8 +1,9 @@
 package io.axor.raft.behaviors;
 
+import com.google.protobuf.ByteString;
+import io.axor.api.ActorRef;
 import io.axor.api.Behavior;
 import io.axor.api.Behaviors;
-import io.axor.api.impl.ActorUnsafe;
 import io.axor.raft.Peer;
 import io.axor.raft.PeerInstance;
 import io.axor.raft.PeerState;
@@ -19,6 +20,8 @@ import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+
+import static io.axor.api.MessageUtils.loggable;
 
 public class CandidateBehavior extends AbstractPeerBehavior {
     private static final Logger LOG = LoggerFactory.getLogger(CandidateBehavior.class);
@@ -54,15 +57,16 @@ public class CandidateBehavior extends AbstractPeerBehavior {
         long timeout = config().candidateTimeoutBase().toMillis();
         double ratio = timeout * config().candidateTimeoutRandomRatio();
         timeout += ThreadLocalRandom.current().nextLong((long) ratio);
-        candidateTimeoutFuture = context().dispatcher().schedule(() -> {
-            ActorUnsafe.signal(self(), new CandidateTimeoutSignal(term));
-        }, timeout, TimeUnit.MILLISECONDS);
+        candidateTimeoutFuture = context().scheduler().scheduleSignal(
+                () -> new CandidateTimeoutSignal(term), self(),
+                timeout, TimeUnit.MILLISECONDS);
+        LOG.info("Start candidate at term: {}", term);
     }
 
     @Override
     protected Behavior<PeerMessage> onClientTxnReq(PeerProto.ClientTxnReq msg) {
         clientSender().tell(clientMsg(PeerProto.ClientTxnRes.newBuilder()
-                .setTxnId(txnId)
+                .setSeqId(txnId)
                 .setStatus(PeerProto.ClientTxnRes.Status.NO_LEADER)
                 .build()), self());
         return Behaviors.same();
@@ -108,13 +112,23 @@ public class CandidateBehavior extends AbstractPeerBehavior {
                 return Behaviors.same();
             }
             if (msg.getVoteGranted()) {
-                LOG.info("{} from {} at term {}", msg, peerOfSender.peer(), term);
+                LOG.info("{} from {} at term {}", loggable(msg), peerOfSender.peer(), term);
                 grantedCnt++;
                 if (grantedCnt >= majority) {
-                    return new LeaderIdleBehavior(raftContext);
+                    // 成为leader后加一条空日志，保证过去任期的日志提交（safety）
+                    // 并且顺带告知follower自己是leader
+                    return Behaviors.consumeBuffer(new LeaderIdleBehavior(raftContext))
+                            .addMsg(peerMsg(PeerProto.ClientTxnReq.newBuilder()
+                                    .setSeqId(raftContext.generateTxnId())
+                                    // TODO self clientId
+                                    .setClientId(raftContext.getSelfPeer().peer().id())
+                                    .setData(ByteString.empty())
+                                    .setControlFlag(PeerProto.ControlFlag.IGNORE)
+                                    .build()), ActorRef.noSender())
+                            .toBehavior();
                 }
             } else {
-                LOG.warn("{} from {} at term {}", msg, peerOfSender.peer(), term);
+                LOG.warn("{} from {} at term {}", loggable(msg), peerOfSender.peer(), term);
                 ungrantedCnt++;
                 if (ungrantedCnt >= majority) {
                     return new FollowerBehavior(raftContext);

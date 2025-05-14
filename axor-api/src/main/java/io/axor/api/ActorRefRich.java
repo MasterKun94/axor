@@ -6,6 +6,7 @@ import io.axor.runtime.StreamDefinition;
 import io.axor.runtime.StreamManager;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * An abstract, non-sealed class that extends the {@code ActorRef} interface and provides additional
@@ -66,5 +67,19 @@ public non-sealed abstract class ActorRefRich<T> implements ActorRef<T> {
     @Override
     public String toString() {
         return "ActorRef[" + displayName() + "]";
+    }
+
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        ActorRefRich<?> that = (ActorRefRich<?>) o;
+        return Objects.equals(address(), that.address()) &&
+               Objects.equals(msgType(), that.msgType());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(address(), msgType());
     }
 }

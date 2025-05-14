@@ -1,15 +1,9 @@
 package io.axor.raft;
 
-import io.axor.raft.proto.PeerProto.LogId;
-
-import java.util.List;
-
 public class RaftState {
     private long currentTerm;
     private PeerInstance votedFor;
-    private List<LogId> uncommitedId;
-    private LogId commitedId;
-    private PeerState peerState;
+    private PeerState peerState = PeerState.NONE;
     private long latestHeartbeatTimestamp;
     private PeerInstance leader;
 
@@ -27,22 +21,6 @@ public class RaftState {
 
     public void setVotedFor(PeerInstance votedFor) {
         this.votedFor = votedFor;
-    }
-
-    public List<LogId> getUncommitedId() {
-        return uncommitedId;
-    }
-
-    public void setUncommitedId(List<LogId> uncommitedId) {
-        this.uncommitedId = uncommitedId;
-    }
-
-    public LogId getCommitedId() {
-        return commitedId;
-    }
-
-    public void setCommitedId(LogId commitedId) {
-        this.commitedId = commitedId;
     }
 
     public PeerState getPeerState() {

@@ -4,6 +4,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import io.axor.raft.LogUtils;
 import io.axor.raft.RaftException;
 import io.axor.raft.RocksDBRaftException;
+import io.axor.raft.proto.PeerProto;
 import io.axor.raft.proto.PeerProto.AppendResult;
 import io.axor.raft.proto.PeerProto.CommitResult;
 import io.axor.raft.proto.PeerProto.LogEntry;
@@ -30,16 +31,16 @@ public class RocksdbRaftLogging implements RaftLogging {
     private final ColumnFamilyHandle cfHandle;
     private final WriteOptions writeOpt;
     private final ReadOptions readOpt;
-    private final Thread writerThread;
     private final ByteBuffer keyBuffer;
     private final ByteBuffer valueBuffer;
+    private final List<LogEntryListener> listeners = new ArrayList<>();
     private volatile List<LogId> uncommitedIdList = new ArrayList<>();
     private volatile LogId commitedId;
     private volatile LogId startedId;
 
     public RocksdbRaftLogging(String name, OptimisticTransactionDB db, ColumnFamilyHandle cfHandle,
-                              WriteOptions writeOpt, ReadOptions readOpt, Thread writerThread,
-                              boolean bufferDirect, int valueBufferLimit) throws RaftException {
+                              WriteOptions writeOpt, ReadOptions readOpt, boolean bufferDirect,
+                              int valueBufferLimit) throws RaftException {
         this.name = name;
         this.db = db;
         this.keyBuffer = bufferDirect ?
@@ -51,7 +52,6 @@ public class RocksdbRaftLogging implements RaftLogging {
         this.cfHandle = cfHandle;
         this.writeOpt = writeOpt;
         this.readOpt = readOpt;
-        this.writerThread = writerThread;
         byte[] bytes;
         try {
             bytes = db.get(name.getBytes());
@@ -109,20 +109,8 @@ public class RocksdbRaftLogging implements RaftLogging {
     }
 
     @Override
-    public AppendResult append(LogEntry entry) throws RaftException {
-        return append(Collections.singletonList(entry));
-    }
-
-    private void putEntry(Transaction txn, LogEntry entry) throws RocksDBException, RaftException {
-        keyBuffer.clear();
-        valueBuffer.clear();
-        ByteBuffer key = LogUtils.toBytes(entry.getId(), keyBuffer);
-        ByteBuffer value = LogUtils.toBytes(entry.getValue(), valueBuffer);
-        txn.put(cfHandle, key, value);
-    }
-
-    private void removeEntry(Transaction txn, LogId id) throws RocksDBException {
-        txn.delete(cfHandle, LogUtils.toBytes(id));
+    public AppendResult append(LogId prevLogId, LogEntry entry) throws RaftException {
+        return append(prevLogId, Collections.singletonList(entry));
     }
 
     private AppendResult result(AppendResult.Status status) {
@@ -146,10 +134,7 @@ public class RocksdbRaftLogging implements RaftLogging {
     }
 
     @Override
-    public AppendResult append(List<LogEntry> entries) throws RaftException {
-        if (Thread.currentThread() != writerThread) {
-            throw new IllegalArgumentException("not writer thread");
-        }
+    public AppendResult append(LogId prevLogId, List<LogEntry> entries) throws RaftException {
         if (entries.isEmpty()) {
             throw new IllegalArgumentException("empty entries");
         }
@@ -192,16 +177,20 @@ public class RocksdbRaftLogging implements RaftLogging {
                 int off = (int) (id.getIndex() - commitedId.getIndex());
                 while (uncommitedIdList.size() >= off) {
                     LogId removedId = uncommitedIdList.removeLast();
-                    actionList.add(txn -> removeEntry(txn, removedId));
+                    actionList.add(new RemoveEntry(removedId));
                 }
                 uncommitedId = uncommitedIdList.isEmpty() ? commitedId :
                         uncommitedIdList.getLast();
+            }
+            if (!uncommitedId.equals(prevLogId)) {
+                return result(AppendResult.Status.PREV_ID_NOT_MATCH);
             }
             if (id.getTerm() < uncommitedId.getTerm()) {
                 return result(AppendResult.Status.TERM_EXPIRED);
             }
             uncommitedIdList.add(entry.getId());
-            actionList.add(txn -> putEntry(txn, entry));
+            actionList.add(new PutEntry(entry));
+            prevLogId = entry.getId();
         }
         if (actionList.isEmpty()) {
             resetUncommited();
@@ -212,6 +201,13 @@ public class RocksdbRaftLogging implements RaftLogging {
                 action.apply(txn);
             }
             txn.commit();
+            if (!listeners.isEmpty()) {
+                for (TxnAction action : actionList) {
+                    for (LogEntryListener listener : listeners) {
+                        action.apply(listener);
+                    }
+                }
+            }
         } catch (RocksDBException e) {
             throw new RocksDBRaftException(e);
         }
@@ -221,9 +217,6 @@ public class RocksdbRaftLogging implements RaftLogging {
 
     @Override
     public CommitResult commit(LogId commitAtId) throws RaftException {
-        if (Thread.currentThread() != writerThread) {
-            throw new IllegalArgumentException("not writer thread");
-        }
         LogId prev = commitedId;
         if (prev.equals(commitAtId)) {
             return result(CommitResult.Status.NO_ACTION);
@@ -247,10 +240,20 @@ public class RocksdbRaftLogging implements RaftLogging {
             db.put(name.getBytes(), LogUtils.toBytes(commitAtId));
             commitedId = commitAtId;
             if (idx + 1 == uncommitedIdList.size()) {
+                for (LogId logId : uncommitedIdList) {
+                    for (LogEntryListener listener : listeners) {
+                        listener.commited(logId);
+                    }
+                }
                 this.uncommitedIdList = null;
             } else {
                 List<LogId> sliced = uncommitedIdList.subList(idx + 1,
                         uncommitedIdList.size());
+                for (LogId logId : uncommitedIdList.subList(0, idx + 1)) {
+                    for (LogEntryListener listener : listeners) {
+                        listener.commited(logId);
+                    }
+                }
                 this.uncommitedIdList = List.copyOf(sliced);
             }
         } catch (RocksDBException e) {
@@ -291,7 +294,7 @@ public class RocksdbRaftLogging implements RaftLogging {
             entries.add(LogEntry.newBuilder().setId(id).setValue(value).build());
             cnt++;
             iter.next();
-            size += value.getData().size();
+            size += value.getSerializedSize();
         }
         return entries;
     }
@@ -339,11 +342,16 @@ public class RocksdbRaftLogging implements RaftLogging {
             for (LogId logId : uncommitedIdList) {
                 txn.singleDelete(cfHandle, LogUtils.toBytes(logId));
             }
-            uncommitedIdList = null;
             txn.commit();
         } catch (RocksDBException e) {
             throw new RocksDBRaftException(e);
         }
+        for (LogId logId : uncommitedIdList) {
+            for (LogEntryListener listener : listeners) {
+                listener.removed(logId);
+            }
+        }
+        uncommitedIdList = null;
     }
 
     @Override
@@ -361,7 +369,59 @@ public class RocksdbRaftLogging implements RaftLogging {
         refreshStartedId();
     }
 
-    private interface TxnAction {
+    @Override
+    public void installSnapshot(PeerProto.InstallSnapshot installSnapshot) throws RaftException {
+        // TODO
+    }
+
+    @Override
+    public void addListener(LogEntryListener listener) {
+        listeners.add(listener);
+    }
+
+    private sealed interface TxnAction {
         void apply(Transaction txn) throws RaftException, RocksDBException;
+
+        void apply(LogEntryListener listener);
+    }
+
+    private final class PutEntry implements TxnAction {
+        private final LogEntry entry;
+
+        private PutEntry(LogEntry entry) {
+            this.entry = entry;
+        }
+
+        @Override
+        public void apply(Transaction txn) throws RaftException, RocksDBException {
+            keyBuffer.clear();
+            valueBuffer.clear();
+            ByteBuffer key = LogUtils.toBytes(entry.getId(), keyBuffer);
+            ByteBuffer value = LogUtils.toBytes(entry.getValue(), valueBuffer);
+            txn.put(cfHandle, key, value);
+        }
+
+        @Override
+        public void apply(LogEntryListener listener) {
+            listener.appended(entry);
+        }
+    }
+
+    private final class RemoveEntry implements TxnAction {
+        private final LogId id;
+
+        private RemoveEntry(LogId id) {
+            this.id = id;
+        }
+
+        @Override
+        public void apply(Transaction txn) throws RocksDBException {
+            txn.delete(cfHandle, LogUtils.toBytes(id));
+        }
+
+        @Override
+        public void apply(LogEntryListener listener) {
+            listener.removed(id);
+        }
     }
 }

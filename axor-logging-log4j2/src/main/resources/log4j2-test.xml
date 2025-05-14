@@ -12,7 +12,7 @@
         <Console name="Console" target="SYSTEM_OUT">
             <!--输出日志的格式-->
             <PatternLayout>
-                <pattern>ts="%d{ISO8601}" level=%-5level th=%thread logger=%logger actor=%X{actor} extra=%X{extra} msg="%msg"%n</pattern>
+                <pattern>ts="%d{ISO8601}" level=%-5level th=%thread logger=%logger actor=%X{actor} extra="%X{extra}" msg="%msg"%n</pattern>
             </PatternLayout>
         </Console>
     </Appenders>

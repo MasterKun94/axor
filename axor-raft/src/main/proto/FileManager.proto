@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+option java_package = "io.axor.raft.proto";
+option java_outer_classname = "FileManagerProto";
+
+package axor.raft;
+
+message FileClientMessage {
+  oneof msg {
+    FileWriteEntry entry = 2;
+    FileWriteComplete complete = 3;
+  }
+}
+
+message FileServerMessage {
+  oneof msg {
+    FileReadStart start = 1;
+    FileReadStop stop = 2;
+  }
+}
+
+message FileWriteEntry {
+  int64 seqId = 1;
+  bytes data = 2;
+}
+
+message FileWriteComplete {
+  int64 seqId = 1;
+  string reason = 2;
+  bool success = 3;
+  string checksum = 4;
+  int64 totalLength = 5;
+}
+
+message FileReadStart {
+  string reqId = 1;
+  string path = 2;
+  int64 bytesPerSec = 5;
+}
+
+message FileReadStop {
+  string reqId = 1;
+}

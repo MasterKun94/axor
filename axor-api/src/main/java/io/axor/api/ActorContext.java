@@ -4,10 +4,8 @@ import io.axor.api.impl.ActorSystemImpl;
 import io.axor.commons.concurrent.EventStage;
 import io.axor.runtime.EventDispatcher;
 import io.axor.runtime.MsgType;
-import io.axor.runtime.scheduler.Scheduler;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * Represents the context of an actor, providing access to essential components and operations
@@ -168,5 +166,5 @@ public interface ActorContext<T> {
 
     void signalWhenComplete(long tagId, EventStage<?> stage);
 
-    Map<String, String> mdcMap();
+    void mdcExtra(String value);
 }

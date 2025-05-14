@@ -29,6 +29,14 @@ public record RaftConfig(
         @ConfigField(value = "candidateTimeoutBase", fallback = "1s")
         Duration candidateTimeoutBase,
         @ConfigField(value = "candidateTimeoutRandomRatio", fallback = "0.5")
-        double candidateTimeoutRandomRatio
+        double candidateTimeoutRandomRatio,
+        @ConfigField(value = "clientTxnCacheCheckTimeout", fallback = "1d")
+        Duration clientTxnCacheCheckTimeout,
+        @ConfigField(value = "clientTxnCacheCheckInterval", fallback = "1h")
+        Duration clientTxnCacheCheckInterval,
+        @ConfigField(value = "snapshotEntryInterval", fallback = "10000")
+        int snapshotEntryInterval,
+        @ConfigField(value = "snapshotBytesInterval", fallback = "128m")
+        MemorySize snapshotBytesInterval
 ) {
 }

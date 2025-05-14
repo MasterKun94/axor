@@ -129,12 +129,8 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
                     LocalActorRef.this.address().toString() :
                     LocalActorRef.this.displayName());
             this.tellAction = (msg, sender) -> {
-                var mdcMap = ((ActorContextImpl<T>) actor.context()).mdcMap;
-                if (mdcMap != null) {
-                    ctxMap.put("extra", mdcMap.toString());
-                } else {
-                    ctxMap.put("extra", "{}");
-                }
+                var mdcExtra = ((ActorContextImpl<T>) actor.context()).mdcExtra;
+                ctxMap.put("extra", mdcExtra == null ? "" : mdcExtra);
                 MDCAdapter mdc = MDC.getMDCAdapter();
                 mdc.setContextMap(ctxMap);
                 try {
@@ -144,12 +140,8 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
                 }
             };
             this.signalAction = signal -> {
-                var mdcMap = ((ActorContextImpl<T>) actor.context()).mdcMap;
-                if (mdcMap != null) {
-                    ctxMap.put("extra", mdcMap.toString());
-                } else {
-                    ctxMap.put("extra", "{}");
-                }
+                var mdcExtra = ((ActorContextImpl<T>) actor.context()).mdcExtra;
+                ctxMap.put("extra", mdcExtra == null ? "" : mdcExtra);
                 MDCAdapter mdc = MDC.getMDCAdapter();
                 mdc.setContextMap(ctxMap);
                 try {

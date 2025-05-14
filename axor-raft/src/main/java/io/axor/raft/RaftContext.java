@@ -6,7 +6,7 @@ import io.axor.api.ActorRef;
 import io.axor.api.ActorSystem;
 import io.axor.exception.ActorNotFoundException;
 import io.axor.exception.IllegalMsgTypeException;
-import io.axor.raft.logging.AsyncRaftLogging;
+import io.axor.raft.logging.RaftLogging;
 import io.axor.raft.proto.PeerProto;
 import io.axor.raft.proto.PeerProto.ClientMessage;
 import io.axor.raft.proto.PeerProto.ClientTxnReq;
@@ -21,11 +21,9 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.SequencedMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -36,9 +34,9 @@ public class RaftContext {
     private final RaftConfig config;
     private final List<PeerInstance> peers;
     private final PeerInstance selfPeer;
-    private final List<Runnable> runOnPeerStateChange = new ArrayList<>();
     private final RaftState raftState;
-    private final AsyncRaftLogging raftLogging;
+    private final RaftLogging raftLogging;
+    private final TxnManager txnManager;
     private long nextTxnId = 1;
     private LeaderContext leaderContext;
 
@@ -46,10 +44,12 @@ public class RaftContext {
                        RaftConfig config,
                        List<Peer> peers,
                        Peer selfPeer,
-                       AsyncRaftLogging raftLogging) {
+                       RaftLogging raftLogging) {
         this.context = context;
         this.config = config;
         this.raftLogging = raftLogging;
+        this.raftState = new RaftState();
+        this.txnManager = new TxnManager(this);
         ActorSystem system = context.system();
         try {
             List<PeerInstance> peerInstances = new ArrayList<>(peers.size());
@@ -71,11 +71,21 @@ public class RaftContext {
         } catch (ActorNotFoundException | IllegalMsgTypeException e) {
             throw new RuntimeException(e);
         }
-        this.raftState = new RaftState();
-        raftState.setCommitedId(raftLogging.commitedId());
-        raftState.setUncommitedId(raftLogging.uncommitedId());
         raftState.setCurrentTerm(raftLogging.logEndId().getTerm());
         raftState.setLatestHeartbeatTimestamp(System.currentTimeMillis());
+    }
+
+    public void installSnapshot(PeerProto.InstallSnapshot installSnapshot) throws RaftException {
+        raftLogging.installSnapshot(installSnapshot);
+        txnManager.loadSnapshot(installSnapshot.getSnapshot());
+    }
+
+    public void loadSnapshot(PeerProto.Snapshot snapshot) throws RaftException {
+        txnManager.loadSnapshot(snapshot);
+    }
+
+    public PeerProto.Snapshot takeSnapshot(PeerProto.Snapshot snapshot) throws RaftException {
+        return txnManager.takeSnapshot(snapshot);
     }
 
     public ActorContext<PeerMessage> getContext() {
@@ -98,8 +108,12 @@ public class RaftContext {
         return raftState;
     }
 
-    public AsyncRaftLogging getRaftLogging() {
+    public RaftLogging getRaftLogging() {
         return raftLogging;
+    }
+
+    public TxnManager getTxnManager() {
+        return txnManager;
     }
 
     public LeaderContext getLeaderContext() {
@@ -107,12 +121,7 @@ public class RaftContext {
     }
 
     public LogId getLogEndId() {
-        List<LogId> uncommitedId = raftState.getUncommitedId();
-        if (uncommitedId == null || uncommitedId.isEmpty()) {
-            return raftState.getCommitedId();
-        } else {
-            return uncommitedId.getLast();
-        }
+        return raftLogging.logEndId();
     }
 
     public PeerInstance getPeerOfSender() {
@@ -130,9 +139,6 @@ public class RaftContext {
         if (prev != peerState) {
             LOG.info("Peer state changed from {} to {}", prev, peerState);
             raftState.setPeerState(peerState);
-            for (Runnable runnable : runOnPeerStateChange) {
-                runnable.run();
-            }
             if (peerState == PeerState.LEADER) {
                 leaderContext = new LeaderContext(this);
             } else if (leaderContext != null) {
@@ -149,14 +155,16 @@ public class RaftContext {
         return nextTxnId++;
     }
 
-    public void runOnPeerStateChange(Runnable runnable) {
-        runOnPeerStateChange.add(runnable);
+    public void close() {
+        txnManager.close();
+        if (leaderContext != null) {
+            leaderContext.close();
+        }
     }
 
     public static class LeaderContext {
         private final RaftContext raftContext;
-        private final SequencedMap<ClientTxn, ClientTxnReq> bufferedClientReqs =
-                new LinkedHashMap<>();
+        private final List<ClientTxnReq> bufferedClientReqs = new ArrayList<>();
         private final Map<Peer, FollowerState> followerStates;
         private final ScheduledFuture<?> scheduleHeartbeat;
 
@@ -175,7 +183,7 @@ public class RaftContext {
                     }
                     RaftState raftState = raftContext.getRaftState();
                     long currentTerm = raftState.getCurrentTerm();
-                    LogId commitedId = raftState.getCommitedId();
+                    LogId commitedId = raftContext.raftLogging.commitedId();
                     ActorRef<PeerMessage> self = raftContext.context.self();
                     peer.peerRef().tell(PeerMessage.newBuilder()
                             .setLeaderHeartbeat(PeerProto.LeaderHeartbeat.newBuilder()
@@ -194,45 +202,75 @@ public class RaftContext {
             return bufferedClientReqs.isEmpty();
         }
 
-        public void bufferClientCtx(ClientTxnReq req) {
-            var key = new ClientTxn(req.getTxnId(),
-                    raftContext.getContext().sender(ClientMessage.class));
-            bufferedClientReqs.put(key, req);
+        public boolean bufferClientCtx(ClientTxnReq req) {
+            ActorRef<ClientMessage> sender = raftContext.context.sender(ClientMessage.class);
+            TxnManager.Key key = new TxnManager.Key(req.getClientId(), req.getSeqId());
+            if (raftContext.txnManager.inTxnOrCommited(key)) {
+                raftContext.txnManager.addListener(key, sender);
+                return false;
+            } else {
+                raftContext.txnManager.createTxn(key, sender);
+                bufferedClientReqs.add(req);
+                return true;
+            }
         }
 
-        public TxnContext prepareForTxn(long txnId) {
+        public PeerProto.LogAppend prepareForTxn(long txnId) {
             if (bufferedClientReqs.isEmpty()) {
                 throw new IllegalStateException("no pending client txn");
             }
-            List<ClientTxn> clientTxnList = new ArrayList<>();
-            long term = raftContext.getRaftState().getCurrentTerm();
+            RaftState raftState = raftContext.getRaftState();
+            long term = raftState.getCurrentTerm();
             int bytesLimit = raftContext.getConfig().logAppendBytesLimit().toInt();
             int entryLimit = raftContext.getConfig().logAppendEntryLimit();
-            LogId commitedId = raftContext.getRaftState().getCommitedId();
+            LogId prevLogId = raftContext.raftLogging.commitedId();
+            LogId nextLogId = null;
+            if (raftContext.raftLogging.uncommitedId().isEmpty()) {
+                nextLogId = LogId.newBuilder()
+                        .setTerm(term)
+                        .setIndex(prevLogId.getIndex() + 1)
+                        .build();
+            } else {
+                for (LogId logId : raftContext.raftLogging.uncommitedId()) {
+                    if (logId.getTerm() == term) {
+                        nextLogId = logId;
+                        break;
+                    }
+                    assert logId.getTerm() < term;
+                    prevLogId = logId;
+                }
+                if (nextLogId == null) {
+                    nextLogId = LogId.newBuilder()
+                            .setTerm(term)
+                            .setIndex(prevLogId.getIndex() + 1)
+                            .build();
+                }
+            }
             int bytes = 0;
             int cnt = 0;
             LogAppend.Builder builder = LogAppend.newBuilder()
                     .setTxnId(txnId)
                     .setTerm(term)
-                    .setLeaderCommited(commitedId);
+                    .setPrevLogId(prevLogId)
+                    .setLeaderCommited(raftContext.raftLogging.commitedId());
             while (!bufferedClientReqs.isEmpty() && cnt < entryLimit && bytes < bytesLimit) {
-                var entry = bufferedClientReqs.pollFirstEntry();
-                commitedId = commitedId.toBuilder().setIndex(commitedId.getIndex() + 1).build();
-                ClientTxn key = entry.getKey();
-                clientTxnList.add(key);
-                ClientTxnReq value = entry.getValue();
+                ClientTxnReq req = bufferedClientReqs.removeFirst();
+                TxnManager.Key key = new TxnManager.Key(req.getClientId(), req.getSeqId());
+                assert raftContext.txnManager.isWaiting(key);
                 builder.addEntries(LogEntry.newBuilder()
-                        .setId(commitedId)
+                        .setId(nextLogId)
                         .setValue(PeerProto.LogValue.newBuilder()
-                                .setData(value.getData())
-                                .setClientId(value.getClientId())
-                                .setClientTxnId(value.getTxnId()))
+                                .setData(req.getData())
+                                .setClientId(req.getClientId())
+                                .setSeqId(req.getSeqId())
+                                .setTimestamp(raftContext.txnManager.getCreateTime(key))
+                                .setControlFlag(req.getControlFlag()))
                         .build());
-                ;
                 entryLimit++;
-                bytesLimit += value.getData().size();
+                bytesLimit += req.getData().size();
+                nextLogId = nextLogId.toBuilder().setIndex(nextLogId.getIndex() + 1).build();
             }
-            return new TxnContext(builder.build(), clientTxnList);
+            return builder.build();
         }
 
         public void close() {
@@ -240,22 +278,25 @@ public class RaftContext {
         }
     }
 
-    public record TxnContext(LogAppend append, List<ClientTxn> clientTxnList) {
+    public record TxnContext(LogAppend append, List<ClientTxnCtx> clientTxnList) {
     }
 
-    public record ClientTxn(long txnId, ActorRef<ClientMessage> clientRef) {
+    public record ClientTxn(long seqId, ActorRef<ClientMessage> clientRef) {
         @Override
         public boolean equals(Object o) {
             if (o == null || getClass() != o.getClass()) return false;
             ClientTxn that = (ClientTxn) o;
-            return txnId == that.txnId && Objects.equals(clientRef.address(),
+            return seqId == that.seqId && Objects.equals(clientRef.address(),
                     that.clientRef.address());
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(txnId, clientRef.address());
+            return Objects.hash(seqId, clientRef.address());
         }
+    }
+
+    public record ClientTxnCtx(long seqId, ActorRef<ClientMessage> clientRef, LogId logId) {
     }
 
     public static class FollowerState {
@@ -293,11 +334,11 @@ public class RaftContext {
 
         @Override
         public String toString() {
-            return "FollowerState{" +
+            return "FollowerState[" +
                    "latestTxnId=" + latestTxnId +
                    ", commited=" + commited +
                    ", uncommited=" + uncommited +
-                   '}';
+                   ']';
         }
     }
 }
