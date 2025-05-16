@@ -8,6 +8,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
@@ -322,5 +323,10 @@ public class DefaultEventPromise<T> implements EventPromise<T> {
     @Override
     public EventFuture<T> toFuture() {
         return EventPromise.super.toFuture();
+    }
+
+    @Override
+    public EventStage<T> withTimeout(long timeout, TimeUnit unit) {
+        return executor.timeout(this, timeout, unit);
     }
 }

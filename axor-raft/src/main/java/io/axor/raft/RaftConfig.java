@@ -37,6 +37,8 @@ public record RaftConfig(
         @ConfigField(value = "snapshotEntryInterval", fallback = "10000")
         int snapshotEntryInterval,
         @ConfigField(value = "snapshotBytesInterval", fallback = "128m")
-        MemorySize snapshotBytesInterval
+        MemorySize snapshotBytesInterval,
+        @ConfigField(value = "snapshotTimeout", fallback = "60s")
+        Duration snapshotTimeout
 ) {
 }

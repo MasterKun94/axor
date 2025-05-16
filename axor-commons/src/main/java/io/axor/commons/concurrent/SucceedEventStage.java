@@ -3,6 +3,7 @@ package io.axor.commons.concurrent;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 /**
@@ -167,5 +168,10 @@ public sealed class SucceedEventStage<T> implements EventStage<T> permits Succee
     @Override
     public EventFuture<T> toFuture() {
         return new SucceedEventFuture<>(value, executor);
+    }
+
+    @Override
+    public EventStage<T> withTimeout(long timeout, TimeUnit unit) {
+        return this;
     }
 }

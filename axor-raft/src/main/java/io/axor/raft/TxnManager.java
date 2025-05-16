@@ -3,6 +3,8 @@ package io.axor.raft;
 import com.google.protobuf.ByteString;
 import io.axor.api.ActorRef;
 import io.axor.api.MessageUtils;
+import io.axor.commons.concurrent.EventExecutor;
+import io.axor.commons.concurrent.EventStage;
 import io.axor.raft.logging.RaftLogging;
 import io.axor.raft.proto.PeerProto;
 import io.axor.raft.proto.PeerProto.ClientTxnRes;
@@ -30,7 +32,6 @@ public class TxnManager {
 
     public TxnManager(RaftContext raftContext) {
         this.raftContext = raftContext;
-        raftContext.getRaftLogging().addListener(getListener());
         this.expireCheckSchedule = raftContext.getContext().scheduler().schedule(() -> {
             long expireTimeout = raftContext.getConfig().clientTxnCacheCheckTimeout().toMillis();
             long current = System.currentTimeMillis();
@@ -94,64 +95,44 @@ public class TxnManager {
                     }
                 }
             }
-        };
-    }
 
-    public PeerProto.Snapshot takeSnapshot(PeerProto.Snapshot snapshot) {
-        PeerProto.Snapshot.Builder builder = snapshot.toBuilder();
-        for (Map.Entry<Key, Value> entry : table.entrySet()) {
-            Key key = entry.getKey();
-            Value value = entry.getValue();
-            if (value.getStatus() != TxnStatus.COMMITED) {
-                continue;
-            }
-            builder.addUnfinishedTxn(PeerProto.Snapshot.UnfinishedTxn.newBuilder()
-                    .setClientId(key.clientId)
-                    .setSeqId(key.seqId)
-                    .setCreateTime(value.createTime)
-                    .setAppliedLogId(value.getAppliedLogId())
-                    .addAllAckedSeqId(value.ackedSeqId));
-        }
-        return builder.build();
-    }
-
-    public void loadSnapshot(PeerProto.Snapshot snapshot) throws RaftException {
-        table.clear();
-        for (var unfinishedTxn : snapshot.getUnfinishedTxnList()) {
-            Key key = new Key(unfinishedTxn.getClientId(), unfinishedTxn.getSeqId());
-            Value value = new Value(unfinishedTxn.getCreateTime());
-            value.setAppliedLogId(unfinishedTxn.getAppliedLogId());
-            value.setAckedSeqId(unfinishedTxn.getAckedSeqIdList());
-            value.setStatus(TxnStatus.COMMITED);
-            table.put(key, value);
-        }
-        RaftLogging raftLogging = raftContext.getRaftLogging();
-        PeerProto.LogId commitedId = raftLogging.commitedId();
-        PeerProto.LogId logEndId = raftLogging.logEndId();
-        PeerProto.LogId readAt = snapshot.getLogId();
-        if (readAt.getIndex() > commitedId.getIndex()) {
-            throw new IllegalStateException("illegal commited index");
-        }
-        if (readAt.getTerm() > commitedId.getTerm()) {
-            throw new IllegalStateException("illegal commited term");
-        }
-        int entryLimit = raftContext.getConfig().logAppendEntryLimit();
-        int bytesLimit = raftContext.getConfig().logAppendBytesLimit().toInt();
-        while (true) {
-            var entries = raftLogging.read(readAt, false, true, entryLimit, bytesLimit);
-            if (entries.isEmpty()) {
-                break;
-            }
-            RaftLogging.LogEntryListener listener = getListener();
-            for (PeerProto.LogEntry entry : entries) {
-                listener.appended(entry);
-                if (entry.getId().getIndex() <= commitedId.getIndex()) {
-                    listener.commited(entry.getId());
+            @Override
+            public void loadSnapshot(PeerProto.Snapshot snapshot) {
+                table.clear();
+                for (var unfinishedTxn : snapshot.getUnfinishedTxnList()) {
+                    Key key = new Key(unfinishedTxn.getClientId(), unfinishedTxn.getSeqId());
+                    Value value = new Value(unfinishedTxn.getCreateTime());
+                    value.setAppliedLogId(unfinishedTxn.getAppliedLogId());
+                    value.setAckedSeqId(unfinishedTxn.getAckedSeqIdList());
+                    value.setStatus(TxnStatus.COMMITED);
+                    table.put(key, value);
                 }
             }
-            readAt = entries.getLast().getId();
-        }
-        assert readAt.equals(logEndId);
+
+            @Override
+            public void installSnapshot(PeerProto.InstallSnapshot snapshot) {
+                loadSnapshot(snapshot.getSnapshot());
+            }
+
+            @Override
+            public EventStage<PeerProto.Snapshot> takeSnapshot(PeerProto.Snapshot snapshot, EventExecutor executor) {
+                PeerProto.Snapshot.Builder builder = snapshot.toBuilder();
+                for (Map.Entry<Key, Value> entry : table.entrySet()) {
+                    Key key = entry.getKey();
+                    Value value = entry.getValue();
+                    if (value.getStatus() != TxnStatus.COMMITED) {
+                        continue;
+                    }
+                    builder.addUnfinishedTxn(PeerProto.Snapshot.UnfinishedTxn.newBuilder()
+                            .setClientId(key.clientId)
+                            .setSeqId(key.seqId)
+                            .setCreateTime(value.createTime)
+                            .setAppliedLogId(value.getAppliedLogId())
+                            .addAllAckedSeqId(value.ackedSeqId));
+                }
+                return EventStage.succeed(builder.build(), executor);
+            }
+        };
     }
 
     public boolean inTxnOrCommited(Key key) {
@@ -173,7 +154,7 @@ public class TxnManager {
         return Objects.requireNonNull(table.get(key)).getCreateTime();
     }
 
-    public void addListener(Key key, ActorRef<PeerProto.ClientMessage> listener) {
+    public void addClient(Key key, ActorRef<PeerProto.ClientMessage> listener) {
         Value value = Objects.requireNonNull(table.get(key));
         if (value.getStatus() == TxnStatus.COMMITED) {
             listener.tell(PeerProto.ClientMessage.newBuilder()

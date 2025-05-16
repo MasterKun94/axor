@@ -52,12 +52,9 @@ public class PeerTest {
                 
                 """), RaftConfig.class);
         EventDispatcher dispatcher = system.getDispatcherGroup().nextDispatcher();
-        var logging1 = factory.create("Peer1");
-        var logging2 = factory.create("Peer2");
-        var logging3 = factory.create("Peer3");
-        peer1 = system.start(c -> new RaftPeerActor(c, raftConfig, peers, 0, logging1), "Peer1");
-        peer2 = system.start(c -> new RaftPeerActor(c, raftConfig, peers, 1, logging2), "Peer2");
-        peer3 = system.start(c -> new RaftPeerActor(c, raftConfig, peers, 2, logging3), "Peer3");
+        peer1 = system.start(c -> new RaftPeerActor(c, raftConfig, peers, 0, factory), "Peer1");
+        peer2 = system.start(c -> new RaftPeerActor(c, raftConfig, peers, 1, factory), "Peer2");
+        peer3 = system.start(c -> new RaftPeerActor(c, raftConfig, peers, 2, factory), "Peer3");
 
         ActorUnsafe.signal(peer1, RaftPeerActor.START_SIGNAL);
         Thread.sleep(500);

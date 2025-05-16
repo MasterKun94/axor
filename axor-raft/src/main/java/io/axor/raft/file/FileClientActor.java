@@ -121,7 +121,7 @@ public class FileClientActor extends Actor<FileClientMessage> {
         server.tell(FileServerMessage.newBuilder()
                 .setStop(FileManagerProto.FileReadStop.newBuilder()
                         .setReqId(id.toString()))
-                .build());
+                .build(), self());
         if (subscriber != null) {
             subscriber.onError(new IOException("client stopped"));
             subscriber = null;

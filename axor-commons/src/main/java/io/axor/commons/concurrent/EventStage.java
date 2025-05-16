@@ -2,12 +2,14 @@ package io.axor.commons.concurrent;
 
 import org.jetbrains.annotations.Nullable;
 
+import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -419,4 +421,6 @@ public sealed interface EventStage<T> permits EventPromise, EventFuture,
         }
         return new DefaultEventFuture<>(this);
     }
+
+    EventStage<T> withTimeout(long timeout, TimeUnit unit);
 }

@@ -3,6 +3,7 @@ package io.axor.commons.concurrent;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 /**
@@ -95,6 +96,11 @@ public class NoopEventPromise<T> implements EventPromise<T> {
     @Override
     public EventPromise<T> observe(Collection<EventStageObserver<T>> observers) {
         return this;
+    }
+
+    @Override
+    public EventStage<T> withTimeout(long timeout, TimeUnit unit) {
+        throw new UnsupportedOperationException("NoopEventPromise is not support");
     }
 
     @Override

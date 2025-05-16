@@ -96,28 +96,61 @@ public class RocksdbRaftLoggingFactory implements RaftLoggingFactory {
         }
     }
 
+    private String raftLoggingName(String name) {
+        return "RL-" + name;
+    }
+
+    private String snapshotStoreName(String name) {
+        return "SS-" + name;
+    }
+
     @Override
-    public RaftLogging create(String name) throws RaftException {
+    public RaftLogging createLogging(String name) throws RaftException {
+        String key = raftLoggingName(name);
         init();
-        if (!created.add(name)) {
+        if (!created.add(key)) {
             throw new IllegalArgumentException("already created");
         }
         try {
-            ColumnFamilyHandle handle = cfHandles.get(name);
+            ColumnFamilyHandle handle = cfHandles.get(key);
             if (handle == null) {
-                handle = db.createColumnFamily(new ColumnFamilyDescriptor(name.getBytes(), cfOpt));
-                ColumnFamilyHandle prev = cfHandles.put(name, handle);
+                handle = db.createColumnFamily(new ColumnFamilyDescriptor(key.getBytes(), cfOpt));
+                ColumnFamilyHandle prev = cfHandles.put(key, handle);
                 assert prev == null;
             }
             boolean direct = config.getBoolean("bufferDirect");
             MemorySize bufferMax = MemorySize.ofBytes(config.getMemorySize("bufferMax"));
-            return new RocksdbRaftLogging(name, db, handle, new WriteOptions(), new ReadOptions(),
+            return new RocksdbRaftLogging(key, db, handle, new WriteOptions(), new ReadOptions(),
                     direct, bufferMax.toInt());
         } catch (RocksDBException e) {
-            created.remove(name);
+            created.remove(key);
             throw new RocksDBRaftException(e);
         } catch (Exception e) {
-            created.remove(name);
+            created.remove(key);
+            throw e;
+        }
+    }
+
+    @Override
+    public SnapshotStore createSnapshotStore(String name) throws RaftException {
+        String key = snapshotStoreName(name);
+        init();
+        if (!created.add(key)) {
+            throw new IllegalArgumentException("already created");
+        }
+        try {
+            ColumnFamilyHandle handle = cfHandles.get(key);
+            if (handle == null) {
+                handle = db.createColumnFamily(new ColumnFamilyDescriptor(key.getBytes(), cfOpt));
+                ColumnFamilyHandle prev = cfHandles.put(key, handle);
+                assert prev == null;
+            }
+            return new RocksdbSnapshotStore(db, handle, new ReadOptions(), new WriteOptions());
+        } catch (RocksDBException e) {
+            created.remove(key);
+            throw new RocksDBRaftException(e);
+        } catch (Exception e) {
+            created.remove(key);
             throw e;
         }
     }

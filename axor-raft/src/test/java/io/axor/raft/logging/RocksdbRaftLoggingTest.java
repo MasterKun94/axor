@@ -41,9 +41,9 @@ public class RocksdbRaftLoggingTest {
 
     @Test
     public void test() throws Exception {
-        new RaftLoggingTestkit(factory.create("test1")).test();
-        new RaftLoggingTestkit(factory.create("test2")).test();
-        Assert.assertThrows(IllegalArgumentException.class, () -> factory.create("test2"));
+        new RaftLoggingTestkit(factory.createLogging("test1")).test();
+        new RaftLoggingTestkit(factory.createLogging("test2")).test();
+        Assert.assertThrows(IllegalArgumentException.class, () -> factory.createLogging("test2"));
         factory.close();
         factory = new RocksdbRaftLoggingFactory(ConfigFactory.parseString("""
                 path = .tmp/raftlog
@@ -53,8 +53,8 @@ public class RocksdbRaftLoggingTest {
                   create_if_missing = true
                 }
                 """));
-        new RaftLoggingTestkit(factory.create("test3")).test();
-        new RaftLoggingTestkit(factory.create("test1")).testContinue();
-        new RaftLoggingTestkit(factory.create("test2")).testContinue();
+        new RaftLoggingTestkit(factory.createLogging("test3")).test();
+        new RaftLoggingTestkit(factory.createLogging("test1")).testContinue();
+        new RaftLoggingTestkit(factory.createLogging("test2")).testContinue();
     }
 }

@@ -3,6 +3,7 @@ package io.axor.commons.concurrent;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 /**
@@ -129,6 +130,11 @@ public sealed class FailedEventStage<T> implements EventStage<T> permits FailedE
         } else {
             executor.execute(() -> observe(observers));
         }
+        return this;
+    }
+
+    @Override
+    public EventStage<T> withTimeout(long timeout, TimeUnit unit) {
         return this;
     }
 }

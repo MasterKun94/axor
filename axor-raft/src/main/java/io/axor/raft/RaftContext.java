@@ -7,6 +7,8 @@ import io.axor.api.ActorSystem;
 import io.axor.exception.ActorNotFoundException;
 import io.axor.exception.IllegalMsgTypeException;
 import io.axor.raft.logging.RaftLogging;
+import io.axor.raft.logging.RaftLoggingFactory;
+import io.axor.raft.logging.SnapshotStore;
 import io.axor.raft.proto.PeerProto;
 import io.axor.raft.proto.PeerProto.ClientMessage;
 import io.axor.raft.proto.PeerProto.ClientTxnReq;
@@ -37,6 +39,7 @@ public class RaftContext {
     private final RaftState raftState;
     private final RaftLogging raftLogging;
     private final TxnManager txnManager;
+    private final SnapshotManager snapshotManager;
     private long nextTxnId = 1;
     private LeaderContext leaderContext;
 
@@ -44,12 +47,21 @@ public class RaftContext {
                        RaftConfig config,
                        List<Peer> peers,
                        Peer selfPeer,
-                       RaftLogging raftLogging) {
+                       RaftLoggingFactory factory) throws RaftException {
         this.context = context;
         this.config = config;
-        this.raftLogging = raftLogging;
+        this.raftLogging = factory.createLogging(selfPeer.address().name());
         this.raftState = new RaftState();
         this.txnManager = new TxnManager(this);
+        raftLogging.addListener(txnManager.getListener());
+        SnapshotStore snapshotStore = factory.createSnapshotStore(selfPeer.address().name());
+        this.snapshotManager = new SnapshotManager(snapshotStore, raftLogging,
+                config.snapshotEntryInterval(),
+                config.snapshotBytesInterval().toBytes(),
+                config.snapshotTimeout(),
+                context.dispatcher());
+        raftLogging.loadSnapshot(snapshotManager.getLatestSnapshot());
+
         ActorSystem system = context.system();
         try {
             List<PeerInstance> peerInstances = new ArrayList<>(peers.size());
@@ -73,19 +85,6 @@ public class RaftContext {
         }
         raftState.setCurrentTerm(raftLogging.logEndId().getTerm());
         raftState.setLatestHeartbeatTimestamp(System.currentTimeMillis());
-    }
-
-    public void installSnapshot(PeerProto.InstallSnapshot installSnapshot) throws RaftException {
-        raftLogging.installSnapshot(installSnapshot);
-        txnManager.loadSnapshot(installSnapshot.getSnapshot());
-    }
-
-    public void loadSnapshot(PeerProto.Snapshot snapshot) throws RaftException {
-        txnManager.loadSnapshot(snapshot);
-    }
-
-    public PeerProto.Snapshot takeSnapshot(PeerProto.Snapshot snapshot) throws RaftException {
-        return txnManager.takeSnapshot(snapshot);
     }
 
     public ActorContext<PeerMessage> getContext() {
@@ -206,7 +205,7 @@ public class RaftContext {
             ActorRef<ClientMessage> sender = raftContext.context.sender(ClientMessage.class);
             TxnManager.Key key = new TxnManager.Key(req.getClientId(), req.getSeqId());
             if (raftContext.txnManager.inTxnOrCommited(key)) {
-                raftContext.txnManager.addListener(key, sender);
+                raftContext.txnManager.addClient(key, sender);
                 return false;
             } else {
                 raftContext.txnManager.createTxn(key, sender);

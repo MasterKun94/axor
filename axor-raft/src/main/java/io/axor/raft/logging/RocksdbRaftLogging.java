@@ -1,6 +1,7 @@
 package io.axor.raft.logging;
 
-import com.google.protobuf.InvalidProtocolBufferException;
+import io.axor.commons.concurrent.EventExecutor;
+import io.axor.commons.concurrent.EventStage;
 import io.axor.raft.LogUtils;
 import io.axor.raft.RaftException;
 import io.axor.raft.RocksDBRaftException;
@@ -23,6 +24,8 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+
+import static io.axor.api.MessageUtils.loggable;
 
 public class RocksdbRaftLogging implements RaftLogging {
 
@@ -62,7 +65,7 @@ public class RocksdbRaftLogging implements RaftLogging {
         refreshStartedId();
         try (RocksIterator iter = db.newIterator(cfHandle, readOpt)) {
             List<LogId> uncommited = new ArrayList<>();
-            for (iter.seek(commitedId.toByteArray()); iter.isValid(); iter.next()) {
+            for (iter.seek(LogUtils.toBytes(commitedId)); iter.isValid(); iter.next()) {
                 iter.key(keyBuffer.clear());
                 uncommited.add(LogUtils.toId(keyBuffer));
             }
@@ -72,18 +75,14 @@ public class RocksdbRaftLogging implements RaftLogging {
         }
     }
 
-    private void refreshStartedId() throws RaftException {
+    private void refreshStartedId() {
         LogId commitedId = this.commitedId;
         if (commitedId == INITIAL_LOG_ID) {
             startedId = commitedId;
         }
         try (RocksIterator iter = db.newIterator(cfHandle, readOpt)) {
             iter.seekToFirst();
-            try {
-                startedId = iter.isValid() ? LogId.parseFrom(iter.key()) : INITIAL_LOG_ID;
-            } catch (InvalidProtocolBufferException e) {
-                throw new RaftException(e);
-            }
+            startedId = iter.isValid() ? LogUtils.toId(iter.key()) : INITIAL_LOG_ID;
         }
     }
 
@@ -275,28 +274,29 @@ public class RocksdbRaftLogging implements RaftLogging {
         if (limit <= 0) {
             return Collections.emptyList();
         }
-        RocksIterator iter = db.newIterator(cfHandle, readOpt);
-        keyBuffer.clear();
-        iter.seek(LogUtils.toBytes(start, keyBuffer));
-        List<LogEntry> entries = new ArrayList<>();
-        int cnt = 0;
-        int size = 0;
-        if (!includeStart) {
-            iter.next();
-        }
-        while (iter.isValid() && cnt < limit && size < sizeLimit) {
+        try (RocksIterator iter = db.newIterator(cfHandle, readOpt)) {
             keyBuffer.clear();
-            iter.key(keyBuffer);
-            LogId id = LogUtils.toId(keyBuffer);
-            valueBuffer.clear();
-            iter.value(valueBuffer);
-            LogValue value = LogUtils.toValue(valueBuffer);
-            entries.add(LogEntry.newBuilder().setId(id).setValue(value).build());
-            cnt++;
-            iter.next();
-            size += value.getSerializedSize();
+            iter.seek(LogUtils.toBytes(start, keyBuffer));
+            List<LogEntry> entries = new ArrayList<>();
+            int cnt = 0;
+            int size = 0;
+            if (!includeStart) {
+                iter.next();
+            }
+            while (iter.isValid() && cnt < limit && size < sizeLimit) {
+                keyBuffer.clear();
+                iter.key(keyBuffer);
+                LogId id = LogUtils.toId(keyBuffer);
+                valueBuffer.clear();
+                iter.value(valueBuffer);
+                LogValue value = LogUtils.toValue(valueBuffer);
+                entries.add(LogEntry.newBuilder().setId(id).setValue(value).build());
+                cnt++;
+                iter.next();
+                size += value.getSerializedSize();
+            }
+            return entries;
         }
-        return entries;
     }
 
     @Override
@@ -370,8 +370,78 @@ public class RocksdbRaftLogging implements RaftLogging {
     }
 
     @Override
-    public void installSnapshot(PeerProto.InstallSnapshot installSnapshot) throws RaftException {
-        // TODO
+    public void loadSnapshot(PeerProto.Snapshot snapshot) throws RaftException {
+        LogId lodId = snapshot.getLogId();
+        if (lodId.getIndex() > commitedId.getIndex()) {
+            throw new IllegalStateException("snapshot " + loggable(lodId) + " " +
+                                            "greater than commited " + loggable(lodId));
+        }
+        List<LogEntryListener> listeners = this.listeners;
+        for (LogEntryListener listener : listeners) {
+            listener.loadSnapshot(snapshot);
+        }
+        long nextIndex = lodId.getIndex() + 1;
+        try (RocksIterator iter = db.newIterator(cfHandle, readOpt)) {
+            if (lodId.equals(INITIAL_LOG_ID)) {
+                iter.seekToFirst();
+            } else {
+                iter.seek(LogUtils.toBytes(lodId));
+                iter.next();
+            }
+            ByteBuffer valueBuffer = this.valueBuffer;
+            ByteBuffer keyBuffer = this.keyBuffer;
+            while (iter.isValid()) {
+                valueBuffer.clear();
+                keyBuffer.clear();
+                iter.key(keyBuffer);
+                iter.value(valueBuffer);
+                LogId key = LogUtils.toId(keyBuffer);
+                LogValue value = LogUtils.toValue(valueBuffer);
+                if (nextIndex != key.getIndex()) {
+                    throw new IllegalStateException("unexpected log index");
+                }
+                for (LogEntryListener listener : listeners) {
+                    listener.appended(LogEntry.newBuilder()
+                            .setId(key)
+                            .setValue(value)
+                            .build());
+                }
+                if (key.getIndex() <= commitedId.getIndex()) {
+                    for (LogEntryListener listener : listeners) {
+                        listener.commited(key);
+                    }
+                }
+            }
+        }
+    }
+
+    @Override
+    public void installSnapshot(PeerProto.InstallSnapshot snapshot) throws RaftException {
+        LogId logEndId = logEndId();
+        try {
+            db.deleteFilesInRanges(cfHandle,
+                    List.of(LogUtils.toBytes(INITIAL_LOG_ID), LogUtils.toBytes(logEndId)),
+                    true);
+            db.put(name.getBytes(), LogUtils.toBytes(snapshot.getCommitedLogId()));
+            startedId = commitedId = snapshot.getCommitedLogId();
+            uncommitedIdList = null;
+        } catch (RocksDBException e) {
+            throw new RocksDBRaftException(e);
+        }
+        for (LogEntryListener listener : listeners) {
+            listener.installSnapshot(snapshot);
+        }
+    }
+
+    @Override
+    public EventStage<PeerProto.Snapshot> takeSnapshot(PeerProto.Snapshot snapshot, EventExecutor executor) {
+        EventStage<PeerProto.Snapshot> stage = EventStage.succeed(snapshot.toBuilder()
+                .setLogId(commitedId)
+                .build(), executor);
+        for (LogEntryListener listener : listeners) {
+            stage = stage.flatmap(s -> listener.takeSnapshot(s, executor));
+        }
+        return stage;
     }
 
     @Override
@@ -382,7 +452,7 @@ public class RocksdbRaftLogging implements RaftLogging {
     private sealed interface TxnAction {
         void apply(Transaction txn) throws RaftException, RocksDBException;
 
-        void apply(LogEntryListener listener);
+        void apply(LogEntryListener listener) throws RaftException;
     }
 
     private final class PutEntry implements TxnAction {
@@ -402,7 +472,7 @@ public class RocksdbRaftLogging implements RaftLogging {
         }
 
         @Override
-        public void apply(LogEntryListener listener) {
+        public void apply(LogEntryListener listener) throws RaftException {
             listener.appended(entry);
         }
     }
@@ -420,7 +490,7 @@ public class RocksdbRaftLogging implements RaftLogging {
         }
 
         @Override
-        public void apply(LogEntryListener listener) {
+        public void apply(LogEntryListener listener) throws RaftException {
             listener.removed(id);
         }
     }

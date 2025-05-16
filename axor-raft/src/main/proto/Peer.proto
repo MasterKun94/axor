@@ -191,6 +191,12 @@ message Snapshot {
   }
 }
 
+message SnapshotResult {
+  Snapshot snapshot = 1;
+  bool success = 2;
+  string reason = 3;
+}
+
 message InstallSnapshot {
   Snapshot snapshot = 1;
   LogId commitedLogId = 2;

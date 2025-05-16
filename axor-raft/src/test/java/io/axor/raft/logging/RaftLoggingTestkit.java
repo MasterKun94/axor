@@ -1,6 +1,8 @@
 package io.axor.raft.logging;
 
 import com.google.protobuf.ByteString;
+import io.axor.commons.concurrent.EventExecutor;
+import io.axor.commons.concurrent.EventStage;
 import io.axor.raft.proto.PeerProto;
 import io.axor.raft.proto.PeerProto.AppendResult;
 import io.axor.raft.proto.PeerProto.CommitResult;
@@ -45,6 +47,18 @@ public class RaftLoggingTestkit {
                     assertTrue(commited.getLast().getTerm() <= id.getTerm());
                 }
                 commited.add(id);
+            }
+
+            @Override
+            public EventStage<PeerProto.Snapshot> takeSnapshot(PeerProto.Snapshot snapshot, EventExecutor executor) {
+                // TODO
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public void loadSnapshot(PeerProto.Snapshot snapshot) {
+                // TODO
+                throw new UnsupportedOperationException();
             }
         });
     }
