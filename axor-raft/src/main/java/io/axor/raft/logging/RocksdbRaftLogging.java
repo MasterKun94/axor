@@ -2,7 +2,6 @@ package io.axor.raft.logging;
 
 import io.axor.commons.concurrent.EventExecutor;
 import io.axor.commons.concurrent.EventStage;
-import io.axor.raft.LogUtils;
 import io.axor.raft.RaftException;
 import io.axor.raft.RocksDBRaftException;
 import io.axor.raft.proto.PeerProto;
@@ -200,15 +199,15 @@ public class RocksdbRaftLogging implements RaftLogging {
                 action.apply(txn);
             }
             txn.commit();
-            if (!listeners.isEmpty()) {
-                for (TxnAction action : actionList) {
-                    for (LogEntryListener listener : listeners) {
-                        action.apply(listener);
-                    }
-                }
-            }
         } catch (RocksDBException e) {
             throw new RocksDBRaftException(e);
+        }
+        if (!listeners.isEmpty()) {
+            for (TxnAction action : actionList) {
+                for (LogEntryListener listener : listeners) {
+                    action.apply(listener);
+                }
+            }
         }
         this.uncommitedIdList = Collections.unmodifiableList(uncommitedIdList);
         return result(AppendResult.Status.SUCCESS);
@@ -225,10 +224,11 @@ public class RocksdbRaftLogging implements RaftLogging {
                 return result(CommitResult.Status.NO_ACTION);
             }
         }
-        if (uncommitedIdList.isEmpty()) {
+        var uncommitedIdList = this.uncommitedIdList;
+        if (uncommitedIdList == null || uncommitedIdList.isEmpty()) {
             return result(CommitResult.Status.NO_VALUE);
         }
-        int idx = this.uncommitedIdList.indexOf(commitAtId);
+        int idx = uncommitedIdList.indexOf(commitAtId);
         if (idx == -1) {
             if (uncommitedIdList.getLast().getIndex() < commitedId.getIndex()) {
                 return result(CommitResult.Status.INDEX_EXCEEDED);
@@ -335,6 +335,7 @@ public class RocksdbRaftLogging implements RaftLogging {
 
     @Override
     public void resetUncommited() throws RaftException {
+        var uncommitedIdList = this.uncommitedIdList;
         if (uncommitedIdList == null || uncommitedIdList.isEmpty()) {
             return;
         }
@@ -351,7 +352,7 @@ public class RocksdbRaftLogging implements RaftLogging {
                 listener.removed(logId);
             }
         }
-        uncommitedIdList = null;
+        this.uncommitedIdList = null;
     }
 
     @Override
@@ -434,7 +435,8 @@ public class RocksdbRaftLogging implements RaftLogging {
     }
 
     @Override
-    public EventStage<PeerProto.Snapshot> takeSnapshot(PeerProto.Snapshot snapshot, EventExecutor executor) {
+    public EventStage<PeerProto.Snapshot> takeSnapshot(PeerProto.Snapshot snapshot,
+                                                       EventExecutor executor) {
         EventStage<PeerProto.Snapshot> stage = EventStage.succeed(snapshot.toBuilder()
                 .setLogId(commitedId)
                 .build(), executor);

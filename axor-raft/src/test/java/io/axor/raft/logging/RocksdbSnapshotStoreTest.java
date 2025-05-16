@@ -12,8 +12,8 @@ import java.io.File;
 import java.io.IOException;
 
 /**
- * Tests for the RocksdbSnapshotStore implementation.
- * This test uses SnapshotStoreTestkit to test the functionality.
+ * Tests for the RocksdbSnapshotStore implementation. This test uses SnapshotStoreTestkit to test
+ * the functionality.
  */
 public class RocksdbSnapshotStoreTest {
     private static RocksdbRaftLoggingFactory factory;

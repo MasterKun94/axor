@@ -4,6 +4,8 @@ import io.axor.api.ActorAddress;
 import io.axor.api.ActorContext;
 import io.axor.api.ActorRef;
 import io.axor.api.ActorSystem;
+import io.axor.commons.concurrent.EventExecutor;
+import io.axor.commons.concurrent.EventStage;
 import io.axor.exception.ActorNotFoundException;
 import io.axor.exception.IllegalMsgTypeException;
 import io.axor.raft.logging.RaftLogging;
@@ -39,7 +41,7 @@ public class RaftContext {
     private final RaftState raftState;
     private final RaftLogging raftLogging;
     private final TxnManager txnManager;
-    private final SnapshotManager snapshotManager;
+    private final RaftListenerAdaptor listenerAdaptor = new RaftListenerAdaptor();
     private long nextTxnId = 1;
     private LeaderContext leaderContext;
 
@@ -53,13 +55,15 @@ public class RaftContext {
         this.raftLogging = factory.createLogging(selfPeer.address().name());
         this.raftState = new RaftState();
         this.txnManager = new TxnManager(this);
-        raftLogging.addListener(txnManager.getListener());
         SnapshotStore snapshotStore = factory.createSnapshotStore(selfPeer.address().name());
-        this.snapshotManager = new SnapshotManager(snapshotStore, raftLogging,
+        SnapshotManager snapshotManager = new SnapshotManager(snapshotStore, raftLogging,
                 config.snapshotEntryInterval(),
                 config.snapshotBytesInterval().toBytes(),
                 config.snapshotTimeout(),
                 context.dispatcher());
+        raftLogging.addListener(txnManager.getListener());
+        raftLogging.addListener(snapshotManager.getListener());
+        raftLogging.addListener(listenerAdaptor.getEntryListener());
         raftLogging.loadSnapshot(snapshotManager.getLatestSnapshot());
 
         ActorSystem system = context.system();
@@ -121,6 +125,10 @@ public class RaftContext {
 
     public LogId getLogEndId() {
         return raftLogging.logEndId();
+    }
+
+    public void addListener(RaftListener listener) {
+        listenerAdaptor.addListener(listener);
     }
 
     public PeerInstance getPeerOfSender() {
@@ -338,6 +346,140 @@ public class RaftContext {
                    ", commited=" + commited +
                    ", uncommited=" + uncommited +
                    ']';
+        }
+    }
+
+    private static class RaftListenerAdaptor implements RaftListener {
+        private final List<LogEntry> uncommitedEntry = new ArrayList<>();
+        private final List<RaftListener> listeners = new ArrayList<>();
+
+        @Override
+        public void onStateChange(PeerState from, PeerState to) {
+            for (RaftListener listener : listeners) {
+                listener.onStateChange(from, to);
+            }
+        }
+
+        @Override
+        public void onTermChange(long from, long to) {
+            for (RaftListener listener : listeners) {
+                listener.onTermChange(from, to);
+            }
+        }
+
+        @Override
+        public void onLeaderChange(Peer leader) {
+            for (RaftListener listener : listeners) {
+                listener.onLeaderChange(leader);
+            }
+        }
+
+        @Override
+        public void onBecomeLeader() {
+            for (RaftListener listener : listeners) {
+                listener.onBecomeLeader();
+            }
+        }
+
+        @Override
+        public void onTxnStarted(LogAppend append) {
+            for (RaftListener listener : listeners) {
+                listener.onTxnStarted(append);
+            }
+        }
+
+        @Override
+        public void onTxnSuccess() {
+            for (RaftListener listener : listeners) {
+                listener.onTxnSuccess();
+            }
+        }
+
+        @Override
+        public void onTxnFailure() {
+            for (RaftListener listener : listeners) {
+                listener.onTxnFailure();
+            }
+        }
+
+        @Override
+        public void onExistLeader() {
+            for (RaftListener listener : listeners) {
+                listener.onExistLeader();
+            }
+        }
+
+        @Override
+        public void onLogCommited(LogEntry entry) {
+            for (RaftListener listener : listeners) {
+                listener.onLogCommited(entry);
+            }
+        }
+
+        @Override
+        public void onLoadSnapshot(PeerProto.Snapshot snapshot) {
+            for (RaftListener listener : listeners) {
+                listener.onLoadSnapshot(snapshot);
+            }
+        }
+
+        @Override
+        public void onInstallSnapshot(PeerProto.InstallSnapshot snapshot) {
+            for (RaftListener listener : listeners) {
+                listener.onInstallSnapshot(snapshot);
+            }
+        }
+
+        @Override
+        public EventStage<PeerProto.Snapshot> takeSnapshot(PeerProto.Snapshot snapshot,
+                                                           EventExecutor executor) {
+            EventStage<PeerProto.Snapshot> stage = EventStage.succeed(snapshot, executor);
+            for (RaftListener listener : listeners) {
+                stage = stage.flatmap(s -> listener.takeSnapshot(s, executor));
+            }
+            return stage;
+        }
+
+        public void addListener(RaftListener listener) {
+            listeners.add(listener);
+        }
+
+        public RaftLogging.LogEntryListener getEntryListener() {
+            return new RaftLogging.LogEntryListener() {
+                @Override
+                public void appended(LogEntry entry) {
+                    uncommitedEntry.add(entry);
+                }
+
+                @Override
+                public void removed(LogId id) {
+                    LogEntry logEntry = uncommitedEntry.removeLast();
+                    assert logEntry.getId().equals(id);
+                }
+
+                @Override
+                public void commited(LogId id) {
+                    LogEntry logEntry = uncommitedEntry.removeFirst();
+                    assert logEntry.getId().equals(id);
+                    onLogCommited(logEntry);
+                }
+
+                @Override
+                public EventStage<PeerProto.Snapshot> takeSnapshot(PeerProto.Snapshot snapshot,
+                                                                   EventExecutor executor) {
+                    return RaftListenerAdaptor.this.takeSnapshot(snapshot, executor);
+                }
+
+                @Override
+                public void installSnapshot(PeerProto.InstallSnapshot snapshot) {
+                    RaftListenerAdaptor.this.onInstallSnapshot(snapshot);
+                }
+
+                @Override
+                public void loadSnapshot(PeerProto.Snapshot snapshot) {
+                    RaftListenerAdaptor.this.onLoadSnapshot(snapshot);
+                }
+            };
         }
     }
 }

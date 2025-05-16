@@ -24,7 +24,6 @@
         <module>axor-persistence</module>
         <module>axor-persistence-extensions/axor-persistence-jdbc</module>
         <module>axor-persistence-extensions/axor-persistence-kafka</module>
-        <module>axor-cp</module>
         <module>axor-raft</module>
     </modules>
 

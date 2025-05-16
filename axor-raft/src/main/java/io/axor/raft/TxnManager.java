@@ -115,7 +115,8 @@ public class TxnManager {
             }
 
             @Override
-            public EventStage<PeerProto.Snapshot> takeSnapshot(PeerProto.Snapshot snapshot, EventExecutor executor) {
+            public EventStage<PeerProto.Snapshot> takeSnapshot(PeerProto.Snapshot snapshot,
+                                                               EventExecutor executor) {
                 PeerProto.Snapshot.Builder builder = snapshot.toBuilder();
                 for (Map.Entry<Key, Value> entry : table.entrySet()) {
                     Key key = entry.getKey();

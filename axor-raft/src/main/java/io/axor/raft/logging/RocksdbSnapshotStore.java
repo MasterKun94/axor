@@ -125,7 +125,8 @@ public class RocksdbSnapshotStore implements SnapshotStore {
             }
         }
         if (expectSnapshotId != result.getSnapshot().getId()) {
-            throw new IllegalArgumentException(String.format("unexpected snapshot id %d, but got %d",
+            throw new IllegalArgumentException(String.format("unexpected snapshot id %d, but got " +
+                                                             "%d",
                     expectSnapshotId,
                     result.getSnapshot().getId()));
         }

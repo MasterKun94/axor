@@ -9,9 +9,8 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * A test toolkit for SnapshotStore implementations.
- * This class encapsulates test logic for verifying that a SnapshotStore
- * implementation correctly implements the SnapshotStore interface.
+ * A test toolkit for SnapshotStore implementations. This class encapsulates test logic for
+ * verifying that a SnapshotStore implementation correctly implements the SnapshotStore interface.
  */
 public class SnapshotStoreTestkit {
     private final SnapshotStore snapshotStore;
@@ -29,7 +28,7 @@ public class SnapshotStoreTestkit {
      * Runs all tests on the SnapshotStore.
      *
      * @throws RaftException if a test fails due to a RaftException
-     * @throws IOException if a test fails due to an IOException
+     * @throws IOException   if a test fails due to an IOException
      */
     public void test() throws RaftException, IOException {
         testSaveAndRead();
@@ -48,7 +47,7 @@ public class SnapshotStoreTestkit {
     /**
      * Creates a snapshot with the given ID and data.
      *
-     * @param id the snapshot ID
+     * @param id   the snapshot ID
      * @param data the snapshot data
      * @return a new Snapshot
      */
@@ -64,10 +63,11 @@ public class SnapshotStoreTestkit {
      * Creates a snapshot result with the given snapshot and success status.
      *
      * @param snapshot the snapshot
-     * @param success whether the snapshot was successful
+     * @param success  whether the snapshot was successful
      * @return a new SnapshotResult
      */
-    private PeerProto.SnapshotResult createSnapshotResult(PeerProto.Snapshot snapshot, boolean success) {
+    private PeerProto.SnapshotResult createSnapshotResult(PeerProto.Snapshot snapshot,
+                                                          boolean success) {
         return PeerProto.SnapshotResult.newBuilder()
                 .setSnapshot(snapshot)
                 .setSuccess(success)
@@ -143,7 +143,7 @@ public class SnapshotStoreTestkit {
      * Tests listing snapshots.
      *
      * @throws RaftException if the test fails due to a RaftException
-     * @throws IOException if the test fails due to an IOException
+     * @throws IOException   if the test fails due to an IOException
      */
     private void testList() throws RaftException, IOException {
         // Get the next expected snapshot ID
@@ -174,7 +174,8 @@ public class SnapshotStoreTestkit {
         Assert.assertTrue("Should contain second snapshot ID", ids.contains(nextId + 1));
 
         // List all snapshots
-        try (SnapshotStore.ClosableIterator<PeerProto.SnapshotResult> iterator = snapshotStore.list()) {
+        try (SnapshotStore.ClosableIterator<PeerProto.SnapshotResult> iterator =
+                     snapshotStore.list()) {
             // The iterator doesn't automatically position at the beginning, so we need to
             // use listId to get all IDs and then read each snapshot individually
             for (Long id : ids) {
@@ -237,7 +238,8 @@ public class SnapshotStoreTestkit {
             exceptionThrown = true;
         }
 
-        Assert.assertTrue("Should throw IllegalArgumentException for incorrect ID", exceptionThrown);
+        Assert.assertTrue("Should throw IllegalArgumentException for incorrect ID",
+                exceptionThrown);
     }
 
     /**
@@ -274,12 +276,13 @@ public class SnapshotStoreTestkit {
         // Verify the snapshot was installed
         List<Long> idsAfterInstall = snapshotStore.listId();
         Assert.assertEquals("Should have exactly one snapshot", 1, idsAfterInstall.size());
-        Assert.assertEquals("Snapshot ID should match", 10L, (long)idsAfterInstall.get(0));
+        Assert.assertEquals("Snapshot ID should match", 10L, (long) idsAfterInstall.get(0));
 
         // Read the snapshot and verify its content
         PeerProto.SnapshotResult result = snapshotStore.read(10);
         Assert.assertNotNull("Should be able to read the installed snapshot", result);
-        Assert.assertEquals("Snapshot should match the installed one", snapshot, result.getSnapshot());
+        Assert.assertEquals("Snapshot should match the installed one", snapshot,
+                result.getSnapshot());
         Assert.assertTrue("Snapshot should be marked as successful", result.getSuccess());
     }
 
@@ -315,16 +318,19 @@ public class SnapshotStoreTestkit {
         // Verify that all previous snapshots are gone and only the new one exists
         List<Long> afterInstallIds = snapshotStore.listId();
         Assert.assertEquals("Should have exactly one snapshot", 1, afterInstallIds.size());
-        Assert.assertEquals("Snapshot ID should match the installed one", 100L, (long)afterInstallIds.get(0));
+        Assert.assertEquals("Snapshot ID should match the installed one", 100L,
+                (long) afterInstallIds.get(0));
 
         for (Long id : beforeInstallIds) {
-            Assert.assertFalse("Should not contain previous snapshot ID: " + id, afterInstallIds.contains(id));
+            Assert.assertFalse("Should not contain previous snapshot ID: " + id,
+                    afterInstallIds.contains(id));
         }
 
         // Read the installed snapshot and verify its content
         PeerProto.SnapshotResult installedResult = snapshotStore.read(100);
         Assert.assertNotNull("Should be able to read the installed snapshot", installedResult);
-        Assert.assertEquals("Snapshot should match the installed one", newSnapshot, installedResult.getSnapshot());
+        Assert.assertEquals("Snapshot should match the installed one", newSnapshot,
+                installedResult.getSnapshot());
         Assert.assertTrue("Snapshot should be marked as successful", installedResult.getSuccess());
     }
 
@@ -370,26 +376,33 @@ public class SnapshotStoreTestkit {
         PeerProto.SnapshotResult result1 = createSnapshotResult(snapshot1, true);
         snapshotStore.save(result1);
 
-        PeerProto.Snapshot snapshot2 = createSnapshot(nextId + 1, "Snapshot multi-delete test data 2");
+        PeerProto.Snapshot snapshot2 = createSnapshot(nextId + 1, "Snapshot multi-delete test " +
+                                                                  "data 2");
         PeerProto.SnapshotResult result2 = createSnapshotResult(snapshot2, true);
         snapshotStore.save(result2);
 
-        PeerProto.Snapshot snapshot3 = createSnapshot(nextId + 2, "Snapshot multi-delete test data 3");
+        PeerProto.Snapshot snapshot3 = createSnapshot(nextId + 2, "Snapshot multi-delete test " +
+                                                                  "data 3");
         PeerProto.SnapshotResult result3 = createSnapshotResult(snapshot3, true);
         snapshotStore.save(result3);
 
         // Verify the snapshots were saved
-        Assert.assertNotNull("First snapshot should exist before deletion", snapshotStore.read(nextId));
-        Assert.assertNotNull("Second snapshot should exist before deletion", snapshotStore.read(nextId + 1));
-        Assert.assertNotNull("Third snapshot should exist before deletion", snapshotStore.read(nextId + 2));
+        Assert.assertNotNull("First snapshot should exist before deletion",
+                snapshotStore.read(nextId));
+        Assert.assertNotNull("Second snapshot should exist before deletion",
+                snapshotStore.read(nextId + 1));
+        Assert.assertNotNull("Third snapshot should exist before deletion",
+                snapshotStore.read(nextId + 2));
 
         // Delete two of the snapshots
         snapshotStore.delete(List.of(nextId, nextId + 2));
 
         // Verify the deleted snapshots are gone and the remaining one still exists
-        Assert.assertNull("First snapshot should not exist after deletion", snapshotStore.read(nextId));
+        Assert.assertNull("First snapshot should not exist after deletion",
+                snapshotStore.read(nextId));
         Assert.assertNotNull("Second snapshot should still exist", snapshotStore.read(nextId + 1));
-        Assert.assertNull("Third snapshot should not exist after deletion", snapshotStore.read(nextId + 2));
+        Assert.assertNull("Third snapshot should not exist after deletion",
+                snapshotStore.read(nextId + 2));
     }
 
     /**

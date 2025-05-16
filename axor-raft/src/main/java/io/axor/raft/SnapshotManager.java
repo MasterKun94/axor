@@ -1,7 +1,6 @@
 package io.axor.raft;
 
 import io.axor.commons.concurrent.EventExecutor;
-import io.axor.commons.concurrent.EventStage;
 import io.axor.raft.logging.RaftLogging;
 import io.axor.raft.logging.SnapshotStore;
 import io.axor.raft.proto.PeerProto;
@@ -93,6 +92,7 @@ public class SnapshotManager {
                 .build();
         raftLogging.takeSnapshot(snapshot, executor)
                 .withTimeout(timeout.toMillis(), TimeUnit.MILLISECONDS)
+                .executor(executor)
                 .observe((s, e) -> {
                     PeerProto.SnapshotResult res;
                     if (e != null) {

@@ -50,7 +50,8 @@ public class RaftLoggingTestkit {
             }
 
             @Override
-            public EventStage<PeerProto.Snapshot> takeSnapshot(PeerProto.Snapshot snapshot, EventExecutor executor) {
+            public EventStage<PeerProto.Snapshot> takeSnapshot(PeerProto.Snapshot snapshot,
+                                                               EventExecutor executor) {
                 // TODO
                 throw new UnsupportedOperationException();
             }

@@ -2,7 +2,6 @@ package io.axor.commons.concurrent;
 
 import org.jetbrains.annotations.Nullable;
 
-import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.Callable;
