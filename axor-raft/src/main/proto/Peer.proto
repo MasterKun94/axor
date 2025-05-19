@@ -9,7 +9,9 @@ import "axor/axor.proto";
 
 message PeerMessage {
   oneof msg {
-    ClientTxnReq clientTxnReq = 1;
+    ClientSeekForLeader clientSeekForLeader = 1;
+    ClientTxnReq clientTxnReq = 2;
+    ClientQueryReq clientQueryReq = 3;
     LogAppend logAppend = 12;
     LogAppendAck logAppendAck = 13;
     LeaderHeartbeat leaderHeartbeat = 14;
@@ -20,40 +22,85 @@ message PeerMessage {
   }
 }
 
-message ClientMessage {
+message ServerMessage {
+  int64 seqId = 1;
   oneof msg {
-    ClientTxnRes txnRes = 1;
-    ClientQueryRes queryRes = 2;
+    Txn txn = 11;
+    Query query = 12;
+  }
+
+  message Txn {
+    bytes data = 1;
+  }
+
+  message Query {
+    bytes data = 2;
   }
 }
-enum ControlFlag {
-  NONE = 0;
-  IGNORE = 1;
-}
-message ClientTxnReq {
+
+message ClientMessage {
   int64 seqId = 1;
-  int64 clientId = 2;
-  bytes data = 3;
-  repeated int64 ackedSeqId = 4;
-  ControlFlag controlFlag = 5;
-}
-message ClientTxnRes {
-  int64 seqId = 1;
-  Status status = 2;
-  bytes data = 3;
-  LogId commitedId = 4;
+  oneof response {
+    Failure failure = 11;
+    TxnSuccess txnSuccess = 12;
+    QuerySuccess querySuccess = 13;
+    Redirect redirect = 14;
+  }
+
+  message Failure {
+    Status status = 1;
+    string message = 2;
+  }
+
+  message TxnSuccess {
+    LogId commitedId = 1;
+  }
+
+  message QuerySuccess {
+    bytes data = 1;
+  }
+
+  message Redirect {
+    Peer peer = 1;
+  }
 
   enum Status {
     NONE = 0;
     SUCCESS = 1;
     NO_LEADER = 2;
-    REDIRECT = 3;
     SYS_ERROR = 4;
     APPEND_TIMEOUT = 5;
     APPEND_FAILURE = 6;
     COMMIT_FAILURE = 7;
     CANCELED = 8;
   }
+}
+
+message MsgId {
+  int64 seqId = 1;
+  int64 clientId = 2;
+}
+
+enum ControlFlag {
+  NONE = 0;
+  IGNORE = 1;
+}
+
+message Peer {
+  int32 id = 1;
+  axor.ActorAddress address = 2;
+}
+
+message ClientSeekForLeader {
+  int64 seqId = 1;
+}
+
+message ClientTxnReq {
+  int64 seqId = 1;
+  int64 clientId = 2;
+  bytes data = 3;
+  repeated int64 ackedSeqId = 4;
+  ControlFlag controlFlag = 5;
 }
 
 message ClientQueryReq {
@@ -65,14 +112,7 @@ message ClientQueryReq {
 
 message ClientQueryRes {
   int64 seqId = 1;
-  Status status = 2;
-  bytes data = 3;
-
-  enum Status {
-    NONE = 0;
-    SUCCESS = 1;
-    FAILURE = 2;
-  }
+  bytes data = 2;
 }
 
 message LogId {

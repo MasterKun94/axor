@@ -101,7 +101,7 @@ public interface Eventbus<T> {
      * @param <T> the type of messages that the command operates on
      */
     sealed interface Command<T> extends Pubsub.Command<T>
-            permits Eventbus.Subscribe, Eventbus.Unsubscribe {
+            permits Subscribe, Unsubscribe {
     }
 
     /**

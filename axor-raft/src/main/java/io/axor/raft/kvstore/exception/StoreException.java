@@ -1,7 +1,5 @@
 package io.axor.raft.kvstore.exception;
 
-import io.axor.raft.kvstore.exception.OperationNotAllowedException;
-
 import java.io.IOException;
 
 public abstract sealed class StoreException extends IOException permits ParentNotFoundException,

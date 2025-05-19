@@ -5,6 +5,7 @@ import io.axor.api.ActorContext;
 import io.axor.api.Behavior;
 import io.axor.api.Behaviors;
 import io.axor.api.FailureStrategy;
+import io.axor.raft.behaviors.AbstractPeerBehavior;
 import io.axor.raft.behaviors.FollowerBehavior;
 import io.axor.raft.logging.RaftLoggingFactory;
 import io.axor.raft.proto.PeerProto.PeerMessage;
@@ -22,6 +23,7 @@ public class RaftPeerActor extends AbstractActor<PeerMessage> {
         }
     };
     private Supplier<RaftContext> supplier;
+    private RaftContext raftContext;
 
     protected RaftPeerActor(ActorContext<PeerMessage> context, RaftConfig config, List<Peer> peers,
                             int peerOffset, RaftLoggingFactory factory) {
@@ -42,11 +44,20 @@ public class RaftPeerActor extends AbstractActor<PeerMessage> {
             if (s == START_SIGNAL) {
                 Supplier<RaftContext> supplier = this.supplier;
                 this.supplier = null;
-                return new FollowerBehavior(supplier.get());
+                return new FollowerBehavior(raftContext = supplier.get());
             } else {
                 return Behaviors.unhandled();
             }
         });
+    }
+
+    @Override
+    public void preStop() {
+        Behavior<PeerMessage> behavior = currentBehavior();
+        if (behavior instanceof AbstractPeerBehavior peerBehavior) {
+            peerBehavior.onStopped();
+        }
+        raftContext.close();
     }
 
     @Override

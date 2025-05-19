@@ -1,6 +1,5 @@
 package io.axor.raft.kvstore.exception;
 
-import io.axor.raft.kvstore.exception.StoreException;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.Status;
 

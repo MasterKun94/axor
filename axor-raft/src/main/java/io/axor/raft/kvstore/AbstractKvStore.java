@@ -1,11 +1,11 @@
 package io.axor.raft.kvstore;
 
 import com.google.protobuf.ByteString;
+import io.axor.raft.kvstore.exception.StoreException;
 import io.axor.raft.proto.KVStoreProto;
 import io.axor.raft.proto.KVStoreProto.Node;
 import io.axor.raft.proto.KVStoreProto.NodeHeader;
 import io.axor.raft.proto.KVStoreProto.Nodes;
-import io.axor.raft.kvstore.exception.StoreException;
 import org.rocksdb.RocksDBException;
 
 public abstract class AbstractKvStore implements KVStore {

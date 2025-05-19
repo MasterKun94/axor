@@ -12,7 +12,6 @@
         <module>axor-commons</module>
         <module>axor-runtime</module>
         <module>axor-runtime-serde-kryo</module>
-        <module>axor-api</module>
         <module>axor-testkit</module>
         <module>axor-runtime-serde-protobuf</module>
         <module>axor-runtime-stream-grpc</module>
@@ -76,11 +75,6 @@
             <dependency>
                 <groupId>io.axor</groupId>
                 <artifactId>axor-runtime</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>io.axor</groupId>
-                <artifactId>axor-api</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

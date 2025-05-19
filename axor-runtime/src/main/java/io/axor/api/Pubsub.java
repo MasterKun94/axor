@@ -132,7 +132,7 @@ public interface Pubsub<T> extends Eventbus<T> {
      *
      * @param <T> the type of messages that the command operates on
      */
-    sealed interface Command<T> permits Eventbus.Command, Pubsub.PublishToAll, Pubsub.SendToOne {
+    sealed interface Command<T> permits Eventbus.Command, PublishToAll, SendToOne {
     }
 
     record PublishToAll<T>(T msg) implements Command<T> {

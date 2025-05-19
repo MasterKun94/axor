@@ -7,7 +7,7 @@ import io.axor.commons.concurrent.EventExecutor;
 import io.axor.commons.concurrent.EventStage;
 import io.axor.raft.logging.RaftLogging;
 import io.axor.raft.proto.PeerProto;
-import io.axor.raft.proto.PeerProto.ClientTxnRes;
+import io.axor.raft.proto.PeerProto.ClientMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -72,7 +72,7 @@ public class TxnManager {
                     return;
                 }
                 Value value = Objects.requireNonNull(table.remove(key));
-                Set<ActorRef<PeerProto.ClientMessage>> listeners = value.getListeners();
+                Set<ActorRef<ClientMessage>> listeners = value.getListeners();
                 if (listeners != null && !listeners.isEmpty() &&
                     raftContext.getRaftState().getPeerState() == PeerState.LEADER) {
                     LOG.warn("Listener of {} is not empty while removed",
@@ -155,14 +155,14 @@ public class TxnManager {
         return Objects.requireNonNull(table.get(key)).getCreateTime();
     }
 
-    public void addClient(Key key, ActorRef<PeerProto.ClientMessage> listener) {
+    public void addClient(Key key, ActorRef<ClientMessage> listener) {
         Value value = Objects.requireNonNull(table.get(key));
         if (value.getStatus() == TxnStatus.COMMITED) {
-            listener.tell(PeerProto.ClientMessage.newBuilder()
-                    .setTxnRes(ClientTxnRes.newBuilder()
-                            .setSeqId(key.seqId())
-                            .setStatus(ClientTxnRes.Status.SUCCESS)
-                            .setCommitedId(value.appliedLogId))
+            listener.tell(ClientMessage.newBuilder()
+                    .setSeqId(key.seqId)
+//                    .setStatus(ClientMessage.Status.SUCCESS)
+//                    .setTransaction(ClientMessage.Transaction.newBuilder()
+//                            .setCommitedId(value.appliedLogId))
                     .build(), raftContext.getContext().self());
         }
         if (value.getStatus() == TxnStatus.FAILURE) {
@@ -171,7 +171,7 @@ public class TxnManager {
         value.addListener(listener);
     }
 
-    public void createTxn(Key key, ActorRef<PeerProto.ClientMessage> sender) {
+    public void createTxn(Key key, ActorRef<ClientMessage> sender) {
         Value value = new Value(System.currentTimeMillis());
         value.addListener(sender);
         value.setStatus(TxnStatus.WAITING);
@@ -181,7 +181,7 @@ public class TxnManager {
     }
 
     public void finishTxn(Key key,
-                          ClientTxnRes.Status status,
+                          ClientMessage.Status status,
                           ByteString msg) {
         Value value = table.get(key);
         if (value == null) {
@@ -189,20 +189,21 @@ public class TxnManager {
         }
         assert value.isInTxn();
         value.setInTxn(false);
-        Set<ActorRef<PeerProto.ClientMessage>> listeners = value.getListeners();
-        if (status == ClientTxnRes.Status.SUCCESS) {
+        Set<ActorRef<ClientMessage>> listeners = value.getListeners();
+        if (status == ClientMessage.Status.SUCCESS) {
             assert listeners == null;
             assert value.getStatus() == TxnStatus.COMMITED;
             return;
         }
         if (listeners != null && !listeners.isEmpty()) {
-            var res = PeerProto.ClientMessage.newBuilder()
-                    .setTxnRes(ClientTxnRes.newBuilder()
-                            .setSeqId(key.seqId())
+            var res = ClientMessage.newBuilder()
+                    .setSeqId(key.seqId)
+                    .setFailure(ClientMessage.Failure.newBuilder()
                             .setStatus(status)
-                            .setData(msg))
+                            .setMessageBytes(msg)
+                            .build())
                     .build();
-            for (ActorRef<PeerProto.ClientMessage> listener : listeners) {
+            for (ActorRef<ClientMessage> listener : listeners) {
                 listener.tell(res, raftContext.getContext().self());
             }
             value.setStatus(TxnStatus.FAILURE);
@@ -226,7 +227,7 @@ public class TxnManager {
 
     private static class Value {
         private final long createTime;
-        private Set<ActorRef<PeerProto.ClientMessage>> listeners;
+        private Set<ActorRef<ClientMessage>> listeners;
         private TxnStatus status;
         private PeerProto.LogId appliedLogId;
         private List<Long> ackedSeqId;
@@ -272,12 +273,12 @@ public class TxnManager {
             this.inTxn = inTxn;
         }
 
-        public Set<ActorRef<PeerProto.ClientMessage>> getListeners() {
+        public Set<ActorRef<ClientMessage>> getListeners() {
             return listeners;
         }
 
-        public void addListener(ActorRef<PeerProto.ClientMessage> listener) {
-            Set<ActorRef<PeerProto.ClientMessage>> listeners = this.listeners;
+        public void addListener(ActorRef<ClientMessage> listener) {
+            Set<ActorRef<ClientMessage>> listeners = this.listeners;
             if (listeners == null) {
                 this.listeners = Collections.singleton(listener);
             } else {

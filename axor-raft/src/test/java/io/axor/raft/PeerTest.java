@@ -9,7 +9,6 @@ import io.axor.commons.config.ConfigMapper;
 import io.axor.raft.logging.RaftLoggingFactory;
 import io.axor.raft.logging.RocksdbRaftLoggingFactory;
 import io.axor.raft.proto.PeerProto.PeerMessage;
-import io.axor.runtime.EventDispatcher;
 import org.apache.commons.io.FileUtils;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -51,7 +50,6 @@ public class PeerTest {
         RaftConfig raftConfig = ConfigMapper.map(ConfigFactory.parseString("""
                 
                 """), RaftConfig.class);
-        EventDispatcher dispatcher = system.getDispatcherGroup().nextDispatcher();
         peer1 = system.start(c -> new RaftPeerActor(c, raftConfig, peers, 0, factory), "Peer1");
         peer2 = system.start(c -> new RaftPeerActor(c, raftConfig, peers, 1, factory), "Peer2");
         peer3 = system.start(c -> new RaftPeerActor(c, raftConfig, peers, 2, factory), "Peer3");

@@ -1,6 +1,5 @@
 package io.axor.raft.behaviors;
 
-import com.google.protobuf.ByteString;
 import io.axor.api.ActorRef;
 import io.axor.api.Behavior;
 import io.axor.api.Behaviors;
@@ -11,8 +10,8 @@ import io.axor.raft.RaftException;
 import io.axor.raft.logging.RaftLogging;
 import io.axor.raft.proto.PeerProto;
 import io.axor.raft.proto.PeerProto.AppendResult;
+import io.axor.raft.proto.PeerProto.ClientMessage;
 import io.axor.raft.proto.PeerProto.ClientTxnReq;
-import io.axor.raft.proto.PeerProto.ClientTxnRes;
 import io.axor.raft.proto.PeerProto.LeaderHeartbeat;
 import io.axor.raft.proto.PeerProto.LogAppend;
 import io.axor.raft.proto.PeerProto.LogAppendAck;
@@ -50,21 +49,13 @@ public class FollowerBehavior extends AbstractPeerBehavior {
     @Override
     protected Behavior<PeerMessage> onClientTxnReq(ClientTxnReq msg) {
         PeerInstance leader = raftState().getLeader();
-        ClientTxnRes res;
+        ClientMessage res;
         if (leader == null) {
-            res = ClientTxnRes.newBuilder()
-                    .setSeqId(msg.getSeqId())
-                    .setStatus(ClientTxnRes.Status.NO_LEADER)
-                    .build();
+            res = failureClientMsg(msg.getSeqId(), ClientMessage.Status.NO_LEADER, "");
         } else {
-            ByteString data = ByteString.copyFromUtf8(Integer.toString(leader.peer().id()));
-            res = ClientTxnRes.newBuilder()
-                    .setSeqId(msg.getSeqId())
-                    .setStatus(ClientTxnRes.Status.REDIRECT)
-                    .setData(data)
-                    .build();
+            res = redirectClientMsg(msg.getSeqId(), leader.peer());
         }
-        clientSender().tell(clientMsg(res), self());
+        clientSender().tell(res, self());
         return Behaviors.same();
     }
 

@@ -17,10 +17,6 @@
             <artifactId>axor-runtime</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.axor</groupId>
-            <artifactId>axor-api</artifactId>
-        </dependency>
-        <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
         </dependency>

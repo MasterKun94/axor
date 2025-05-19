@@ -1,10 +1,12 @@
 package io.axor.raft.behaviors;
 
+import com.google.protobuf.ByteString;
 import io.axor.api.ActorContext;
 import io.axor.api.ActorRef;
 import io.axor.api.Behavior;
 import io.axor.api.Behaviors;
 import io.axor.api.MessageUtils;
+import io.axor.raft.Peer;
 import io.axor.raft.PeerInstance;
 import io.axor.raft.RaftConfig;
 import io.axor.raft.RaftContext;
@@ -20,6 +22,7 @@ import io.axor.raft.proto.PeerProto.LogEntry;
 import io.axor.raft.proto.PeerProto.LogId;
 import io.axor.raft.proto.PeerProto.PeerMessage;
 import io.axor.runtime.Signal;
+import io.axor.runtime.stream.grpc.StreamUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -110,8 +113,41 @@ public abstract class AbstractPeerBehavior implements Behavior<PeerMessage> {
         return PeerMessage.newBuilder().setRequestVoteAck(msg).build();
     }
 
-    protected ClientMessage clientMsg(PeerProto.ClientTxnRes msg) {
-        return ClientMessage.newBuilder().setTxnRes(msg).build();
+    protected ClientMessage txnSuccessClientMsg(long seqId, LogId commited) {
+        return ClientMessage.newBuilder()
+                .setSeqId(seqId)
+                .setTxnSuccess(ClientMessage.TxnSuccess.newBuilder()
+                        .setCommitedId(commited))
+                .build();
+    }
+
+    protected ClientMessage querySuccessClientMsg(long seqId, ByteString data) {
+        return ClientMessage.newBuilder()
+                .setSeqId(seqId)
+                .setQuerySuccess(ClientMessage.QuerySuccess.newBuilder()
+                        .setData(data))
+                .build();
+    }
+
+    protected ClientMessage redirectClientMsg(long seqId, Peer redirect) {
+        return ClientMessage.newBuilder()
+                .setSeqId(seqId)
+                .setRedirect(ClientMessage.Redirect.newBuilder()
+                        .setPeer(PeerProto.Peer.newBuilder()
+                                .setId(redirect.id())
+                                .setAddress(StreamUtils.actorAddressToProto(redirect.address()))))
+                .build();
+    }
+
+    protected ClientMessage failureClientMsg(long seqId, ClientMessage.Status status,
+                                             String reason) {
+        return ClientMessage.newBuilder()
+                .setSeqId(seqId)
+                .setFailure(ClientMessage.Failure.newBuilder()
+                        .setStatus(status)
+                        .setMessage(reason)
+                        .build())
+                .build();
     }
 
     protected boolean isAppendSuccess(AppendResult.Status status) {
@@ -127,7 +163,9 @@ public abstract class AbstractPeerBehavior implements Behavior<PeerMessage> {
                                                  PeerMessage message) {
         LOG.info("Receive msg: {}", MessageUtils.loggable(message));
         Behavior<PeerMessage> behavior = switch (message.getMsgCase()) {
+            case CLIENTSEEKFORLEADER -> onClientSeekForLeader(message.getClientSeekForLeader());
             case CLIENTTXNREQ -> onClientTxnReq(message.getClientTxnReq());
+            case CLIENTQUERYREQ -> onClientQueryReq(message.getClientQueryReq());
             case LOGAPPEND -> onLogAppend(message.getLogAppend());
             case LOGAPPENDACK -> onLogAppendAck(message.getLogAppendAck());
             case LEADERHEARTBEAT -> onLeaderHeartbeat(message.getLeaderHeartbeat());
@@ -176,7 +214,32 @@ public abstract class AbstractPeerBehavior implements Behavior<PeerMessage> {
         return Behaviors.same();
     }
 
+    protected Behavior<PeerMessage> onClientSeekForLeader(PeerProto.ClientSeekForLeader msg) {
+        PeerInstance leader = raftContext.getRaftState().getLeader();
+        if (leader != null) {
+            var address = StreamUtils.actorAddressToProto(leader.peer().address());
+            clientSender().tell(ClientMessage.newBuilder()
+                    .setSeqId(msg.getSeqId())
+                    .setRedirect(ClientMessage.Redirect.newBuilder()
+                            .setPeer(PeerProto.Peer.newBuilder()
+                                    .setId(leader.peer().id())
+                                    .setAddress(address)))
+                    .build(), self());
+        } else {
+            clientSender().tell(ClientMessage.newBuilder()
+                    .setSeqId(msg.getSeqId())
+                    .setFailure(ClientMessage.Failure.newBuilder()
+                            .setStatus(ClientMessage.Status.NO_LEADER))
+                    .build(), self());
+        }
+        return Behaviors.same();
+    }
+
     protected Behavior<PeerMessage> onClientTxnReq(PeerProto.ClientTxnReq msg) {
+        return Behaviors.unhandled();
+    }
+
+    protected Behavior<PeerMessage> onClientQueryReq(PeerProto.ClientQueryReq msg) {
         return Behaviors.unhandled();
     }
 
@@ -323,5 +386,9 @@ public abstract class AbstractPeerBehavior implements Behavior<PeerMessage> {
     }
 
     protected void onBehaviorChanged() {
+    }
+
+    public void onStopped() {
+        onBehaviorChanged();
     }
 }

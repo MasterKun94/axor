@@ -52,6 +52,10 @@ public abstract class AbstractActor<T> extends Actor<T> {
      */
     protected abstract Behavior<T> initialBehavior();
 
+    protected final Behavior<T> currentBehavior() {
+        return behavior;
+    }
+
     @Override
     public final void onReceive(T t) {
         Behavior<T> ret = behavior.onReceive(context(), t);

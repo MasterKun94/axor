@@ -12,8 +12,8 @@ import io.axor.raft.TxnManager;
 import io.axor.raft.logging.RaftLogging;
 import io.axor.raft.proto.PeerProto;
 import io.axor.raft.proto.PeerProto.AppendResult;
+import io.axor.raft.proto.PeerProto.ClientMessage;
 import io.axor.raft.proto.PeerProto.ClientTxnReq;
-import io.axor.raft.proto.PeerProto.ClientTxnRes;
 import io.axor.raft.proto.PeerProto.CommitResult;
 import io.axor.raft.proto.PeerProto.LogAppend;
 import io.axor.raft.proto.PeerProto.LogAppendAck;
@@ -181,7 +181,7 @@ public class LeaderInTxnBehavior extends AbstractLeaderBehavior {
             failureCnt++;
             // 失败数量达到多数
             if (failureCnt >= majorityCount) {
-                return finishTxnAndReturn(ClientTxnRes.Status.APPEND_FAILURE, ByteString.empty());
+                return finishTxnAndReturn(ClientMessage.Status.APPEND_FAILURE, ByteString.empty());
             }
         }
         return Behaviors.same();
@@ -191,14 +191,14 @@ public class LeaderInTxnBehavior extends AbstractLeaderBehavior {
     protected Behavior<PeerMessage> onSignal(Signal signal) {
         if (signal instanceof TimeoutSignal(var id) && id == txnId) {
             LOG.warn("Transaction timeout");
-            return finishTxnAndReturn(ClientTxnRes.Status.APPEND_TIMEOUT, ByteString.empty());
+            return finishTxnAndReturn(ClientMessage.Status.APPEND_TIMEOUT, ByteString.empty());
         }
         return Behaviors.unhandled();
     }
 
     @Override
     protected void onBehaviorChanged() {
-        finishTxn(ClientTxnRes.Status.CANCELED, ByteString.empty());
+        finishTxn(ClientMessage.Status.CANCELED, ByteString.empty());
     }
 
     private Behavior<PeerMessage> commitAndFinishTxn(CommitResult.Status status) {
@@ -217,10 +217,10 @@ public class LeaderInTxnBehavior extends AbstractLeaderBehavior {
             }
             LOG.info("LogCommit[txnId={}, commitedId={}, peer={}] success", txnId,
                     loggable(nextCommitedId), raftContext().getSelfPeer().peer());
-            return finishTxnAndReturn(ClientTxnRes.Status.SUCCESS, ByteString.empty());
+            return finishTxnAndReturn(ClientMessage.Status.SUCCESS, ByteString.empty());
         } else {
             Behavior<PeerMessage> behavior =
-                    finishTxnAndReturn(ClientTxnRes.Status.COMMIT_FAILURE,
+                    finishTxnAndReturn(ClientMessage.Status.COMMIT_FAILURE,
                             ByteString.copyFromUtf8(status.name()));
             LOG.error("LogCommit[txnId={}, commitedId={}, peer={}] failure status {}", txnId,
                     loggable(nextCommitedId), raftContext().getSelfPeer().peer(), status);
@@ -230,13 +230,13 @@ public class LeaderInTxnBehavior extends AbstractLeaderBehavior {
         }
     }
 
-    private void finishTxn(ClientTxnRes.Status resStatus, ByteString msg) {
+    private void finishTxn(ClientMessage.Status resStatus, ByteString msg) {
         if (txnFinished) {
             return;
         }
         timeoutFuture.cancel(false);
         TxnManager txnManager = raftContext().getTxnManager();
-        if (resStatus != ClientTxnRes.Status.SUCCESS) {
+        if (resStatus != ClientMessage.Status.SUCCESS) {
             for (TxnManager.Key key : txnKeyList) {
                 txnManager.finishTxn(key, resStatus, msg);
             }
@@ -244,7 +244,7 @@ public class LeaderInTxnBehavior extends AbstractLeaderBehavior {
         txnFinished = true;
     }
 
-    private Behavior<PeerMessage> finishTxnAndReturn(ClientTxnRes.Status resStatus,
+    private Behavior<PeerMessage> finishTxnAndReturn(ClientMessage.Status resStatus,
                                                      ByteString msg) {
         finishTxn(resStatus, msg);
         if (leaderContext().bufferIsEmpty()) {

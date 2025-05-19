@@ -10,6 +10,7 @@ import io.axor.raft.PeerState;
 import io.axor.raft.RaftContext;
 import io.axor.raft.RaftState;
 import io.axor.raft.proto.PeerProto;
+import io.axor.raft.proto.PeerProto.ClientMessage;
 import io.axor.raft.proto.PeerProto.PeerMessage;
 import io.axor.runtime.Signal;
 import org.slf4j.Logger;
@@ -65,10 +66,9 @@ public class CandidateBehavior extends AbstractPeerBehavior {
 
     @Override
     protected Behavior<PeerMessage> onClientTxnReq(PeerProto.ClientTxnReq msg) {
-        clientSender().tell(clientMsg(PeerProto.ClientTxnRes.newBuilder()
-                .setSeqId(txnId)
-                .setStatus(PeerProto.ClientTxnRes.Status.NO_LEADER)
-                .build()), self());
+        var res = failureClientMsg(msg.getSeqId(), ClientMessage.Status.NO_LEADER, "");
+        clientSender().tell(res, self());
+
         return Behaviors.same();
     }
 
