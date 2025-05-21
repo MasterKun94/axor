@@ -1,8 +1,8 @@
-package io.axor.raft.behaviors;
+package io.axor.raft.peer;
 
+import io.axor.api.ActorRef;
 import io.axor.api.Behavior;
 import io.axor.api.Behaviors;
-import io.axor.raft.PeerInstance;
 import io.axor.raft.RaftContext;
 import io.axor.raft.RaftContext.FollowerState;
 import io.axor.raft.TxnManager.Key;
@@ -38,8 +38,8 @@ public class LeaderIdleBehavior extends AbstractLeaderBehavior {
 
     @Override
     protected Behavior<PeerMessage> onLogAppendAck(LogAppendAck msg) {
-        PeerInstance peerOfSender = raftContext().getPeerOfSender();
-        FollowerState followerState = leaderContext().getFollowerStates().get(peerOfSender.peer());
+        ActorRef<PeerMessage> peerOfSender = raftContext().getPeerOfSender();
+        FollowerState followerState = leaderContext().getFollowerStates().get(peerOfSender.address());
         if (followerState.getLatestTxnId() != msg.getTxnId()) {
             // ignore
             return Behaviors.same();
@@ -49,7 +49,7 @@ public class LeaderIdleBehavior extends AbstractLeaderBehavior {
         followerState.setUncommited(result.getUncommitedList());
         LogId commitedId = raftLogging().commitedId();
         long term = raftState().getCurrentTerm();
-        if (!peerOfSender.isSelf()) {
+        if (!peerOfSender.equals(raftContext().getSelfPeer())) {
             // follower存在延迟，还要继续追加写数据
             if (needContinueAppend(result)) {
                 try {
@@ -64,11 +64,11 @@ public class LeaderIdleBehavior extends AbstractLeaderBehavior {
                                 .addAllEntries(res)
                                 .setLeaderCommited(commitedId)
                                 .build();
-                        peerOfSender.peerRef().tell(peerMsg(m), self());
+                        peerOfSender.tell(peerMsg(m), self());
                     }
                 } catch (Exception e) {
                     LOG.error("Read for sync error, {} state suspicious",
-                            peerOfSender.peer(), e);
+                            peerOfSender, e);
                 }
             }
         }

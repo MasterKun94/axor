@@ -1,16 +1,15 @@
-package io.axor.raft.behaviors;
+package io.axor.raft.peer;
 
 import io.axor.api.ActorRef;
 import io.axor.api.Behavior;
 import io.axor.api.Behaviors;
-import io.axor.raft.PeerInstance;
 import io.axor.raft.PeerState;
 import io.axor.raft.RaftContext;
 import io.axor.raft.RaftException;
 import io.axor.raft.logging.RaftLogging;
 import io.axor.raft.proto.PeerProto;
 import io.axor.raft.proto.PeerProto.AppendResult;
-import io.axor.raft.proto.PeerProto.ClientMessage;
+import io.axor.raft.proto.PeerProto.MediatorMessage;
 import io.axor.raft.proto.PeerProto.ClientTxnReq;
 import io.axor.raft.proto.PeerProto.LeaderHeartbeat;
 import io.axor.raft.proto.PeerProto.LogAppend;
@@ -48,12 +47,13 @@ public class FollowerBehavior extends AbstractPeerBehavior {
 
     @Override
     protected Behavior<PeerMessage> onClientTxnReq(ClientTxnReq msg) {
-        PeerInstance leader = raftState().getLeader();
-        ClientMessage res;
+        ActorRef<PeerMessage> leader = raftState().getLeader();
+        long term = raftState().getCurrentTerm();
+        MediatorMessage res;
         if (leader == null) {
-            res = failureClientMsg(msg.getSeqId(), ClientMessage.Status.NO_LEADER, "");
+            res = noLeaderClientMsg(msg.getSeqId(), term);
         } else {
-            res = redirectClientMsg(msg.getSeqId(), leader.peer());
+            res = redirectClientMsg(msg.getSeqId(), leader.address(), term);
         }
         clientSender().tell(res, self());
         return Behaviors.same();
@@ -78,17 +78,17 @@ public class FollowerBehavior extends AbstractPeerBehavior {
             if (isAppendSuccess(status)) {
                 LOG.debug("LogAppend[txnId={}, commitedId={}, peer={}] success",
                         txnId, raftLogging.commitedId(),
-                        raftContext().getSelfPeer().peer());
+                        raftContext().getSelfPeer());
             } else {
                 LOG.warn("LogAppend[txnId={}, commitedId={}, peer={}] failure [{}]",
                         txnId, raftLogging.commitedId(),
-                        raftContext().getSelfPeer().peer(), status);
+                        raftContext().getSelfPeer(), status);
             }
         } catch (Exception e) {
             status = AppendResult.Status.SYSTEM_ERROR;
             LOG.error("LogAppend[txnId={}, commitedId={}, peer={}] error",
                     txnId, raftLogging.commitedId(),
-                    raftContext().getSelfPeer().peer(), e);
+                    raftContext().getSelfPeer(), e);
             context().system().systemFailure(e);
         }
         LogAppendAck m = LogAppendAck.newBuilder()
@@ -109,7 +109,7 @@ public class FollowerBehavior extends AbstractPeerBehavior {
             } catch (Exception e) {
                 LOG.error("LogCommit[txnId={}, commitedId={}, peer={}] after append error",
                         txnId, raftLogging.commitedId(),
-                        raftContext().getSelfPeer().peer(), e);
+                        raftContext().getSelfPeer(), e);
                 context().system().systemFailure(e);
             }
         }
@@ -136,14 +136,14 @@ public class FollowerBehavior extends AbstractPeerBehavior {
             PeerProto.CommitResult.Status status = raftLogging.commit(leaderCommited).getStatus();
             if (isCommitSuccess(status)) {
                 LOG.debug("LogCommit[commitedId={}, peer={}] success",
-                        raftLogging.commitedId(), raftContext().getSelfPeer().peer());
+                        raftLogging.commitedId(), raftContext().getSelfPeer());
             } else {
                 LOG.warn("LogCommit[commitedId={}, peer={}] failure status {}",
-                        raftLogging.commitedId(), raftContext().getSelfPeer().peer(), status);
+                        raftLogging.commitedId(), raftContext().getSelfPeer(), status);
             }
         } catch (RaftException e) {
             LOG.error("LogCommit[commitedId={}, peer={}] error",
-                    raftLogging.commitedId(), raftContext().getSelfPeer().peer(), e);
+                    raftLogging.commitedId(), raftContext().getSelfPeer(), e);
         }
     }
 

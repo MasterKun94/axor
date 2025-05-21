@@ -1,25 +1,24 @@
-package io.axor.raft.behaviors;
+package io.axor.raft.peer;
 
 import com.google.protobuf.ByteString;
+import io.axor.api.ActorAddress;
 import io.axor.api.ActorContext;
 import io.axor.api.ActorRef;
 import io.axor.api.Behavior;
 import io.axor.api.Behaviors;
 import io.axor.api.MessageUtils;
-import io.axor.raft.Peer;
-import io.axor.raft.PeerInstance;
 import io.axor.raft.RaftConfig;
 import io.axor.raft.RaftContext;
 import io.axor.raft.RaftState;
 import io.axor.raft.logging.RaftLogging;
 import io.axor.raft.proto.PeerProto;
 import io.axor.raft.proto.PeerProto.AppendResult;
-import io.axor.raft.proto.PeerProto.ClientMessage;
 import io.axor.raft.proto.PeerProto.CommitResult;
 import io.axor.raft.proto.PeerProto.LogAppend;
 import io.axor.raft.proto.PeerProto.LogAppendAck;
 import io.axor.raft.proto.PeerProto.LogEntry;
 import io.axor.raft.proto.PeerProto.LogId;
+import io.axor.raft.proto.PeerProto.MediatorMessage;
 import io.axor.raft.proto.PeerProto.PeerMessage;
 import io.axor.runtime.Signal;
 import io.axor.runtime.stream.grpc.StreamUtils;
@@ -61,8 +60,8 @@ public abstract class AbstractPeerBehavior implements Behavior<PeerMessage> {
         return context().sender(PeerMessage.class);
     }
 
-    protected ActorRef<ClientMessage> clientSender() {
-        return context().sender(ClientMessage.class);
+    protected ActorRef<MediatorMessage> clientSender() {
+        return context().sender(MediatorMessage.class);
     }
 
     protected RaftLogging raftLogging() {
@@ -113,40 +112,45 @@ public abstract class AbstractPeerBehavior implements Behavior<PeerMessage> {
         return PeerMessage.newBuilder().setRequestVoteAck(msg).build();
     }
 
-    protected ClientMessage txnSuccessClientMsg(long seqId, LogId commited) {
-        return ClientMessage.newBuilder()
+    protected MediatorMessage txnSuccessClientMsg(long seqId, LogId commited) {
+        return MediatorMessage.newBuilder()
                 .setSeqId(seqId)
-                .setTxnSuccess(ClientMessage.TxnSuccess.newBuilder()
+                .setTxnRes(MediatorMessage.TxnRes.newBuilder()
                         .setCommitedId(commited))
                 .build();
     }
 
-    protected ClientMessage querySuccessClientMsg(long seqId, ByteString data) {
-        return ClientMessage.newBuilder()
+    protected MediatorMessage querySuccessClientMsg(long seqId, ByteString data) {
+        return MediatorMessage.newBuilder()
                 .setSeqId(seqId)
-                .setQuerySuccess(ClientMessage.QuerySuccess.newBuilder()
+                .setQueryRes(MediatorMessage.QueryRes.newBuilder()
                         .setData(data))
                 .build();
     }
 
-    protected ClientMessage redirectClientMsg(long seqId, Peer redirect) {
-        return ClientMessage.newBuilder()
+    protected MediatorMessage redirectClientMsg(long seqId, ActorAddress redirect, long term) {
+        return MediatorMessage.newBuilder()
                 .setSeqId(seqId)
-                .setRedirect(ClientMessage.Redirect.newBuilder()
-                        .setPeer(PeerProto.Peer.newBuilder()
-                                .setId(redirect.id())
-                                .setAddress(StreamUtils.actorAddressToProto(redirect.address()))))
+                .setRedirect(MediatorMessage.Redirect.newBuilder()
+                        .setPeer(StreamUtils.actorAddressToProto(redirect))
+                        .setTerm(term))
                 .build();
     }
 
-    protected ClientMessage failureClientMsg(long seqId, ClientMessage.Status status,
-                                             String reason) {
-        return ClientMessage.newBuilder()
+    protected MediatorMessage noLeaderClientMsg(long seqId, long term) {
+        return MediatorMessage.newBuilder()
                 .setSeqId(seqId)
-                .setFailure(ClientMessage.Failure.newBuilder()
+                .setNoLeader(MediatorMessage.NoLeader.newBuilder()
+                        .setTerm(term))
+                .build();
+    }
+
+    protected MediatorMessage failureClientMsg(long seqId, MediatorMessage.Status status, String msg) {
+        return MediatorMessage.newBuilder()
+                .setSeqId(seqId)
+                .setFailureRes(MediatorMessage.FailureRes.newBuilder()
                         .setStatus(status)
-                        .setMessage(reason)
-                        .build())
+                        .setMessage(msg))
                 .build();
     }
 
@@ -215,21 +219,20 @@ public abstract class AbstractPeerBehavior implements Behavior<PeerMessage> {
     }
 
     protected Behavior<PeerMessage> onClientSeekForLeader(PeerProto.ClientSeekForLeader msg) {
-        PeerInstance leader = raftContext.getRaftState().getLeader();
+        RaftState raftState = raftContext.getRaftState();
+        ActorRef<PeerMessage> leader = raftState.getLeader();
         if (leader != null) {
-            var address = StreamUtils.actorAddressToProto(leader.peer().address());
-            clientSender().tell(ClientMessage.newBuilder()
+            clientSender().tell(MediatorMessage.newBuilder()
                     .setSeqId(msg.getSeqId())
-                    .setRedirect(ClientMessage.Redirect.newBuilder()
-                            .setPeer(PeerProto.Peer.newBuilder()
-                                    .setId(leader.peer().id())
-                                    .setAddress(address)))
+                    .setRedirect(MediatorMessage.Redirect.newBuilder()
+                            .setPeer(StreamUtils.actorAddressToProto(leader.address()))
+                            .setTerm(raftState.getCurrentTerm()))
                     .build(), self());
         } else {
-            clientSender().tell(ClientMessage.newBuilder()
+            clientSender().tell(MediatorMessage.newBuilder()
                     .setSeqId(msg.getSeqId())
-                    .setFailure(ClientMessage.Failure.newBuilder()
-                            .setStatus(ClientMessage.Status.NO_LEADER))
+                    .setNoLeader(MediatorMessage.NoLeader.newBuilder()
+                            .setTerm(raftState.getCurrentTerm()))
                     .build(), self());
         }
         return Behaviors.same();
@@ -295,8 +298,8 @@ public abstract class AbstractPeerBehavior implements Behavior<PeerMessage> {
     private void updateLeaderAndTerm(long term) {
         assert term > raftState().getCurrentTerm();
         RaftState raftState = raftState();
-        PeerInstance leaderPeer = raftContext().getPeerOfSender();
-        LOG.info("Update leader: {}, term: {}", leaderPeer.peer(), term);
+        ActorRef<PeerMessage> leaderPeer = raftContext().getPeerOfSender();
+        LOG.info("Update leader: {}, term: {}", leaderPeer, term);
         raftState.setCurrentTerm(term);
         raftState.setVotedFor(leaderPeer);
         raftState.setLeader(leaderPeer);
@@ -304,9 +307,9 @@ public abstract class AbstractPeerBehavior implements Behavior<PeerMessage> {
 
     protected void updateLeader() {
         RaftState raftState = raftState();
-        PeerInstance leaderPeer = raftContext().getPeerOfSender();
+        ActorRef<PeerMessage> leaderPeer = raftContext().getPeerOfSender();
         if (raftState.getLeader() == null) {
-            LOG.info("Update leader: {}", leaderPeer.peer());
+            LOG.info("Update leader: {}", leaderPeer);
             raftState.setLeader(leaderPeer);
         } else if (!raftState.getLeader().equals(leaderPeer)) {
             throw new IllegalStateException("multiple leader with same term");
@@ -323,8 +326,8 @@ public abstract class AbstractPeerBehavior implements Behavior<PeerMessage> {
     protected Behavior<PeerMessage> onRequestVote(PeerProto.RequestVote msg) {
         RaftState raftState = raftState();
         long currentTerm = raftState.getCurrentTerm();
-        PeerInstance peerOfSender = raftContext().getPeerOfSender();
-        PeerInstance votedFor = raftState.getVotedFor();
+        ActorRef<PeerMessage> peerOfSender = raftContext().getPeerOfSender();
+        ActorRef<PeerMessage> votedFor = raftState.getVotedFor();
         if (msg.getTerm() < currentTerm) {
             // 如果请求中的任期号小于当前服务器的任期，则拒绝
             peerSender().tell(peerMsg(PeerProto.RequestVoteAck.newBuilder()

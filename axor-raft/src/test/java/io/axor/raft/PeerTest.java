@@ -2,12 +2,14 @@ package io.axor.raft;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import io.axor.api.ActorAddress;
 import io.axor.api.ActorRef;
 import io.axor.api.ActorSystem;
 import io.axor.api.impl.ActorUnsafe;
 import io.axor.commons.config.ConfigMapper;
 import io.axor.raft.logging.RaftLoggingFactory;
 import io.axor.raft.logging.RocksdbRaftLoggingFactory;
+import io.axor.raft.peer.RaftPeerActor;
 import io.axor.raft.proto.PeerProto.PeerMessage;
 import org.apache.commons.io.FileUtils;
 import org.junit.AfterClass;
@@ -18,7 +20,7 @@ import java.io.File;
 import java.util.List;
 
 public class PeerTest {
-    private static List<Peer> peers;
+    private static List<ActorAddress> peers;
     private static RaftLoggingFactory factory;
     private static ActorSystem system;
     private static ActorRef<PeerMessage> peer1, peer2, peer3;
@@ -33,9 +35,9 @@ public class PeerTest {
                 .resolve();
         system = ActorSystem.create("PeerTest", config);
         peers = List.of(
-                new Peer(1, system.address("Peer1")),
-                new Peer(2, system.address("Peer2")),
-                new Peer(3, system.address("Peer3"))
+                system.address("Peer1"),
+                system.address("Peer2"),
+                system.address("Peer3")
         );
         FileUtils.deleteDirectory(new File(".tmp/PeerTest"));
         FileUtils.createParentDirectories(new File(".tmp/PeerTest"));

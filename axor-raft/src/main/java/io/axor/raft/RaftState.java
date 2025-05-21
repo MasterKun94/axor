@@ -1,11 +1,14 @@
 package io.axor.raft;
 
+import io.axor.api.ActorRef;
+import io.axor.raft.proto.PeerProto.PeerMessage;
+
 public class RaftState {
     private long currentTerm;
-    private PeerInstance votedFor;
+    private ActorRef<PeerMessage> votedFor;
     private PeerState peerState = PeerState.NONE;
     private long latestHeartbeatTimestamp;
-    private PeerInstance leader;
+    private ActorRef<PeerMessage> leader;
 
     public long getCurrentTerm() {
         return currentTerm;
@@ -15,11 +18,11 @@ public class RaftState {
         this.currentTerm = currentTerm;
     }
 
-    public PeerInstance getVotedFor() {
+    public ActorRef<PeerMessage> getVotedFor() {
         return votedFor;
     }
 
-    public void setVotedFor(PeerInstance votedFor) {
+    public void setVotedFor(ActorRef<PeerMessage> votedFor) {
         this.votedFor = votedFor;
     }
 
@@ -39,11 +42,11 @@ public class RaftState {
         this.latestHeartbeatTimestamp = latestHeartbeatTimestamp;
     }
 
-    public PeerInstance getLeader() {
+    public ActorRef<PeerMessage> getLeader() {
         return leader;
     }
 
-    public void setLeader(PeerInstance leader) {
+    public void setLeader(ActorRef<PeerMessage> leader) {
         this.leader = leader;
     }
 }

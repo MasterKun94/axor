@@ -1,5 +1,6 @@
 package io.axor.raft;
 
+import io.axor.api.ActorAddress;
 import io.axor.commons.concurrent.EventExecutor;
 import io.axor.commons.concurrent.EventStage;
 import io.axor.raft.proto.PeerProto;
@@ -11,7 +12,7 @@ public interface RaftListener {
 
     void onTermChange(long from, long to);
 
-    void onLeaderChange(Peer leader);
+    void onLeaderChange(ActorAddress leader);
 
     // leader event
     void onBecomeLeader();

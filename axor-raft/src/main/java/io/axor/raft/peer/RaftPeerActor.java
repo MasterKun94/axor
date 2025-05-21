@@ -1,12 +1,14 @@
-package io.axor.raft;
+package io.axor.raft.peer;
 
 import io.axor.api.AbstractActor;
+import io.axor.api.ActorAddress;
 import io.axor.api.ActorContext;
 import io.axor.api.Behavior;
 import io.axor.api.Behaviors;
 import io.axor.api.FailureStrategy;
-import io.axor.raft.behaviors.AbstractPeerBehavior;
-import io.axor.raft.behaviors.FollowerBehavior;
+import io.axor.raft.RaftConfig;
+import io.axor.raft.RaftContext;
+import io.axor.raft.RaftException;
 import io.axor.raft.logging.RaftLoggingFactory;
 import io.axor.raft.proto.PeerProto.PeerMessage;
 import io.axor.runtime.MsgType;
@@ -25,10 +27,10 @@ public class RaftPeerActor extends AbstractActor<PeerMessage> {
     private Supplier<RaftContext> supplier;
     private RaftContext raftContext;
 
-    protected RaftPeerActor(ActorContext<PeerMessage> context, RaftConfig config, List<Peer> peers,
-                            int peerOffset, RaftLoggingFactory factory) {
+    public RaftPeerActor(ActorContext<PeerMessage> context, RaftConfig config,
+                            List<ActorAddress> peers, int peerOffset, RaftLoggingFactory factory) {
         super(context);
-        Peer selfPeer = peers.get(peerOffset);
+        ActorAddress selfPeer = peers.get(peerOffset);
         supplier = () -> {
             try {
                 return new RaftContext(context, config, peers, selfPeer, factory);

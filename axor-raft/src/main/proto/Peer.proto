@@ -22,52 +22,53 @@ message PeerMessage {
   }
 }
 
-message ServerMessage {
+message MediatorMessage {
   int64 seqId = 1;
   oneof msg {
-    Txn txn = 11;
-    Query query = 12;
+    TxnReq txnReq = 11;
+    QueryReq queryReq = 12;
+    FailureRes failureRes = 21;
+    TxnRes txnRes = 22;
+    QueryRes queryRes = 23;
+    Redirect redirect = 31;
+    NoLeader noLeader = 32;
   }
 
-  message Txn {
+  message TxnReq {
     bytes data = 1;
   }
 
-  message Query {
+  message QueryReq {
     bytes data = 2;
   }
-}
 
-message ClientMessage {
-  int64 seqId = 1;
-  oneof response {
-    Failure failure = 11;
-    TxnSuccess txnSuccess = 12;
-    QuerySuccess querySuccess = 13;
-    Redirect redirect = 14;
-  }
-
-  message Failure {
+  message FailureRes {
     Status status = 1;
     string message = 2;
   }
 
-  message TxnSuccess {
-    LogId commitedId = 1;
+  message TxnRes {
+    int64 term = 1;
+    LogId commitedId = 2;
   }
 
-  message QuerySuccess {
-    bytes data = 1;
+  message QueryRes {
+    int64 term = 1;
+    bytes data = 2;
   }
 
   message Redirect {
-    Peer peer = 1;
+    int64 term = 1;
+    axor.ActorAddress peer = 2;
+  }
+
+  message NoLeader {
+    int64 term = 1;
   }
 
   enum Status {
     NONE = 0;
     SUCCESS = 1;
-    NO_LEADER = 2;
     SYS_ERROR = 4;
     APPEND_TIMEOUT = 5;
     APPEND_FAILURE = 6;
@@ -84,11 +85,6 @@ message MsgId {
 enum ControlFlag {
   NONE = 0;
   IGNORE = 1;
-}
-
-message Peer {
-  int32 id = 1;
-  axor.ActorAddress address = 2;
 }
 
 message ClientSeekForLeader {

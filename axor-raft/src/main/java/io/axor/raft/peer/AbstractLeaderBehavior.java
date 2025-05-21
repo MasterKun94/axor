@@ -1,8 +1,8 @@
-package io.axor.raft.behaviors;
+package io.axor.raft.peer;
 
+import io.axor.api.ActorRef;
 import io.axor.api.Behavior;
 import io.axor.api.Behaviors;
-import io.axor.raft.PeerInstance;
 import io.axor.raft.PeerState;
 import io.axor.raft.RaftContext;
 import io.axor.raft.proto.PeerProto;
@@ -13,8 +13,8 @@ public class AbstractLeaderBehavior extends AbstractPeerBehavior {
     protected AbstractLeaderBehavior(RaftContext raftContext) {
         super(raftContext);
         raftContext.changeSelfPeerState(PeerState.LEADER);
-        PeerInstance leader = raftState().getLeader();
-        PeerInstance selfPeer = raftContext.getSelfPeer();
+        ActorRef<PeerMessage> leader = raftState().getLeader();
+        ActorRef<PeerMessage> selfPeer = raftContext.getSelfPeer();
         if (leader == null) {
             raftState().setLeader(selfPeer);
         } else if (!leader.equals(selfPeer)) {

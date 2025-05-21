@@ -6,26 +6,33 @@ import io.axor.api.ActorSystem;
 import io.axor.commons.concurrent.EventExecutor;
 import io.axor.commons.concurrent.EventPromise;
 import io.axor.commons.concurrent.EventStage;
+import io.axor.commons.concurrent.Failure;
+import io.axor.commons.concurrent.Success;
+import io.axor.commons.concurrent.Try;
 import io.axor.exception.ActorNotFoundException;
 import io.axor.exception.IllegalMsgTypeException;
 import io.axor.raft.file.FileConfig;
 import io.axor.raft.file.FileService;
+import io.axor.raft.logging.SnapshotStore;
 import io.axor.raft.proto.FileManagerProto.FileServerMessage;
 import io.axor.raft.proto.PeerProto.InstallSnapshot;
 import io.axor.raft.proto.PeerProto.Snapshot;
 
 import java.io.File;
 import java.nio.file.Path;
+import java.rmi.UnexpectedException;
 
 import static io.axor.runtime.stream.grpc.StreamUtils.protoToActorAddress;
 
 public class RaftUtils {
     private final ActorSystem system;
     private final FileConfig config;
+    private final SnapshotStore snapshotStore;
 
-    public RaftUtils(ActorSystem system, FileConfig config) {
+    public RaftUtils(ActorSystem system, FileConfig config, SnapshotStore snapshotStore) {
         this.system = system;
         this.config = config;
+        this.snapshotStore = snapshotStore;
     }
 
     private File snapshotFile(long id, String fileName) {
@@ -56,9 +63,22 @@ public class RaftUtils {
             });
             builder.addFiles(targetFile.toString());
         }
-        // TODO
-
         Snapshot ret = builder.build();
-        return stage.map(v -> ret);
+        return stage.transform(t -> {
+            switch (t) {
+                case Success<Void> ignore -> {
+                    try {
+                        snapshotStore.install(ret);
+                        return Try.success(ret);
+                    } catch (RaftException e) {
+                        return Try.failure(e);
+                    }
+                }
+                case Failure<Void>(var cause) -> {
+                    return Try.failure(cause);
+                }
+                case null, default -> throw new IllegalStateException("Unhandled exception");
+            }
+        });
     }
 }

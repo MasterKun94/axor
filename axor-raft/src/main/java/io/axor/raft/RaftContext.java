@@ -12,7 +12,7 @@ import io.axor.raft.logging.RaftLogging;
 import io.axor.raft.logging.RaftLoggingFactory;
 import io.axor.raft.logging.SnapshotStore;
 import io.axor.raft.proto.PeerProto;
-import io.axor.raft.proto.PeerProto.ClientMessage;
+import io.axor.raft.proto.PeerProto.MediatorMessage;
 import io.axor.raft.proto.PeerProto.ClientTxnReq;
 import io.axor.raft.proto.PeerProto.LogAppend;
 import io.axor.raft.proto.PeerProto.LogEntry;
@@ -36,8 +36,8 @@ public class RaftContext {
 
     private final ActorContext<PeerMessage> context;
     private final RaftConfig config;
-    private final List<PeerInstance> peers;
-    private final PeerInstance selfPeer;
+    private final List<ActorRef<PeerMessage>> peers;
+    private final ActorRef<PeerMessage> selfPeer;
     private final RaftState raftState;
     private final RaftLogging raftLogging;
     private final TxnManager txnManager;
@@ -47,15 +47,15 @@ public class RaftContext {
 
     public RaftContext(ActorContext<PeerMessage> context,
                        RaftConfig config,
-                       List<Peer> peers,
-                       Peer selfPeer,
+                       List<ActorAddress> peers,
+                       ActorAddress selfPeer,
                        RaftLoggingFactory factory) throws RaftException {
         this.context = context;
         this.config = config;
-        this.raftLogging = factory.createLogging(selfPeer.address().name());
+        this.raftLogging = factory.createLogging(selfPeer.name());
         this.raftState = new RaftState();
         this.txnManager = new TxnManager(this);
-        SnapshotStore snapshotStore = factory.createSnapshotStore(selfPeer.address().name());
+        SnapshotStore snapshotStore = factory.createSnapshotStore(selfPeer.name());
         SnapshotManager snapshotManager = new SnapshotManager(snapshotStore, raftLogging,
                 config.snapshotEntryInterval(),
                 config.snapshotBytesInterval().toBytes(),
@@ -68,12 +68,11 @@ public class RaftContext {
 
         ActorSystem system = context.system();
         try {
-            List<PeerInstance> peerInstances = new ArrayList<>(peers.size());
-            PeerInstance selfPeerInstance = null;
-            for (Peer peer : peers) {
+            List<ActorRef<PeerMessage>> peerInstances = new ArrayList<>(peers.size());
+            ActorRef<PeerMessage> selfPeerInstance = null;
+            for (ActorAddress peer : peers) {
                 boolean isSelf = peer.equals(selfPeer);
-                PeerInstance peerInstance = new PeerInstance(peer, isSelf,
-                        system.get(peer.address(), PeerMessage.class));
+                ActorRef<PeerMessage> peerInstance = system.get(peer, PeerMessage.class);
                 peerInstances.add(peerInstance);
                 if (isSelf) {
                     selfPeerInstance = peerInstance;
@@ -99,11 +98,11 @@ public class RaftContext {
         return config;
     }
 
-    public List<PeerInstance> getPeers() {
+    public List<ActorRef<PeerMessage>> getPeers() {
         return peers;
     }
 
-    public PeerInstance getSelfPeer() {
+    public ActorRef<PeerMessage> getSelfPeer() {
         return selfPeer;
     }
 
@@ -131,10 +130,10 @@ public class RaftContext {
         listenerAdaptor.addListener(listener);
     }
 
-    public PeerInstance getPeerOfSender() {
+    public ActorRef<PeerMessage> getPeerOfSender() {
         ActorAddress address = context.sender().address();
-        for (PeerInstance peer : peers) {
-            if (peer.peer().address().equals(address)) {
+        for (ActorRef<PeerMessage> peer : peers) {
+            if (peer.address().equals(address)) {
                 return peer;
             }
         }
@@ -172,27 +171,27 @@ public class RaftContext {
     public static class LeaderContext {
         private final RaftContext raftContext;
         private final List<ClientTxnReq> bufferedClientReqs = new ArrayList<>();
-        private final Map<Peer, FollowerState> followerStates;
+        private final Map<ActorAddress, FollowerState> followerStates;
         private final ScheduledFuture<?> scheduleHeartbeat;
 
         public LeaderContext(RaftContext raftContext) {
             this.raftContext = raftContext;
-            Map<Peer, FollowerState> followerStates = new HashMap<>(raftContext.peers.size());
-            for (PeerInstance peer : raftContext.peers) {
-                followerStates.put(peer.peer(), new FollowerState());
+            Map<ActorAddress, FollowerState> followerStates = new HashMap<>(raftContext.peers.size());
+            for (ActorRef<PeerMessage> peer : raftContext.peers) {
+                followerStates.put(peer.address(), new FollowerState());
             }
             this.followerStates = Collections.unmodifiableMap(followerStates);
             Duration interval = raftContext.config.leaderHeartbeatInterval();
             scheduleHeartbeat = raftContext.context.scheduler().scheduleWithFixedDelay(() -> {
-                for (PeerInstance peer : raftContext.peers) {
-                    if (peer.isSelf()) {
+                for (ActorRef<PeerMessage> peer : raftContext.peers) {
+                    if (peer.equals(raftContext.selfPeer)) {
                         continue;
                     }
                     RaftState raftState = raftContext.getRaftState();
                     long currentTerm = raftState.getCurrentTerm();
                     LogId commitedId = raftContext.raftLogging.commitedId();
                     ActorRef<PeerMessage> self = raftContext.context.self();
-                    peer.peerRef().tell(PeerMessage.newBuilder()
+                    peer.tell(PeerMessage.newBuilder()
                             .setLeaderHeartbeat(PeerProto.LeaderHeartbeat.newBuilder()
                                     .setTerm(currentTerm)
                                     .setLeaderCommited(commitedId))
@@ -201,7 +200,7 @@ public class RaftContext {
             }, 0, interval.toMillis(), TimeUnit.MILLISECONDS);
         }
 
-        public Map<Peer, FollowerState> getFollowerStates() {
+        public Map<ActorAddress, FollowerState> getFollowerStates() {
             return followerStates;
         }
 
@@ -210,7 +209,7 @@ public class RaftContext {
         }
 
         public boolean bufferClientCtx(ClientTxnReq req) {
-            ActorRef<ClientMessage> sender = raftContext.context.sender(ClientMessage.class);
+            ActorRef<MediatorMessage> sender = raftContext.context.sender(MediatorMessage.class);
             TxnManager.Key key = new TxnManager.Key(req.getClientId(), req.getSeqId());
             if (raftContext.txnManager.inTxnOrCommited(key)) {
                 raftContext.txnManager.addClient(key, sender);
@@ -288,7 +287,7 @@ public class RaftContext {
     public record TxnContext(LogAppend append, List<ClientTxnCtx> clientTxnList) {
     }
 
-    public record ClientTxn(long seqId, ActorRef<ClientMessage> clientRef) {
+    public record ClientTxn(long seqId, ActorRef<MediatorMessage> clientRef) {
         @Override
         public boolean equals(Object o) {
             if (o == null || getClass() != o.getClass()) return false;
@@ -303,7 +302,7 @@ public class RaftContext {
         }
     }
 
-    public record ClientTxnCtx(long seqId, ActorRef<ClientMessage> clientRef, LogId logId) {
+    public record ClientTxnCtx(long seqId, ActorRef<MediatorMessage> clientRef, LogId logId) {
     }
 
     public static class FollowerState {
@@ -368,7 +367,7 @@ public class RaftContext {
         }
 
         @Override
-        public void onLeaderChange(Peer leader) {
+        public void onLeaderChange(ActorAddress leader) {
             for (RaftListener listener : listeners) {
                 listener.onLeaderChange(leader);
             }

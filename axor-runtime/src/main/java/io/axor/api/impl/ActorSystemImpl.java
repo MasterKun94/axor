@@ -521,6 +521,7 @@ public class ActorSystemImpl implements ActorSystem, HasMeter {
                     stage = stage.flatmap(v -> stop(actor));
                 }
             }
+            timer.stop();
             return stage
                     .transform(t -> {
                         if (t.isFailure()) {
