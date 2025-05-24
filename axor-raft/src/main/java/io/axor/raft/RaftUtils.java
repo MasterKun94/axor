@@ -20,7 +20,6 @@ import io.axor.raft.proto.PeerProto.Snapshot;
 
 import java.io.File;
 import java.nio.file.Path;
-import java.rmi.UnexpectedException;
 
 import static io.axor.runtime.stream.grpc.StreamUtils.protoToActorAddress;
 

@@ -71,6 +71,8 @@ public class RaftMediatorActor extends AbstractActor<MediatorMessage> {
         return MsgType.of(MediatorMessage.class);
     }
 
-    private record ReqAndActor(PeerMessage msg, ActorRef<MediatorMessage> client, long clientSeqId) {}
+    private record ReqAndActor(PeerMessage msg, ActorRef<MediatorMessage> client,
+                               long clientSeqId) {
+    }
 
 }

@@ -12,11 +12,11 @@ import io.axor.raft.logging.RaftLogging;
 import io.axor.raft.logging.RaftLoggingFactory;
 import io.axor.raft.logging.SnapshotStore;
 import io.axor.raft.proto.PeerProto;
-import io.axor.raft.proto.PeerProto.MediatorMessage;
 import io.axor.raft.proto.PeerProto.ClientTxnReq;
 import io.axor.raft.proto.PeerProto.LogAppend;
 import io.axor.raft.proto.PeerProto.LogEntry;
 import io.axor.raft.proto.PeerProto.LogId;
+import io.axor.raft.proto.PeerProto.MediatorMessage;
 import io.axor.raft.proto.PeerProto.PeerMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -176,7 +176,8 @@ public class RaftContext {
 
         public LeaderContext(RaftContext raftContext) {
             this.raftContext = raftContext;
-            Map<ActorAddress, FollowerState> followerStates = new HashMap<>(raftContext.peers.size());
+            Map<ActorAddress, FollowerState> followerStates =
+                    new HashMap<>(raftContext.peers.size());
             for (ActorRef<PeerMessage> peer : raftContext.peers) {
                 followerStates.put(peer.address(), new FollowerState());
             }
@@ -212,10 +213,10 @@ public class RaftContext {
             ActorRef<MediatorMessage> sender = raftContext.context.sender(MediatorMessage.class);
             TxnManager.Key key = new TxnManager.Key(req.getClientId(), req.getSeqId());
             if (raftContext.txnManager.inTxnOrCommited(key)) {
-                raftContext.txnManager.addClient(key, sender);
+                raftContext.txnManager.addClient(key, sender, req.getRetryNum());
                 return false;
             } else {
-                raftContext.txnManager.createTxn(key, sender);
+                raftContext.txnManager.createTxn(key, sender, req.getRetryNum());
                 bufferedClientReqs.add(req);
                 return true;
             }

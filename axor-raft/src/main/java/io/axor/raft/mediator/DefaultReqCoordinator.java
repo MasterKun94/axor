@@ -2,12 +2,12 @@ package io.axor.raft.mediator;
 
 import io.axor.api.ActorContext;
 import io.axor.api.ActorRef;
-import io.axor.raft.proto.PeerProto;
 import io.axor.raft.proto.PeerProto.MediatorMessage;
 
 public class DefaultReqCoordinator implements ReqCoordinator {
     private final ActorContext<MediatorMessage> context;
     private final MediatorContext mediatorContext;
+
     private final MediatorMessage req;
     private final ActorRef<MediatorMessage> client;
     private final long createTime;

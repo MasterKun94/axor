@@ -65,8 +65,13 @@ public class CandidateBehavior extends AbstractPeerBehavior {
 
     @Override
     protected Behavior<PeerMessage> onClientTxnReq(PeerProto.ClientTxnReq msg) {
-        MediatorMessage res = noLeaderClientMsg(msg.getSeqId(), raftState().getCurrentTerm());
-        clientSender().tell(res, self());
+        clientSender().tell(MediatorMessage.newBuilder()
+                .setSeqId(msg.getSeqId())
+                .setRetryNum(msg.getRetryNum())
+                .setNoLeader(MediatorMessage.NoLeader.newBuilder()
+                        .setTerm(raftState().getCurrentTerm())
+                        .build())
+                .build(), self());
 
         return Behaviors.same();
     }

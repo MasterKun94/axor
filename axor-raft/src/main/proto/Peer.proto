@@ -24,6 +24,7 @@ message PeerMessage {
 
 message MediatorMessage {
   int64 seqId = 1;
+  int32 retryNum = 2;
   oneof msg {
     TxnReq txnReq = 11;
     QueryReq queryReq = 12;
@@ -94,21 +95,18 @@ message ClientSeekForLeader {
 message ClientTxnReq {
   int64 seqId = 1;
   int64 clientId = 2;
-  bytes data = 3;
-  repeated int64 ackedSeqId = 4;
-  ControlFlag controlFlag = 5;
+  int32 retryNum = 3;
+  bytes data = 4;
+  repeated int64 ackedSeqId = 5;
+  ControlFlag controlFlag = 6;
 }
 
 message ClientQueryReq {
   int64 seqId = 1;
   int64 clientId = 2;
-  LogId logId = 3;
-  bytes data = 4;
-}
-
-message ClientQueryRes {
-  int64 seqId = 1;
-  bytes data = 2;
+  int32 retryNum = 3;
+  LogId logId = 4;
+  bytes data = 5;
 }
 
 message LogId {

@@ -9,14 +9,15 @@ import io.axor.raft.RaftException;
 import io.axor.raft.logging.RaftLogging;
 import io.axor.raft.proto.PeerProto;
 import io.axor.raft.proto.PeerProto.AppendResult;
-import io.axor.raft.proto.PeerProto.MediatorMessage;
 import io.axor.raft.proto.PeerProto.ClientTxnReq;
 import io.axor.raft.proto.PeerProto.LeaderHeartbeat;
 import io.axor.raft.proto.PeerProto.LogAppend;
 import io.axor.raft.proto.PeerProto.LogAppendAck;
 import io.axor.raft.proto.PeerProto.LogId;
+import io.axor.raft.proto.PeerProto.MediatorMessage;
 import io.axor.raft.proto.PeerProto.PeerMessage;
 import io.axor.runtime.Signal;
+import io.axor.runtime.stream.grpc.StreamUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,9 +52,20 @@ public class FollowerBehavior extends AbstractPeerBehavior {
         long term = raftState().getCurrentTerm();
         MediatorMessage res;
         if (leader == null) {
-            res = noLeaderClientMsg(msg.getSeqId(), term);
+            res = MediatorMessage.newBuilder()
+                    .setSeqId(msg.getSeqId())
+                    .setRetryNum(msg.getRetryNum())
+                    .setNoLeader(MediatorMessage.NoLeader.newBuilder()
+                            .setTerm(term))
+                    .build();
         } else {
-            res = redirectClientMsg(msg.getSeqId(), leader.address(), term);
+            res = MediatorMessage.newBuilder()
+                    .setSeqId(msg.getSeqId())
+                    .setRetryNum(msg.getRetryNum())
+                    .setRedirect(MediatorMessage.Redirect.newBuilder()
+                            .setPeer(StreamUtils.actorAddressToProto(leader.address()))
+                            .setTerm(term))
+                    .build();
         }
         clientSender().tell(res, self());
         return Behaviors.same();

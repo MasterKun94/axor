@@ -1,7 +1,5 @@
 package io.axor.raft.peer;
 
-import com.google.protobuf.ByteString;
-import io.axor.api.ActorAddress;
 import io.axor.api.ActorContext;
 import io.axor.api.ActorRef;
 import io.axor.api.Behavior;
@@ -110,48 +108,6 @@ public abstract class AbstractPeerBehavior implements Behavior<PeerMessage> {
 
     protected PeerMessage peerMsg(PeerProto.RequestVoteAck msg) {
         return PeerMessage.newBuilder().setRequestVoteAck(msg).build();
-    }
-
-    protected MediatorMessage txnSuccessClientMsg(long seqId, LogId commited) {
-        return MediatorMessage.newBuilder()
-                .setSeqId(seqId)
-                .setTxnRes(MediatorMessage.TxnRes.newBuilder()
-                        .setCommitedId(commited))
-                .build();
-    }
-
-    protected MediatorMessage querySuccessClientMsg(long seqId, ByteString data) {
-        return MediatorMessage.newBuilder()
-                .setSeqId(seqId)
-                .setQueryRes(MediatorMessage.QueryRes.newBuilder()
-                        .setData(data))
-                .build();
-    }
-
-    protected MediatorMessage redirectClientMsg(long seqId, ActorAddress redirect, long term) {
-        return MediatorMessage.newBuilder()
-                .setSeqId(seqId)
-                .setRedirect(MediatorMessage.Redirect.newBuilder()
-                        .setPeer(StreamUtils.actorAddressToProto(redirect))
-                        .setTerm(term))
-                .build();
-    }
-
-    protected MediatorMessage noLeaderClientMsg(long seqId, long term) {
-        return MediatorMessage.newBuilder()
-                .setSeqId(seqId)
-                .setNoLeader(MediatorMessage.NoLeader.newBuilder()
-                        .setTerm(term))
-                .build();
-    }
-
-    protected MediatorMessage failureClientMsg(long seqId, MediatorMessage.Status status, String msg) {
-        return MediatorMessage.newBuilder()
-                .setSeqId(seqId)
-                .setFailureRes(MediatorMessage.FailureRes.newBuilder()
-                        .setStatus(status)
-                        .setMessage(msg))
-                .build();
     }
 
     protected boolean isAppendSuccess(AppendResult.Status status) {

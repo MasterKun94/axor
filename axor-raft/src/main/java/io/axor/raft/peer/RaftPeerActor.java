@@ -28,7 +28,7 @@ public class RaftPeerActor extends AbstractActor<PeerMessage> {
     private RaftContext raftContext;
 
     public RaftPeerActor(ActorContext<PeerMessage> context, RaftConfig config,
-                            List<ActorAddress> peers, int peerOffset, RaftLoggingFactory factory) {
+                         List<ActorAddress> peers, int peerOffset, RaftLoggingFactory factory) {
         super(context);
         ActorAddress selfPeer = peers.get(peerOffset);
         supplier = () -> {

@@ -1,5 +1,6 @@
 package io.axor.raft;
 
+import com.google.protobuf.Message;
 import io.axor.api.ActorRef;
 import io.axor.api.MessageUtils;
 import io.axor.commons.concurrent.EventExecutor;
@@ -53,7 +54,7 @@ public class TxnManager {
                 Key key = new Key(entryValue.getClientId(), entryValue.getSeqId());
                 Value value = table.get(key);
                 if (value == null) {
-                    value = new Value(entryValue.getTimestamp());
+                    value = new Value(entryValue.getSeqId(), entryValue.getTimestamp());
                     table.put(key, value);
                 } else {
                     assert value.getStatus() == TxnStatus.WAITING;
@@ -71,8 +72,7 @@ public class TxnManager {
                     return;
                 }
                 Value value = Objects.requireNonNull(table.remove(key));
-                Set<ActorRef<MediatorMessage>> listeners = value.getListeners();
-                if (listeners != null && !listeners.isEmpty() &&
+                if (value.hasListener() &&
                     raftContext.getRaftState().getPeerState() == PeerState.LEADER) {
                     LOG.warn("Listener of {} is not empty while removed",
                             MessageUtils.loggable(id));
@@ -85,19 +85,10 @@ public class TxnManager {
                 Value value = Objects.requireNonNull(table.get(key));
                 assert value.getStatus() == TxnStatus.APPLIED;
                 value.setStatus(TxnStatus.COMMITED);
-                Set<ActorRef<MediatorMessage>> listeners = value.getListeners();
-                if (listeners != null && !listeners.isEmpty() &&
-                    raftContext.getRaftState().getPeerState() == PeerState.LEADER) {
-                    for (ActorRef<MediatorMessage> listener : listeners) {
-                        listener.tell(MediatorMessage.newBuilder()
-                                .setSeqId(key.seqId)
-                                .setTxnRes(MediatorMessage.TxnRes.newBuilder()
-                                        .setCommitedId(id)
-                                        .setTerm(raftContext.getRaftState().getCurrentTerm()))
-                                .build());
-                    }
-                    value.clearListener();
-                }
+                value.fireAndClearListener(MediatorMessage.TxnRes.newBuilder()
+                        .setCommitedId(id)
+                        .setTerm(raftContext.getRaftState().getCurrentTerm())
+                        .build());
                 for (long l : value.getAckedSeqId()) {
                     Value remove = table.remove(new Key(key.clientId, l));
                     if (remove == null) {
@@ -113,7 +104,7 @@ public class TxnManager {
                 table.clear();
                 for (var unfinishedTxn : snapshot.getUnfinishedTxnList()) {
                     Key key = new Key(unfinishedTxn.getClientId(), unfinishedTxn.getSeqId());
-                    Value value = new Value(unfinishedTxn.getCreateTime());
+                    Value value = new Value(key.seqId, unfinishedTxn.getCreateTime());
                     value.setAppliedLogId(unfinishedTxn.getAppliedLogId());
                     value.setAckedSeqId(unfinishedTxn.getAckedSeqIdList());
                     value.setStatus(TxnStatus.COMMITED);
@@ -167,11 +158,12 @@ public class TxnManager {
         return Objects.requireNonNull(table.get(key)).getCreateTime();
     }
 
-    public void addClient(Key key, ActorRef<MediatorMessage> listener) {
+    public void addClient(Key key, ActorRef<MediatorMessage> listener, int retryNum) {
         Value value = Objects.requireNonNull(table.get(key));
         if (value.getStatus() == TxnStatus.COMMITED) {
             listener.tell(MediatorMessage.newBuilder()
                     .setSeqId(key.seqId)
+                    .setRetryNum(retryNum)
                     .setTxnRes(MediatorMessage.TxnRes.newBuilder()
                             .setCommitedId(value.appliedLogId)
                             .setTerm(raftContext.getRaftState().getCurrentTerm()))
@@ -181,39 +173,30 @@ public class TxnManager {
         if (value.getStatus() == TxnStatus.FAILURE) {
             throw new IllegalStateException("failure state");
         }
-        value.addListener(listener);
+        value.addListener(listener, retryNum);
     }
 
-    public void createTxn(Key key, ActorRef<MediatorMessage> sender) {
-        Value value = new Value(System.currentTimeMillis());
-        value.addListener(sender);
+    public void createTxn(Key key, ActorRef<MediatorMessage> sender, int retryNum) {
+        Value value = new Value(key.seqId, System.currentTimeMillis());
+        value.addListener(sender, retryNum);
         value.setStatus(TxnStatus.WAITING);
         value.setInTxn(true);
         Value prev = table.put(key, value);
         assert prev == null || prev.getStatus() == TxnStatus.FAILURE;
     }
 
-    public void finishTxn(Key key, MediatorMessage msg) {
+    public void markTxnFailure(Key key, Message msg) {
         Value value = table.get(key);
         if (value == null) {
             return;
         }
         assert value.isInTxn();
+        assert msg instanceof MediatorMessage.FailureRes ||
+               msg instanceof MediatorMessage.Redirect ||
+               msg instanceof MediatorMessage.NoLeader;
         value.setInTxn(false);
-        Set<ActorRef<MediatorMessage>> listeners = value.getListeners();
-        switch (msg.getMsgCase()) {
-            case FAILURERES, NOLEADER, REDIRECT -> {
-                assert value.getStatus() != TxnStatus.COMMITED;
-                value.setStatus(TxnStatus.FAILURE);
-            }
-            default -> throw new IllegalStateException("Unexpected value: " + msg.getMsgCase());
-        }
-        if (listeners != null && !listeners.isEmpty()) {
-            for (ActorRef<MediatorMessage> listener : listeners) {
-                listener.tell(msg, raftContext.getContext().self());
-            }
-            value.clearListener();
-        }
+        value.setStatus(TxnStatus.FAILURE);
+        value.fireAndClearListener(msg);
     }
 
     public void close() {
@@ -230,15 +213,20 @@ public class TxnManager {
     public record Key(long clientId, long seqId) {
     }
 
-    private static class Value {
+    private record Listener(ActorRef<MediatorMessage> listener, int retryNum) {
+    }
+
+    private class Value {
+        private final long seqId;
         private final long createTime;
-        private Set<ActorRef<MediatorMessage>> listeners;
+        private Set<Listener> listeners;
         private TxnStatus status;
         private PeerProto.LogId appliedLogId;
         private List<Long> ackedSeqId;
         private boolean inTxn;
 
-        public Value(long createTime) {
+        public Value(long seqId, long createTime) {
+            this.seqId = seqId;
             this.createTime = createTime;
         }
 
@@ -278,23 +266,44 @@ public class TxnManager {
             this.inTxn = inTxn;
         }
 
-        public Set<ActorRef<MediatorMessage>> getListeners() {
-            return listeners;
-        }
-
-        public void addListener(ActorRef<MediatorMessage> listener) {
-            Set<ActorRef<MediatorMessage>> listeners = this.listeners;
+        public void addListener(ActorRef<MediatorMessage> listener, int retryNum) {
+            Set<Listener> listeners = this.listeners;
             if (listeners == null) {
-                this.listeners = Collections.singleton(listener);
+                this.listeners = Collections.singleton(new Listener(listener, retryNum));
             } else {
                 this.listeners = new HashSet<>(listeners.size() + 1);
                 this.listeners.addAll(listeners);
-                this.listeners.add(listener);
+                this.listeners.add(new Listener(listener, retryNum));
             }
         }
 
-        public void clearListener() {
-            listeners = null;
+        public boolean hasListener() {
+            return listeners != null && !listeners.isEmpty();
+        }
+
+        public void fireAndClearListener(Message msg) {
+            if (listeners == null || listeners.isEmpty()) {
+                return;
+            }
+            ActorRef<PeerProto.PeerMessage> self = raftContext.getContext().self();
+            MediatorMessage.Builder builder = MediatorMessage.newBuilder();
+            switch (msg) {
+                case MediatorMessage.TxnRes txnRes -> builder.setTxnRes(txnRes);
+                case MediatorMessage.Redirect redirect -> builder.setRedirect(redirect);
+                case MediatorMessage.NoLeader noLeader -> builder.setNoLeader(noLeader);
+                case MediatorMessage.FailureRes failureRes -> builder.setFailureRes(failureRes);
+                case MediatorMessage mediatorMessage -> builder.mergeFrom(mediatorMessage);
+                default ->
+                        throw new IllegalArgumentException("Unexpected value: " + msg.getClass());
+            }
+            Set<Listener> listeners = this.listeners;
+            for (Listener listener : listeners) {
+                listener.listener.tell((builder
+                        .setSeqId(seqId)
+                        .setRetryNum(listener.retryNum))
+                        .build(), self);
+            }
+            this.listeners = null;
         }
     }
 }

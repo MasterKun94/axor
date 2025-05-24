@@ -1,6 +1,5 @@
 package io.axor.raft.peer;
 
-import com.google.protobuf.ByteString;
 import io.axor.api.ActorAddress;
 import io.axor.api.ActorRef;
 import io.axor.api.Behavior;
@@ -207,23 +206,25 @@ public class LeaderInTxnBehavior extends AbstractLeaderBehavior {
         TxnManager txnManager = raftContext().getTxnManager();
         if (raftState().getPeerState() == PeerState.FOLLOWER) {
             if (raftState().getLeader() != null) {
+                var address = StreamUtils.actorAddressToProto(raftState().getLeader().address());
                 for (TxnManager.Key key : txnKeyList) {
-                    txnManager.finishTxn(key, redirectClientMsg(
-                            key.seqId(),
-                            raftState().getLeader().address(),
-                            raftState().getCurrentTerm()));
+                    txnManager.markTxnFailure(key, MediatorMessage.Redirect.newBuilder()
+                            .setTerm(raftState().getCurrentTerm())
+                            .setPeer(address)
+                            .build());
                 }
             } else {
                 for (TxnManager.Key key : txnKeyList) {
-                    txnManager.finishTxn(key, noLeaderClientMsg(
-                            key.seqId(),
-                            raftState().getCurrentTerm()));
+                    txnManager.markTxnFailure(key, MediatorMessage.NoLeader.newBuilder()
+                            .setTerm(raftState().getCurrentTerm())
+                            .build());
                 }
             }
         } else {
             for (TxnManager.Key key : txnKeyList) {
-                txnManager.finishTxn(key, failureClientMsg(
-                        key.seqId(), MediatorMessage.Status.CANCELED, ""));
+                txnManager.markTxnFailure(key, MediatorMessage.FailureRes.newBuilder()
+                        .setStatus(MediatorMessage.Status.CANCELED)
+                        .build());
             }
         }
         txnFinished = true;
@@ -262,7 +263,10 @@ public class LeaderInTxnBehavior extends AbstractLeaderBehavior {
             TxnManager txnManager = raftContext().getTxnManager();
             if (resStatus != MediatorMessage.Status.SUCCESS) {
                 for (TxnManager.Key key : txnKeyList) {
-                    txnManager.finishTxn(key, failureClientMsg(key.seqId(), resStatus, msg));
+                    txnManager.markTxnFailure(key, MediatorMessage.FailureRes.newBuilder()
+                            .setStatus(resStatus)
+                            .setMessage(msg)
+                            .build());
                 }
             } else {
                 for (TxnManager.Key key : txnKeyList) {

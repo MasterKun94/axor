@@ -6,8 +6,8 @@ import io.axor.api.Behavior;
 import io.axor.api.Behaviors;
 import io.axor.exception.ActorNotFoundException;
 import io.axor.exception.IllegalMsgTypeException;
-import io.axor.raft.proto.PeerProto;
 import io.axor.raft.proto.PeerProto.MediatorMessage;
+import io.axor.raft.proto.PeerProto.PeerMessage;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,61 +22,84 @@ public class NoLeaderMediatorBehavior extends AbstractMediatorBehavior {
         super(mediatorContext);
     }
 
-    @Override
-    protected Behavior<MediatorMessage> onTxnReq(ActorContext<MediatorMessage> context,
-                                                 MediatorMessage.TxnReq msg) {
+    private void addDelayMsg(ActorContext<MediatorMessage> context, MediatorMessage msg) {
         if (delayMsg == null) {
             delayMsg = new ArrayList<>();
         }
-        delayMsg.add(new MsgAndSender(
-                MediatorMessage.newBuilder().setTxnReq(msg).build(),
-                context.sender(MediatorMessage.class)));
+        delayMsg.add(new MsgAndSender(msg, context.self()));
+    }
+
+    @Override
+    protected Behavior<MediatorMessage> onTxnReq(ActorContext<MediatorMessage> context,
+                                                 MediatorMessage msg) {
+        addDelayMsg(context, msg);
         return Behaviors.same();
     }
 
     @Override
     protected Behavior<MediatorMessage> onTxnRes(ActorContext<MediatorMessage> context,
-                                                 MediatorMessage.TxnRes msg) {
-        return super.onTxnRes(context, msg);
+                                                 MediatorMessage msg) {
+        if (msg.getTxnRes().getTerm() >= mediatorContext.getTerm()) {
+            mediatorContext.ready(msg.getQueryRes().getTerm(), context.sender(PeerMessage.class));
+            addDelayMsg(context, msg);
+            return readyBehavior();
+        }
+        ReqCoordinator coordinator = mediatorContext.getReqCoordinators().get(msg.getSeqId());
+        if (coordinator == null) {
+            return Behaviors.unhandled();
+        }
+        coordinator.onSuccessRes(msg);
+        return Behaviors.same();
     }
 
     @Override
     protected Behavior<MediatorMessage> onQueryReq(ActorContext<MediatorMessage> context,
-                                                   MediatorMessage.QueryReq msg) {
-        if (delayMsg == null) {
-            delayMsg = new ArrayList<>();
-        }
-        delayMsg.add(new MsgAndSender(
-                MediatorMessage.newBuilder().setQueryReq(msg).build(),
-                context.sender(MediatorMessage.class)));
+                                                   MediatorMessage msg) {
+        addDelayMsg(context, msg);
         return Behaviors.same();
     }
 
     @Override
     protected Behavior<MediatorMessage> onQueryRes(ActorContext<MediatorMessage> context,
-                                                   MediatorMessage.QueryRes msg) {
-        return super.onQueryRes(context, msg);
+                                                   MediatorMessage msg) {
+        if (msg.getQueryRes().getTerm() >= mediatorContext.getTerm()) {
+            mediatorContext.ready(msg.getQueryRes().getTerm(), context.sender(PeerMessage.class));
+            addDelayMsg(context, msg);
+            return readyBehavior();
+        }
+        ReqCoordinator coordinator = mediatorContext.getReqCoordinators().get(msg.getSeqId());
+        if (coordinator == null) {
+            return Behaviors.unhandled();
+        }
+        coordinator.onSuccessRes(msg);
+        return Behaviors.same();
     }
 
     @Override
     protected Behavior<MediatorMessage> onFailureRes(ActorContext<MediatorMessage> context,
-                                                     MediatorMessage.FailureRes msg) {
-        return super.onFailureRes(context, msg);
+                                                     MediatorMessage msg) {
+        ReqCoordinator coordinator = mediatorContext.getReqCoordinators().get(msg.getSeqId());
+        if (coordinator == null) {
+            return Behaviors.unhandled();
+        }
+        coordinator.onFailureRes(msg.getFailureRes());
+        return Behaviors.same();
     }
 
     @Override
     protected Behavior<MediatorMessage> onRedirect(ActorContext<MediatorMessage> context,
-                                                   MediatorMessage.Redirect msg) {
+                                                   MediatorMessage msg) {
         long currentTerm = mediatorContext.getTerm();
-        if (msg.getTerm() >= currentTerm) {
-            mediatorContext.setTerm(currentTerm);
+        MediatorMessage.Redirect redirect = msg.getRedirect();
+        if (redirect.getTerm() >= currentTerm) {
+            ActorRef<PeerMessage> leader;
             try {
-                var ref = context.system().get(protoToActorAddress(msg.getPeer()),
-                        PeerProto.PeerMessage.class);
-                mediatorContext.setLeader(ref);
+                leader = context.system().get(protoToActorAddress(redirect.getPeer()),
+                        PeerMessage.class);
             } catch (ActorNotFoundException | IllegalMsgTypeException e) {
                 throw new RuntimeException(e);
             }
+            mediatorContext.ready(redirect.getTerm(), leader);
             return readyBehavior();
         }
         return Behaviors.same();
@@ -84,11 +107,11 @@ public class NoLeaderMediatorBehavior extends AbstractMediatorBehavior {
 
     @Override
     protected Behavior<MediatorMessage> onNoLeader(ActorContext<MediatorMessage> context,
-                                                   MediatorMessage.NoLeader msg) {
+                                                   MediatorMessage msg) {
         long currentTerm = mediatorContext.getTerm();
-        if (msg.getTerm() > currentTerm) {
-            mediatorContext.setTerm(currentTerm);
-            mediatorContext.setLeader(null);
+        long term = msg.getNoLeader().getTerm();
+        if (term > currentTerm) {
+            mediatorContext.noLeader(term);
             return noLeaderBehavior();
         }
         return Behaviors.same();
@@ -116,6 +139,6 @@ public class NoLeaderMediatorBehavior extends AbstractMediatorBehavior {
         return b.toBehavior();
     }
 
-    private record MsgAndSender(MediatorMessage msg, ActorRef<MediatorMessage> sender) {
+    private record MsgAndSender(MediatorMessage msg, ActorRef<?> sender) {
     }
 }

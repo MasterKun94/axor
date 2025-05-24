@@ -39,7 +39,8 @@ public class LeaderIdleBehavior extends AbstractLeaderBehavior {
     @Override
     protected Behavior<PeerMessage> onLogAppendAck(LogAppendAck msg) {
         ActorRef<PeerMessage> peerOfSender = raftContext().getPeerOfSender();
-        FollowerState followerState = leaderContext().getFollowerStates().get(peerOfSender.address());
+        FollowerState followerState =
+                leaderContext().getFollowerStates().get(peerOfSender.address());
         if (followerState.getLatestTxnId() != msg.getTxnId()) {
             // ignore
             return Behaviors.same();
