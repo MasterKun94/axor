@@ -285,10 +285,6 @@ public class LocalActorSystemTest {
         )), poll.getMsg());
     }
 
-    private void testContextDistribute() throws Exception {
-
-    }
-
     private static abstract class StringActor extends Actor<String> {
 
         protected StringActor(ActorContext<String> context) {

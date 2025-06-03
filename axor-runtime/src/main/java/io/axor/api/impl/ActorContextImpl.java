@@ -23,7 +23,7 @@ class ActorContextImpl<T> implements ActorContext<T> {
     private final EventDispatcher executor;
     private final LocalActorRef<T> self;
     private final ActorSettings settings = new ActorSettings();
-    private final ActorSessionsImpl<T> sessions;
+    private final ActorSessionsV2<T> sessions;
     String mdcExtra;
     private ActorRef<?> sender;
 
@@ -31,7 +31,7 @@ class ActorContextImpl<T> implements ActorContext<T> {
         this.system = system;
         this.executor = executor;
         this.self = self;
-        this.sessions = new ActorSessionsImpl<>(this);
+        this.sessions = new ActorSessionsV2<>(this);
     }
 
     @Override
@@ -99,7 +99,7 @@ class ActorContextImpl<T> implements ActorContext<T> {
     }
 
     @Override
-    public ActorSessionsImpl<T> sessions() {
+    public ActorSessionsV2<T> sessions() {
         return sessions;
     }
 

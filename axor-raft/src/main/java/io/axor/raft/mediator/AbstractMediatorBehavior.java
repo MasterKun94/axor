@@ -3,14 +3,9 @@ package io.axor.raft.mediator;
 import io.axor.api.ActorContext;
 import io.axor.api.Behavior;
 import io.axor.api.Behaviors;
-import io.axor.exception.ActorNotFoundException;
-import io.axor.exception.IllegalMsgTypeException;
 import io.axor.raft.proto.PeerProto.MediatorMessage;
-import io.axor.raft.proto.PeerProto.PeerMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static io.axor.runtime.stream.grpc.StreamUtils.protoToActorAddress;
 
 public class AbstractMediatorBehavior implements Behavior<MediatorMessage> {
     private static final Logger LOG = LoggerFactory.getLogger(AbstractMediatorBehavior.class);
