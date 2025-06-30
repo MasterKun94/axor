@@ -67,7 +67,7 @@ public class NoopActorRef<T> extends ActorRefRich<T> {
      * @param sender The sender of the message
      */
     @Override
-    public void tell(T value, ActorRef<?> sender) {
+    protected void tell0(T value, ActorRef<?> sender) {
         // No operation
     }
 

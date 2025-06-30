@@ -151,8 +151,8 @@ public class DistributeActorSystemTest {
             Assert.assertEquals("A", EventContext.current().get(key));
             actor3.tell("");
         }
-        MockActorRef<String>.MsgAndSender poll = mock.poll();
-        Assert.assertEquals(poll.getSender(), actor1);
+        MockActorRef.MsgAndRef<String> poll = mock.pollFromReceived();
+        Assert.assertEquals(poll.getRef(), actor1);
         Assert.assertEquals(
                 String.format(",%s=A:A2,%s=A:A2,%s=A:null", actor3.address(), actor2.address(),
                         actor1.address()),
@@ -162,8 +162,8 @@ public class DistributeActorSystemTest {
             Assert.assertEquals("B", EventContext.current().get(key));
             actor3.tell("");
         }
-        poll = mock.poll();
-        Assert.assertEquals(poll.getSender(), actor1);
+        poll = mock.pollFromReceived();
+        Assert.assertEquals(poll.getRef(), actor1);
         Assert.assertEquals(
                 String.format(",%s=B:B2,%s=B:null,%s=B:null", actor3.address(), actor2.address(),
                         actor1.address()),

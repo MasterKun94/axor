@@ -78,7 +78,7 @@ public class LocalActorSystemTest {
         pubsub.subscribe(subscriber1);
         pubsub.publishToAll("hello", publisher);
         subscriber1.expectReceive("hello", publisher)
-                .expectNoMsg();
+                .expectNoMsgReceive();
         pubsub.subscribe(simpleReply);
         pubsub.publishToAll("world", publisher);
         subscriber1.expectReceive("world", publisher);
@@ -91,8 +91,8 @@ public class LocalActorSystemTest {
         pubsub.unsubscribe(subscriber1);
         pubsub.unsubscribe(simpleReply);
         pubsub.publishToAll("hello", publisher);
-        subscriber1.expectNoMsg();
-        publisher.expectNoMsg();
+        subscriber1.expectNoMsgReceive();
+        publisher.expectNoMsgReceive();
     }
 
     @Test
@@ -101,7 +101,7 @@ public class LocalActorSystemTest {
         system.deadLetters().subscribe(subscriber1);
         ActorRef<String> actor = system.start(SimpleReply::new, "simpleReplyForDeadLetter");
         actor.tell("hello", ActorRef.noSender());
-        subscriber1.expectNoMsg();
+        subscriber1.expectNoMsgReceive();
         system.stop(actor);
         actor.tell("hello", ActorRef.noSender());
         subscriber1.expectReceive((deadLetter, sender) -> {
@@ -249,13 +249,13 @@ public class LocalActorSystemTest {
         actor.tell("Hello", mock);
         ActorRef<?> child = system.get(system.address("child"));
         mock.expectReceive("Hello", child);
-        mock.expectNoMsg();
+        mock.expectNoMsgReceive();
         system.stop(actor).toFuture().syncUninterruptibly();
         subscriber1.expectReceive(new SystemEvent.ActorStarted(actor));
         subscriber1.expectReceive(new SystemEvent.ActorStarted(child));
         subscriber1.expectReceive(new SystemEvent.ActorStopped(child));
         subscriber1.expectReceive(new SystemEvent.ActorStopped(actor));
-        subscriber1.expectNoMsg();
+        subscriber1.expectNoMsgReceive();
     }
 
     @Test
@@ -276,8 +276,8 @@ public class LocalActorSystemTest {
             Assert.assertEquals("Test", EventContext.current().get(key));
             propagation3.tell(Collections.emptyMap());
         }
-        MockActorRef<Map<ActorAddress, String>>.MsgAndSender poll = subscriber1.poll();
-        Assert.assertEquals(poll.getSender(), propagation1);
+        var poll = subscriber1.pollFromReceived();
+        Assert.assertEquals(poll.getRef(), propagation1);
         Assert.assertEquals(new HashMap<>(Map.of(
                 propagation1.address(), "Test:null",
                 propagation2.address(), "Test:Test2",

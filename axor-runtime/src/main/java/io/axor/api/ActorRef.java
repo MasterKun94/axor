@@ -45,9 +45,7 @@ public sealed interface ActorRef<T> permits ActorRefRich {
      *
      * @param value the message to send, which must be of type T
      */
-    default void tell(T value) {
-        tell(value, ActorRef.noSender());
-    }
+    void tell(T value);
 
     /**
      * Sends a message to the actor referenced by this {@code ActorRef} with an explicit sender.

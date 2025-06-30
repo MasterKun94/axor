@@ -28,7 +28,9 @@ import static io.axor.testkit.actor.MsgAssertions.eq;
  */
 public class MockActorRef<T> extends ForwardingActorRef<T> {
     /** Queue for storing received messages and their senders */
-    private final BlockingQueue<MsgAndSender> queue = new LinkedBlockingQueue<>();
+    private final BlockingQueue<MsgAndRef<T>> received = new LinkedBlockingQueue<>();
+
+    private final BlockingQueue<MsgAndRef<Object>> sent = new LinkedBlockingQueue<>();
 
     /** Queue for storing received signals */
     private final BlockingQueue<Signal> signals = new LinkedBlockingQueue<>();
@@ -84,42 +86,38 @@ public class MockActorRef<T> extends ForwardingActorRef<T> {
         }
         pollTimeout = timeout.toMillis();
     }
-    @Override
-    public void tell(T value, ActorRef<?> sender) {
-        queue.add(new MsgAndSender(value, sender));
-        super.tell(value, sender);
-    }
 
     /**
-     * Sends a message to this actor without a sender.
-     * The message is captured for later verification.
+     * Processes a message sent to this actor reference.
+     * The message is added to the received queue before being passed to the delegate.
      *
-     * @param value The message to send
-     */
-    @Override
-    public void tell(T value) {
-        queue.add(new MsgAndSender(value, ActorRef.noSender()));
-        super.tell(value);
-    }
-
-    /**
-     * Sends a message to this actor with the specified sender, bypassing the mailbox.
-     * The message is captured for later verification.
-     *
-     * @param value The message to send
+     * @param value The message to process
      * @param sender The sender of the message
      */
     @Override
-    public void tellInline(T value, ActorRef<?> sender) {
-        queue.add(new MsgAndSender(value, sender));
-        super.tellInline(value, sender);
+    protected void tell0(T value, ActorRef<?> sender) {
+        received.add(new MsgAndRef<>(value, sender));
+        super.tell0(value, sender);
     }
 
     /**
-     * Sends a signal to this actor.
-     * The signal is captured for later verification.
+     * Processes a message sent inline to this actor reference.
+     * The message is added to the received queue before being passed to the delegate.
      *
-     * @param signal The signal to send
+     * @param value The message to process
+     * @param sender The sender of the message
+     */
+    @Override
+    protected void tellInline0(T value, ActorRef<?> sender) {
+        received.add(new MsgAndRef<>(value, sender));
+        super.tellInline0(value, sender);
+    }
+
+    /**
+     * Processes a signal sent to this actor reference.
+     * The signal is added to the signals queue before being passed to the delegate.
+     *
+     * @param signal The signal to process
      */
     @Override
     public void signal(Signal signal) {
@@ -128,15 +126,28 @@ public class MockActorRef<T> extends ForwardingActorRef<T> {
     }
 
     /**
-     * Sends a signal to this actor, bypassing the mailbox.
-     * The signal is captured for later verification.
+     * Processes a signal sent inline to this actor reference.
+     * The signal is added to the signals queue before being passed to the delegate.
      *
-     * @param signal The signal to send
+     * @param signal The signal to process
      */
     @Override
     public void signalInline(Signal signal) {
         signals.add(signal);
         super.signalInline(signal);
+    }
+
+    /**
+     * Notifies this actor reference that a message has been sent to another actor.
+     * The message and receiver are added to the sent queue.
+     *
+     * @param msg The message that was sent
+     * @param receiver The receiver of the message
+     * @param <P> The type of the message
+     */
+    @Override
+    protected <P> void notifySend(P msg, ActorRef<P> receiver) {
+        sent.add(new MsgAndRef<>(msg, receiver));
     }
 
     /**
@@ -221,7 +232,7 @@ public class MockActorRef<T> extends ForwardingActorRef<T> {
      */
     public T pollMessage() {
         try {
-            MsgAndSender poll = queue.poll(pollTimeout, TimeUnit.MILLISECONDS);
+            MsgAndRef<T> poll = received.poll(pollTimeout, TimeUnit.MILLISECONDS);
             return poll == null ? null : poll.msg;
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
@@ -234,9 +245,23 @@ public class MockActorRef<T> extends ForwardingActorRef<T> {
      * @return A MsgAndSender containing the message and its sender, or null if no message was received within the timeout
      * @throws RuntimeException if the thread is interrupted while waiting
      */
-    public MsgAndSender poll() {
+    public MsgAndRef<T> pollFromReceived() {
         try {
-            return queue.poll(pollTimeout, TimeUnit.MILLISECONDS);
+            return received.poll(pollTimeout, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Polls for a message and its receiver from this actor's sent queue with the configured timeout.
+     *
+     * @return A MsgAndRef containing the message and its receiver, or null if no message was sent within the timeout
+     * @throws RuntimeException if the thread is interrupted while waiting
+     */
+    public MsgAndRef<Object> pollFromSent() {
+        try {
+            return sent.poll(pollTimeout, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
@@ -246,9 +271,112 @@ public class MockActorRef<T> extends ForwardingActorRef<T> {
      * Clears all messages and signals from this actor's queues.
      */
     public void clear() {
-        queue.clear();
+        received.clear();
         signals.clear();
     }
+
+    /**
+     * Asserts that no message is sent within the configured timeout.
+     *
+     * @return This mock actor reference for method chaining
+     * @throws RuntimeException if the thread is interrupted while waiting
+     * @throws AssertionError if a message is sent
+     */
+    public MockActorRef<T> expectNoMsgSend() {
+        try {
+            Assert.assertNull(sent.poll(pollTimeout, TimeUnit.MILLISECONDS));
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        return this;
+    }
+
+    /**
+     * Asserts that a message equal to the expected value is sent.
+     *
+     * @param value The expected message value
+     * @return This mock actor reference for method chaining
+     * @throws RuntimeException if no message is sent within the timeout or the thread is interrupted
+     * @throws AssertionError if the sent message does not match the expected value
+     */
+    public MockActorRef<T> expectSend(Object value) {
+        return expectSend(MsgAssertions.msgEq(value));
+    }
+
+    /**
+     * Asserts that a message equal to the expected value is sent, with a custom error message.
+     *
+     * @param message The error message to use if the assertion fails
+     * @param value The expected message value
+     * @return This mock actor reference for method chaining
+     * @throws RuntimeException if no message is sent within the timeout or the thread is interrupted
+     * @throws AssertionError if the sent message does not match the expected value
+     */
+    public MockActorRef<T> expectSend(String message, Object value) {
+        return expectSend(MsgAssertions.msgEq(message, value));
+    }
+
+    /**
+     * Asserts that a message equal to the expected value and to the expected receiver is sent.
+     *
+     * @param value The expected message value
+     * @param receiver The expected receiver
+     * @return This mock actor reference for method chaining
+     * @throws RuntimeException if no message is sent within the timeout or the thread is interrupted
+     * @throws AssertionError if the sent message or receiver does not match the expected values
+     */
+    public MockActorRef<T> expectSend(Object value, ActorRef<?> receiver) {
+        return expectSend(eq(value, receiver));
+    }
+
+    /**
+     * Asserts that a message equal to the expected value and to the expected receiver is sent,
+     * with a custom error message.
+     *
+     * @param message The error message to use if the assertion fails
+     * @param value The expected message value
+     * @param receiver The expected receiver
+     * @return This mock actor reference for method chaining
+     * @throws RuntimeException if no message is sent within the timeout or the thread is interrupted
+     * @throws AssertionError if the sent message or receiver does not match the expected values
+     */
+    public MockActorRef<T> expectSend(String message, Object value, ActorRef<?> receiver) {
+        return expectSend(eq(message, value, receiver));
+    }
+
+    /**
+     * Asserts that a sent message satisfies the given assertion.
+     *
+     * @param assertion The assertion to apply to the sent message and receiver
+     * @return This mock actor reference for method chaining
+     * @throws RuntimeException if no message is sent within the timeout or the thread is interrupted
+     * @throws AssertionError if the assertion fails
+     */
+    public MockActorRef<T> expectSend(MsgAssertion<Object> assertion) {
+        MsgAndRef<Object> poll = take(sent, pollTimeout);
+        assertion.testAssert(poll.msg, poll.ref);
+        return this;
+    }
+
+    /**
+     * Asserts that a sent message is of the specified type and satisfies the given assertion.
+     *
+     * @param clazz The expected message class
+     * @param assertion The assertion to apply to the sent message and receiver
+     * @param <P> The expected message type
+     * @return This mock actor reference for method chaining
+     * @throws RuntimeException if no message is sent within the timeout or the thread is interrupted
+     * @throws AssertionError if the sent message is not of the expected type or the assertion fails
+     */
+    public <P> MockActorRef<T> expectSend(Class<P> clazz, MsgAssertion<P> assertion) {
+        MsgAndRef<Object> poll = take(sent, pollTimeout);
+        if (!clazz.isInstance(poll.msg)) {
+            throw new AssertionError("expect type is: " + clazz + ", but got: " + poll.msg.getClass());
+        }
+        assertion.testAssert((P) poll.msg, poll.ref);
+        return this;
+    }
+
 
     /**
      * Asserts that no message is received within the configured timeout.
@@ -257,9 +385,9 @@ public class MockActorRef<T> extends ForwardingActorRef<T> {
      * @throws RuntimeException if the thread is interrupted while waiting
      * @throws AssertionError if a message is received
      */
-    public MockActorRef<T> expectNoMsg() {
+    public MockActorRef<T> expectNoMsgReceive() {
         try {
-            Assert.assertNull(queue.poll(pollTimeout, TimeUnit.MILLISECONDS));
+            Assert.assertNull(received.poll(pollTimeout, TimeUnit.MILLISECONDS));
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
@@ -328,8 +456,8 @@ public class MockActorRef<T> extends ForwardingActorRef<T> {
      * @throws AssertionError if the assertion fails
      */
     public MockActorRef<T> expectReceive(MsgAssertion<T> assertion) {
-        MsgAndSender poll = take(queue, pollTimeout);
-        assertion.testAssert(poll.msg, poll.sender);
+        MsgAndRef<T> poll = take(received, pollTimeout);
+        assertion.testAssert(poll.msg, poll.ref);
         return this;
     }
 
@@ -344,11 +472,11 @@ public class MockActorRef<T> extends ForwardingActorRef<T> {
      * @throws AssertionError if the received message is not of the expected type or the assertion fails
      */
     public <P extends T> MockActorRef<T> expectReceive(Class<P> clazz, MsgAssertion<P> assertion) {
-        MsgAndSender poll = take(queue, pollTimeout);
+        MsgAndRef<T> poll = take(received, pollTimeout);
         if (!clazz.isInstance(poll.msg)) {
             throw new AssertionError("expect type is: " + clazz + ", but got: " + poll.msg.getClass());
         }
-        assertion.testAssert((P) poll.msg, poll.sender);
+        assertion.testAssert((P) poll.msg, poll.ref);
         return this;
     }
 
@@ -400,22 +528,22 @@ public class MockActorRef<T> extends ForwardingActorRef<T> {
      * A container class for a message and its sender.
      * This class is used to store messages received by the mock actor reference.
      */
-    public class MsgAndSender {
+    public static class MsgAndRef<T> {
         /** The received message */
         private final T msg;
 
         /** The sender of the message */
-        private final ActorRef<?> sender;
+        private final ActorRef<?> ref;
 
         /**
-         * Creates a new MsgAndSender.
+         * Creates a new MsgAndRef.
          *
          * @param msg The received message
-         * @param sender The sender of the message
+         * @param ref The target of the message
          */
-        private MsgAndSender(T msg, ActorRef<?> sender) {
+        private MsgAndRef(T msg, ActorRef<?> ref) {
             this.msg = msg;
-            this.sender = sender;
+            this.ref = ref;
         }
 
         /**
@@ -432,8 +560,8 @@ public class MockActorRef<T> extends ForwardingActorRef<T> {
          *
          * @return The sender
          */
-        public ActorRef<?> getSender() {
-            return sender;
+        public ActorRef<?> getRef() {
+            return ref;
         }
     }
 }

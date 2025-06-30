@@ -90,7 +90,7 @@ final class RemoteActorRef<T> extends AbstractActorRef<T> {
     }
 
     @Override
-    public void tell(T value, ActorRef<?> sender) {
+    protected void tell0(T value, ActorRef<?> sender) {
         if (sender.isNoSender()) {
             sender = system.noSender();
         }

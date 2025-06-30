@@ -346,12 +346,12 @@ final class LocalActorRef<T> extends AbstractActorRef<T> {
     }
 
     @Override
-    public void tell(T value, ActorRef<?> sender) {
+    protected void tell0(T value, ActorRef<?> sender) {
         EventContext.current().execute(() -> tellAction.accept(value, sender), executor);
     }
 
     @Override
-    public void tellInline(T value, ActorRef<?> sender) {
+    public void tellInline0(T value, ActorRef<?> sender) {
         if (executor.inExecutor()) {
             tellAction.accept(value, sender);
         } else {

@@ -58,17 +58,12 @@ public class ForwardingActorRef<T> extends ActorRefRich<T> {
     }
 
     @Override
-    public void tell(T value, ActorRef<?> sender) {
+    protected void tell0(T value, ActorRef<?> sender) {
         delegate.tell(value, sender);
     }
 
     @Override
-    public void tell(T value) {
-        delegate.tell(value);
-    }
-
-    @Override
-    public void tellInline(T value, ActorRef<?> sender) {
+    protected void tellInline0(T value, ActorRef<?> sender) {
         delegate.tellInline(value, sender);
     }
 

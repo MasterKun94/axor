@@ -27,14 +27,32 @@ public non-sealed abstract class ActorRefRich<T> implements ActorRef<T> {
 
     public abstract StreamManager<T> getStreamManager();
 
-    public EventDispatcher dispatcher() {
+    public final EventDispatcher dispatcher() {
         return getStreamManager().getExecutor();
     }
 
     protected abstract void cleanup();
 
-    public void tellInline(T value, ActorRef<?> sender) {
-        tell(value, sender);
+    public final void tellInline(T value, ActorRef<?> sender) {
+        ((ActorRefRich<?>) sender).notifySend(value, this);
+        tellInline0(value, sender);
+    }
+
+    @Override
+    public final void tell(T value) {
+        tell(value, ActorRef.noSender());
+    }
+
+    @Override
+    public final void tell(T value, ActorRef<?> sender) {
+        ((ActorRefRich<?>) sender).notifySend(value, this);
+        tell0(value, sender);
+    }
+
+    protected abstract void tell0(T value, ActorRef<?> sender);
+
+    protected void tellInline0(T value, ActorRef<?> sender) {
+        tell0(value, sender);
     }
 
     public void signalInline(Signal signal) {
@@ -43,7 +61,7 @@ public non-sealed abstract class ActorRefRich<T> implements ActorRef<T> {
 
     public abstract void signal(Signal signal);
 
-    public String displayName() {
+    public final String displayName() {
         if (name == null) {
             var address = address();
             name = (isLocal() ? (address.system() + "@:/" + address.name()) : address.toString());
@@ -60,8 +78,18 @@ public non-sealed abstract class ActorRefRich<T> implements ActorRef<T> {
      * @return the same instance of {@code ActorRefRich}, but with a different type parameter P
      */
     @SuppressWarnings("unchecked")
-    public <P> ActorRefRich<P> unsafeCast() {
+    public final <P> ActorRefRich<P> unsafeCast() {
         return (ActorRefRich<P>) this;
+    }
+
+    /**
+     * Notifies the sending of a message to the specified receiver.
+     *
+     * @param <P>      the type of the message being sent
+     * @param msg      the message to be sent
+     * @param receiver the actor reference of the receiver to whom the message is being sent
+     */
+    protected <P> void notifySend(P msg, ActorRef<P> receiver) {
     }
 
     @Override

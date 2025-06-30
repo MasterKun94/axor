@@ -77,7 +77,7 @@ public final class NoSenderActorRef extends AbstractActorRef<Object> {
     }
 
     @Override
-    public void tell(Object value, ActorRef<?> sender) {
+    protected void tell0(Object value, ActorRef<?> sender) {
         if (LOG.isTraceEnabled()) {
             LOG.trace("{} is telling message {} to NoSenderActor", sender, value);
         }

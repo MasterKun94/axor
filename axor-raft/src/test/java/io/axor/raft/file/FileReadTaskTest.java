@@ -61,8 +61,8 @@ public class FileReadTaskTest {
         ByteArrayOutputStream bout = new ByteArrayOutputStream();
         Thread.sleep(100);
         while (true) {
-            var poll = receiver.poll();
-            assertEquals(poll.getSender(), sender);
+            var poll = receiver.pollFromReceived();
+            assertEquals(poll.getRef(), sender);
             var msg = poll.getMsg();
             switch (msg.getMsgCase()) {
                 case ENTRY -> {

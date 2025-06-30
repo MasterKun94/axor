@@ -73,7 +73,7 @@ public class ClusterPubsubTest {
         Thread.sleep(500);
         cluster3.pubsub("testPubsub", MsgType.of(String.class))
                 .publishToAll("World", someActor);
-        subscriber1.expectNoMsg();
+        subscriber1.expectNoMsgReceive();
         subscriber2.expectReceive(eq("World", someActor.address()));
         subscriber3.expectReceive(eq("World", someActor.address()));
 
@@ -84,7 +84,7 @@ public class ClusterPubsubTest {
         cluster3.pubsub("testPubsub", MsgType.of(String.class))
                 .publishToAll("!!!", someActor);
         subscriber1.expectReceive(eq("!!!", someActor.address()));
-        subscriber2.expectNoMsg();
+        subscriber2.expectNoMsgReceive();
         subscriber3.expectReceive(eq("!!!", someActor.address()));
 
         cluster3.pubsub("testPubsub", MsgType.of(String.class))
@@ -93,9 +93,9 @@ public class ClusterPubsubTest {
                 .sendToOne("aaa", someActor);
         subscriber1.expectReceive(eq("aaa", someActor.address()));
         subscriber3.expectReceive(eq("aaa", someActor.address()));
-        subscriber1.expectNoMsg();
-        subscriber2.expectNoMsg();
-        subscriber3.expectNoMsg();
+        subscriber1.expectNoMsgReceive();
+        subscriber2.expectNoMsgReceive();
+        subscriber3.expectNoMsgReceive();
     }
 
     private static final class NoopActor extends Actor<String> {

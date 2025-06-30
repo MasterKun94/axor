@@ -48,7 +48,7 @@ public sealed abstract class AbstractActorRef<T> extends ActorRefRich<T>
     }
 
     @Override
-    public abstract void tell(T value, ActorRef<?> sender);
+    protected abstract void tell0(T value, ActorRef<?> sender);
 
     @Override
     public abstract boolean isLocal();
