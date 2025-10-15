@@ -53,7 +53,7 @@ maven：
   Actor 的指导，适用于需要保证唯一性的场景。
 
 ## 详细介绍
-- [**Axor-Cluster模块内部原理详细介绍**](docs/cluster-membership-cn)
+- [**Axor-Cluster模块内部原理详细介绍**](docs/cluster-membership-cn.md)
 - [**序列化说明**](docs/serialization-cn.md)
 - TODO
 
