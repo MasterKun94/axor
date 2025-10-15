@@ -3,7 +3,7 @@
 </div>
 
 # AXOR
-[切换语言：中文](README-cn)
+[切换语言：中文](README-cn.md)
 
 ## Project Overview
 

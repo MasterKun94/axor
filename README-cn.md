@@ -3,7 +3,7 @@
 </div>
 
 # AXOR
-[Switch Language: English](README)
+[Switch Language: English](README.md)
 
 ## 项目简介
 
